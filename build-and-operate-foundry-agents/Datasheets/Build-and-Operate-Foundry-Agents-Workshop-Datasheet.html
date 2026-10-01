@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Build and Operate Foundry Agents</title>
+  <style>
+    :root {
+      --navy: #102f4f;
+      --navy-2: #174a72;
+      --blue: #0078d4;
+      --cyan: #27a9e1;
+      --teal: #008575;
+      --green: #107c10;
+      --gold: #d48b00;
+      --ink: #24323d;
+      --muted: #586875;
+      --line: #cad8e4;
+      --panel: #f3f7fa;
+      --pale-blue: #eaf4fb;
+      --pale-teal: #e9f7f4;
+      --pale-gold: #fff7df;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #dce4ea;
+      color: var(--ink);
+      font-family: "Segoe UI", Arial, sans-serif;
+      font-size: 9.35pt;
+      line-height: 1.27;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    @page { size: Letter; margin: 0; }
+
+    .page {
+      position: relative;
+      width: 8.5in;
+      height: 11in;
+      margin: 0 auto 0.16in;
+      overflow: hidden;
+      background: #fff;
+      page-break-after: always;
+    }
+
+    .page:last-child { page-break-after: auto; }
+
+    .hero {
+      position: relative;
+      height: 2.14in;
+      padding: 0.37in 0.54in;
+      overflow: hidden;
+      color: #fff;
+      background:
+        radial-gradient(circle at 87% 25%, rgba(39, 169, 225, 0.42) 0, rgba(39, 169, 225, 0) 28%),
+        linear-gradient(116deg, #0e2d4b 0%, #174a72 63%, #006b78 100%);
+    }
+
+    .hero::after {
+      position: absolute;
+      right: -0.55in;
+      bottom: -0.64in;
+      width: 2.7in;
+      height: 2.7in;
+      border: 0.12in solid rgba(255, 255, 255, 0.12);
+      border-radius: 50%;
+      content: "";
+    }
+
+    .eyebrow, .section-title {
+      font-size: 8pt;
+      font-weight: 800;
+      letter-spacing: 1.15px;
+      text-transform: uppercase;
+    }
+
+    .eyebrow { color: #8fddff; }
+
+    h1 {
+      max-width: 6.8in;
+      margin: 0.1in 0 0.08in;
+      font-size: 26pt;
+      line-height: 1.02;
+      letter-spacing: -0.4px;
+    }
+
+    .hero p {
+      max-width: 6.75in;
+      margin: 0;
+      color: #e1eef8;
+      font-size: 10.4pt;
+      line-height: 1.35;
+    }
+
+    .meta {
+      display: grid;
+      height: 0.72in;
+      margin: 0 0.48in;
+      background: #f2f6f9;
+      border-bottom: 1px solid var(--line);
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .meta > div {
+      padding: 0.11in 0.16in;
+      border-right: 1px solid var(--line);
+    }
+
+    .meta > div:last-child { border-right: 0; }
+
+    .meta-label {
+      color: var(--blue);
+      font-size: 7pt;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+
+    .meta-value {
+      margin-top: 0.025in;
+      color: var(--navy);
+      font-size: 10.2pt;
+      font-weight: 700;
+    }
+
+    .page-body { padding: 0.23in 0.5in 0.48in; }
+
+    .section-title {
+      margin: 0.105in 0 0.06in;
+      color: #0067b8;
+    }
+
+    .description {
+      margin: 0 0 0.12in;
+      color: #34444f;
+      font-size: 9.45pt;
+    }
+
+    .objectives {
+      display: grid;
+      gap: 0.1in;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .objective {
+      min-height: 0.66in;
+      padding: 0.1in 0.12in;
+      border-top: 3px solid var(--cyan);
+      background: var(--panel);
+    }
+
+    .objective strong {
+      display: block;
+      margin-bottom: 0.025in;
+      color: var(--navy);
+      font-size: 9.2pt;
+    }
+
+    .callout {
+      margin: 0.13in 0 0.12in;
+      padding: 0.11in 0.14in;
+      border-left: 0.11in solid var(--blue);
+      background: var(--pale-blue);
+    }
+
+    .callout strong { color: var(--navy); }
+
+    .agenda {
+      width: 100%;
+      border-collapse: collapse;
+      border-top: 2px solid var(--navy);
+      font-size: 8.15pt;
+    }
+
+    .agenda th {
+      padding: 0.052in 0.065in;
+      background: #e7edf2;
+      color: var(--navy);
+      text-align: left;
+      font-size: 7.3pt;
+      letter-spacing: 0.35px;
+      text-transform: uppercase;
+    }
+
+    .agenda td {
+      padding: 0.047in 0.065in;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+
+    .agenda .time {
+      width: 0.75in;
+      color: var(--blue);
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .agenda .module { width: 2.1in; font-weight: 700; }
+
+    .page-header {
+      height: 0.93in;
+      padding: 0.25in 0.5in 0.15in;
+      color: #fff;
+      background: linear-gradient(110deg, var(--navy), var(--navy-2));
+    }
+
+    .page-header h2 {
+      margin: 0.03in 0 0;
+      font-size: 19pt;
+      line-height: 1;
+    }
+
+    .page-2-body {
+      padding-top: 0.18in;
+      font-size: 8.9pt;
+      line-height: 1.24;
+    }
+
+    .columns {
+      display: grid;
+      gap: 0.17in;
+      grid-template-columns: 0.96fr 1.04fr;
+    }
+
+    .panel {
+      margin-bottom: 0.1in;
+      padding: 0.1in 0.12in;
+      background: var(--panel);
+      border: 1px solid #dde6ed;
+    }
+
+    .panel h3, .method h3, .scope-box h3 {
+      margin: 0 0 0.045in;
+      color: var(--navy);
+      font-size: 9.3pt;
+    }
+
+    .panel p, .method p, .scope-box p { margin: 0; }
+
+    ul {
+      margin: 0.035in 0 0;
+      padding-left: 0.17in;
+    }
+
+    li { margin: 0.022in 0; }
+
+    .requirement-grid {
+      display: grid;
+      gap: 0.075in;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .requirement-card {
+      min-height: 0.82in;
+      padding: 0.09in 0.1in;
+      border-top: 3px solid var(--blue);
+      background: #f7fafc;
+    }
+
+    .requirement-card.alt { border-top-color: var(--teal); }
+
+    .requirement-card strong {
+      display: block;
+      margin-bottom: 0.025in;
+      color: var(--navy);
+      font-size: 8.7pt;
+    }
+
+    .safety {
+      margin-top: 0.1in;
+      padding: 0.1in 0.12in;
+      border: 1px solid #e5bd43;
+      background: var(--pale-gold);
+    }
+
+    .safety strong { color: #735000; }
+
+    .lab-row {
+      display: grid;
+      padding: 0.052in 0;
+      border-bottom: 1px solid var(--line);
+      grid-template-columns: 0.3in 0.83in 1fr;
+      font-size: 8.2pt;
+    }
+
+    .lab-row:last-child { border-bottom: 0; }
+
+    .badge {
+      display: inline-flex;
+      width: 0.23in;
+      height: 0.23in;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      color: #fff;
+      background: var(--blue);
+      font-size: 7.2pt;
+      font-weight: 800;
+    }
+
+    .lab-time {
+      color: var(--muted);
+      font-size: 7.5pt;
+      font-weight: 700;
+    }
+
+    .lab-copy strong {
+      display: block;
+      color: var(--navy);
+      font-size: 8.4pt;
+    }
+
+    .stretch .badge { background: var(--teal); }
+
+    .method {
+      margin-top: 0.1in;
+      padding: 0.1in 0.12in;
+      background: var(--pale-teal);
+      border-left: 0.08in solid var(--teal);
+    }
+
+    .scope-row {
+      display: grid;
+      gap: 0.1in;
+      margin-top: 0.11in;
+      grid-template-columns: 1fr 1fr 1.22fr;
+    }
+
+    .scope-box {
+      min-height: 0.82in;
+      padding: 0.09in 0.11in;
+      background: var(--panel);
+      font-size: 8.15pt;
+      line-height: 1.22;
+    }
+
+    .scope-box.included { border-top: 3px solid var(--green); }
+    .scope-box.out { border-top: 3px solid #7a8690; }
+    .scope-box.notes { border-top: 3px solid var(--gold); }
+
+    .source-line {
+      margin-top: 0.09in;
+      color: var(--muted);
+      font-size: 6.2pt;
+    }
+
+    .footer {
+      position: absolute;
+      right: 0.5in;
+      bottom: 0.18in;
+      left: 0.5in;
+      display: flex;
+      justify-content: space-between;
+      padding-top: 0.045in;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 6.5pt;
+    }
+
+    @media print {
+      html, body { background: #fff; }
+      .page { margin: 0; }
+    }
+  </style>
+</head>
+<body>
+  <section class="page">
+    <header class="hero">
+      <div class="eyebrow">Microsoft Foundry • Hands-on engineering workshop</div>
+      <h1>Build and Operate Foundry Agents</h1>
+      <p>Build, deploy, govern, evaluate, and operate a cumulative Healthcare Marketplace Concierge using Microsoft Foundry Hosted Agents and Microsoft Agent Framework.</p>
+    </header>
+
+    <div class="meta">
+      <div>
+        <div class="meta-label">Duration</div>
+        <div class="meta-value">4-hour core + optional stretch</div>
+      </div>
+      <div>
+        <div class="meta-label">Delivery</div>
+        <div class="meta-value">Instructor-led, hands-on</div>
+      </div>
+      <div>
+        <div class="meta-label">Level</div>
+        <div class="meta-value">Developer • Python / code-first</div>
+      </div>
+    </div>
+
+    <main class="page-body">
+      <div class="section-title">Workshop description</div>
+      <p class="description">Software engineers progress from a local Agent Framework application to versioned hosted agents running in Microsoft Foundry. One synthetic healthcare marketplace scenario connects typed tools, governed knowledge, resilient sessions, multi-agent human handoff, observability, evaluations, release gates, and safe promotion practices.</p>
+
+      <div class="section-title">Objectives and expected outcomes</div>
+      <div class="objectives">
+        <div class="objective"><strong>Build the hosted product</strong>Create an Agent Framework agent with typed tools, Entra identity, shared compliance instructions, and the Responses protocol.</div>
+        <div class="objective"><strong>Ground and retain context</strong>Add a Foundry IQ knowledge base over MCP and externalize conversation history for process restart and scale-out resiliency.</div>
+        <div class="objective"><strong>Orchestrate governed work</strong>Implement specialist fan-out/fan-in, bounded compliance reflection, structured handoff packets, and advisor approval across HTTP turns.</div>
+        <div class="objective"><strong>Operate with confidence</strong>Trace the shipped endpoint, evaluate quality and policy, enforce a fail-closed release gate, and practice version promotion and rollback.</div>
+      </div>
+
+      <div class="callout"><strong>Key delivery decision — notebook = cockpit; hosted/main.py = product.</strong> Learners build, test, deploy, invoke, and inspect from the dev container. Foundry builds and runs the same flat Python package as a managed, versioned container. Deployment is always an explicit reviewed action; nothing deploys during bootstrap or offline validation.</div>
+
+      <div class="section-title">Timed agenda</div>
+      <table class="agenda">
+        <thead>
+          <tr><th>Time</th><th>Module</th><th>Outcome</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="time">0:00–1:00</td><td class="module">1. Hosted agent basics</td><td>Run locally, deploy from source with azd, invoke the active Responses version, and inspect status and logs.</td></tr>
+          <tr><td class="time">1:00–2:00</td><td class="module">2. Knowledge + sessions</td><td>Create Foundry IQ knowledge over MCP; kill and restart the agent while preserving conversation history.</td></tr>
+          <tr><td class="time">2:00–3:00</td><td class="module">3. Multi-agent handoff</td><td>Route across specialists, apply a compliance gate, and pause for licensed-advisor approval across turns.</td></tr>
+          <tr><td class="time">3:00–4:00</td><td class="module">4. Operate hosted agents</td><td>Trace, evaluate, gate, version, promote, smoke-test, and roll back without stored deployment secrets.</td></tr>
+          <tr><td class="time">Optional</td><td class="module">Stretch 5 + 6</td><td>Compare platform-managed workflows with hosted code; explore Invocations, bundled Skills, and optional Toolbox.</td></tr>
+        </tbody>
+      </table>
+    </main>
+
+    <footer class="footer"><span>Build and Operate Foundry Agents</span><span>Page 1 of 2</span></footer>
+  </section>
+
+  <section class="page">
+    <header class="page-header">
+      <div class="eyebrow">Readiness, sequence, and boundaries</div>
+      <h2>Prepare the room. Build cumulatively. Operate safely.</h2>
+    </header>
+
+    <main class="page-body page-2-body">
+      <div class="columns">
+        <div>
+          <div class="section-title">Intended participants</div>
+          <div class="panel">
+            <p>Software engineers who use Python, VS Code, Git, notebooks, and command-line tools. The delivery is code-first and assumes comfort reading and modifying runnable examples.</p>
+          </div>
+
+          <div class="section-title">Required readiness</div>
+          <div class="requirement-grid">
+            <div class="requirement-card">
+              <strong>Workstation</strong>
+              VS Code, Docker Desktop with Linux containers, Dev Containers extension, Git, and a Bash terminal.
+            </div>
+            <div class="requirement-card alt">
+              <strong>Supported alternative</strong>
+              GitHub Codespaces when organizational policy and Azure network access permit it.
+            </div>
+            <div class="requirement-card">
+              <strong>Azure / Foundry</strong>
+              Foundry account and project, gpt-5.4-mini-class chat deployment, text-embedding-3-large, Azure AI Search with Foundry IQ, and Application Insights.
+            </div>
+            <div class="requirement-card alt">
+              <strong>Identity + permissions</strong>
+              Entra sign-in; Azure AI User/Developer, Search contributor roles, Monitoring Reader, and invoke rights. Foundry Project Manager is required only for deployers.
+            </div>
+          </div>
+
+          <div class="section-title">Tools and environment</div>
+          <div class="panel">
+            <ul>
+              <li>Repository Python 3.14 dev container and pinned root requirements.</li>
+              <li>Azure CLI, Azure Developer CLI, and the <strong>azure.ai.agents</strong> azd extension.</li>
+              <li>Repository-root <strong>.env</strong>, unique attendee resource suffix, and documented project/search endpoints.</li>
+              <li>Optional: existing Azure Blob container for shared Lab 2 history; local Azurite is available for emulator testing.</li>
+            </ul>
+          </div>
+
+          <div class="safety"><strong>Safety and governance boundary.</strong> All workshop data is synthetic. Agents must verify identity, minimize and redact sensitive data, cite governed knowledge, never recommend or rank plans, never enroll a participant, and route judgment to a licensed advisor. Authentication is Entra-only; no keys or hardcoded endpoints. Do not grant roles, change networking, deploy, promote, or delete resources without approval.</div>
+        </div>
+
+        <div>
+          <div class="section-title">Cumulative lab sequence</div>
+          <div class="panel">
+            <div class="lab-row"><div><span class="badge">1</span></div><div class="lab-time">60 min</div><div class="lab-copy"><strong>Hosted agent basics</strong>Agent + typed tools + compliance block + local Responses host + explicit azd deployment.</div></div>
+            <div class="lab-row"><div><span class="badge">2</span></div><div class="lab-time">60 min</div><div class="lab-copy"><strong>Knowledge and durable sessions</strong>Foundry IQ over MCP, external history, and a kill/restart continuity proof.</div></div>
+            <div class="lab-row"><div><span class="badge">3</span></div><div class="lab-time">60 min</div><div class="lab-copy"><strong>Multi-agent triage and handoff</strong>Explicit workflow graph, bounded review, structured packet, and human approval.</div></div>
+            <div class="lab-row"><div><span class="badge">4</span></div><div class="lab-time">60 min</div><div class="lab-copy"><strong>Operate hosted agents</strong>OpenTelemetry, deterministic policy evaluators, release gate, versions, promotion, and rollback.</div></div>
+            <div class="lab-row stretch"><div><span class="badge">S5</span></div><div class="lab-time">60 min</div><div class="lab-copy"><strong>Prompt agents and workflows</strong>Optional comparison of platform-managed definitions and hosted-agent delegation.</div></div>
+            <div class="lab-row stretch"><div><span class="badge">S6</span></div><div class="lab-time">45–60</div><div class="lab-copy"><strong>Invocations, Skills, and Toolbox</strong>Optional structured batch protocol, bundled skill, and preview Toolbox integration.</div></div>
+          </div>
+
+          <div class="method">
+            <h3>Delivery methodology</h3>
+            <p>Each core breakout follows <strong>teach 10 • demo 10 • do 35 • checkpoint 5</strong>. Learners use a generated notebook or its adjacent Python driver, produce an artifact consumed by the next lab, and can use <strong>catch_up.py</strong> to restore the cumulative chain.</p>
+          </div>
+
+          <div class="section-title">Consequential actions</div>
+          <div class="panel">
+            <p><strong>Local build, smoke tests, and offline validation are required.</strong> Individual Azure deployment may be replaced by a proctor deployment when learners lack Foundry Project Manager. Cloud promotion, the nested GitHub Actions template, Azure Blob, Foundry evaluations, Toolbox, and preview workflow surfaces are optional and must be explicitly configured.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="scope-row">
+        <div class="scope-box included">
+          <h3>Included</h3>
+          <p>Four core labs, two optional stretch labs, synthetic data, notebooks and Python drivers, hosted packages, guardrails, evaluation data, offline validation, catch-up tooling, and dry-run-first cleanup.</p>
+        </div>
+        <div class="scope-box out">
+          <h3>Out of scope</h3>
+          <p>Production APIs or customer data, custom MCP servers, Teams/M365 publishing, a web-chat front end, A2A, Routines, Memory Store, Model Router, and automatic infrastructure provisioning.</p>
+        </div>
+        <div class="scope-box notes">
+          <h3>Offering notes</h3>
+          <p><strong>Use case:</strong> Healthcare Marketplace Concierge. <strong>Alignment:</strong> Develop AI agents on Azure (AI-3026). <strong>Source:</strong> <code>build-and-operate-foundry-agents/</code>.</p>
+          <div class="source-line">Updated 2026-10-01 • Reconciled from the current workshop, setup, use-case, sequence, and lab guides.</div>
+        </div>
+      </div>
+    </main>
+
+    <footer class="footer"><span>Build and Operate Foundry Agents • Updated 2026-10-01</span><span>Page 2 of 2</span></footer>
+  </section>
+</body>
+</html>
