@@ -28,8 +28,6 @@ feeds the advisor's next HTTP turn back in. main.py keeps the paused workflow pe
 in common.session_store so a restarted container can still finish the case.
 """
 
-from __future__ import annotations
-
 import re
 import sys
 from dataclasses import dataclass, field
@@ -234,7 +232,7 @@ class IntakeExecutor(Executor):
         brief = render_case_brief(self.state)
         print(f"{TAG} intake {intake.case_id}: lob={lob}, specialists={sorted(self.state.expected)}", flush=True)
         for target in SPECIALISTS_FOR_LOB[lob]:  # explicit fan-out: one request per in-scope specialist
-            await ctx.send_message(AgentExecutorRequest(messages=[Message("user", text=brief)], should_respond=True), target_id=target)
+            await ctx.send_message(AgentExecutorRequest(messages=[Message("user", contents=[brief])], should_respond=True), target_id=target)
 
 
 class SpecialistMerge(Executor):
@@ -252,7 +250,7 @@ class SpecialistMerge(Executor):
         print(f"{TAG} merge: got {who}" + (f", waiting for {sorted(waiting)}" if waiting else ", draft complete"), flush=True)
         if waiting:
             return
-        await ctx.send_message(AgentExecutorRequest(messages=[Message("user", text=render_review_prompt(render_draft(self.state)))], should_respond=True))
+        await ctx.send_message(AgentExecutorRequest(messages=[Message("user", contents=[render_review_prompt(render_draft(self.state))])], should_respond=True))
 
 
 class ComplianceGate(Executor):
@@ -275,7 +273,7 @@ class ComplianceGate(Executor):
             self.state.expected = {target}
             previous = self.state.sections.pop(target)
             print(f"{TAG} compliance: sending {target} back for one revision", flush=True)
-            await ctx.send_message(AgentExecutorRequest(messages=[Message("user", text=render_revision_prompt(verdict, previous))], should_respond=True), target_id=target)
+            await ctx.send_message(AgentExecutorRequest(messages=[Message("user", contents=[render_revision_prompt(verdict, previous)])], should_respond=True), target_id=target)
             return
         if flags:
             flags.append("unresolved after one revision: advisor must fix before any use")
@@ -292,7 +290,7 @@ class AdvisorCoordinator(Executor):
     @handler
     async def on_draft(self, draft: ApprovedDraft, ctx: WorkflowContext[AgentExecutorRequest]) -> None:
         created_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
-        await ctx.send_message(AgentExecutorRequest(messages=[Message("user", text=render_packet_prompt(self.state, draft, created_at))], should_respond=True))
+        await ctx.send_message(AgentExecutorRequest(messages=[Message("user", contents=[render_packet_prompt(self.state, draft, created_at)])], should_respond=True))
 
     @handler
     async def on_packet(self, response: AgentExecutorResponse, ctx: WorkflowContext) -> None:
@@ -319,8 +317,8 @@ class AdvisorCoordinator(Executor):
         if decision in {"approve", "decline"}:
             await ctx.yield_output(finalize_packet(original_request.packet, decision, note, self.state.packet_attempts))
             return
-        await ctx.send_message(AgentExecutorRequest(messages=[Message("user", text=f"Advisor feedback: {note or feedback}. "
-                                                                       "Revise the packet and return the full HandoffPacket again.")], should_respond=True))
+        await ctx.send_message(AgentExecutorRequest(messages=[Message("user", contents=[f"Advisor feedback: {note or feedback}. "
+                                                                       "Revise the packet and return the full HandoffPacket again."])], should_respond=True))
 
 
 # ---------- graph ----------
@@ -338,7 +336,7 @@ def build_workflow(agents: dict[str, Any], *, checkpoint_dir: Path | None = None
     handoff = AgentExecutor(agents[HANDOFF], id=HANDOFF)
 
     builder = (
-        WorkflowBuilder(start_executor=intake)
+        WorkflowBuilder(start_executor=intake, output_from=[coordinator], intermediate_output_from="all_other")
         .add_edge(intake, marketplace).add_edge(intake, accounts)        # fan-out (target_id picks the in-scope ones)
         .add_edge(marketplace, merge).add_edge(accounts, merge)          # fan-in by counting in SpecialistMerge
         .add_edge(merge, reviewer).add_edge(reviewer, gate)              # compliance review

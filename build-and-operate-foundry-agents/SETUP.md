@@ -149,7 +149,7 @@ compare those runtime headers with the deployment's quota allocation in Foundry.
 | Project connection to the Foundry IQ knowledge base | Lab 2 | Created by the lab code with an ARM PUT on `{PROJECT_RESOURCE_ID}/connections/healthcare-marketplace-kb-connection` (authType ProjectManagedIdentity, category RemoteTool). Needs a role that can write connections (Azure AI Owner or Contributor on the account) |
 | Redis | Optional generic shared-store configurations; Lab 4 infrastructure template | Locally the dev-container Redis companion service and `MARKETPLACE_REDIS_URL=redis://redis:6379/0`. Azure: Azure Managed Redis with Entra auth (`rediss://`). Not required by Labs 2 or 3 or Stretch 6 |
 | Azure Blob Storage | Optional Lab 2 shared conversation history | Use an existing account and container, set `MARKETPLACE_BLOB_STORAGE_URL`; the lab does not provision storage resources |
-| Application Insights | Lab 4 and the hosted agents' tracing | Connect it to the project (Foundry portal: project, Tracing, connect) so `telemetry.get_application_insights_connection_string()` works; set the connection string on the hosted agent with `azd env set` |
+| Application Insights | Lab 4 and the hosted agents' tracing | Connect it to the project (Foundry portal: project, Tracing, connect) so `telemetry.get_application_insights_connection_string()` works; set the complete connection string in the root `.env` and, for deployment, on the hosted agent with `azd env set`. Confirm publishing permissions and network access below before Lab 4 |
 | GitHub repository with Environments `dev`, `test`, `prod` and an Entra app with OIDC federated credentials | Lab 4 pipeline (optional on the day) | See `labs/lab4-operate-hosted-agents/infra/README.md` |
 | Foundry Toolbox (preview) | Stretch 6 skills agent, optional | Create a Toolbox with `web_search` and `code_interpreter` in the project (base repo `AgentOps/src/tools/toolbox_config.py` pattern), set `TOOLBOX_NAME` and `TOOLBOX_MCP_URL` on the hosted agent. Region-limited; skip if unavailable |
 
@@ -165,6 +165,8 @@ Run the base repo RBAC script first, then confirm these. Propagation takes 5 to 
 | Attendee (deployer) | Foundry project | Foundry Project Manager | `azd ai agent init` / `azd up` of a hosted agent (every lab); one proctor can deploy for the room |
 | Attendee | Azure AI Search service | Search Service Contributor + Search Index Data Contributor | Create indexes, knowledge sources, knowledge base; upload documents |
 | Attendee | Application Insights | Monitoring Reader (or Reader) | Read traces in the portal |
+| Local publishing identity selected by `DefaultAzureCredential` (usually the attendee's Azure CLI user) | Destination Application Insights resource | Monitoring Metrics Publisher | Publish Lab 4 notebook and local hosted-server telemetry; Owner alone does not grant this data-plane permission |
+| Deployed hosted agent identity (when tracing is enabled) | Destination Application Insights resource | Monitoring Metrics Publisher | Publish telemetry from the deployed container |
 | Project managed identity | Azure AI Search service | Search Index Data Reader | Agent calls the knowledge base MCP endpoint through the connection |
 | Search service managed identity | Foundry account | Cognitive Services OpenAI User AND Cognitive Services User | Vectorizer and knowledge base answer synthesis call the models |
 | Invokers of a hosted agent | Foundry project | Foundry Agent Consumer or Foundry User | Call the deployed Responses endpoint (`hosted/test_local.py --deployed`) |
@@ -174,6 +176,27 @@ Run the base repo RBAC script first, then confirm these. Propagation takes 5 to 
 | Hosted agent managed identity (optional Lab 2 Blob backend) | Azure Storage account/container | Storage Blob Data Contributor | read/write Lab 2 conversation-history blobs |
 | Attendee | Azure OpenAI / Foundry account | Cognitive Services OpenAI User | Lab 4 judges (`azure-ai-evaluation`) and Lab 2 embeddings |
 | Hosted agent managed identity (`healthcare-marketplace-concierge-hosted`, skills version) | Foundry project / Toolbox | Access to the Toolbox MCP endpoint (VERIFY the exact role) | `MCPStreamableHTTPTool` calls to web_search / code_interpreter (Stretch 6, preview) |
+
+### Lab 4 tracing prerequisites
+
+Before running a traced evaluation or Step 4.11, verify:
+
+- **Publishing permission:** the identity selected by `DefaultAzureCredential` has **Monitoring Metrics Publisher**
+  on the destination Application Insights resource or an inherited scope. For local runs this is usually the
+  Azure CLI signed-in user; for a deployed hosted agent, grant it to the agent identity as well.
+- **Owner is not sufficient:** Owner grants management-plane access, but telemetry ingestion requires the
+  data-plane `Microsoft.Insights/Telemetry/Write` action. Reader, Monitoring Reader, and Foundry roles also do not
+  replace the publishing role. The shared permission script does not assign this Application Insights role.
+- **Assignment and propagation:** with approval, use **Application Insights > Access control (IAM) > Add role
+  assignment > Monitoring Metrics Publisher**, select the publishing identity, and allow RBAC propagation.
+  Ask the resource administrator if you cannot assign roles.
+- **Connection and network:** use the complete connection string from the resource's **Overview** in the root
+  `.env`. If public ingestion is disabled, the dev container needs the approved private network path, private
+  DNS, and Azure Monitor Private Link Scope access. Publishing permissions do not bypass network restrictions;
+  do not enable public ingestion simply to bypass an error.
+- **Fresh verification:** restart the notebook kernel after configuration changes, rerun Steps 4.1-4.6 and
+  Step 4.11, then match its printed trace ID in Application Insights > Logs. Older records and a local PASS
+  message do not establish that the current run was ingested.
 
 ## 6. Python packages
 
@@ -265,6 +288,10 @@ Do this on the exact room account and network you will use. Tick every line.
 - [ ] RBAC table (section 5) applied at least 30 minutes ago; project managed identity and search identity
       roles verified in the portal, not assumed.
 - [ ] Application Insights connected to the project; a test trace shows up in the portal.
+- [ ] Local and deployed telemetry publishers have Monitoring Metrics Publisher on the destination Application
+      Insights resource; Owner access is not being mistaken for ingestion permission.
+- [ ] The room/dev-container network can reach the allowed ingestion path, including private DNS and Azure Monitor
+      Private Link Scope access when public ingestion is disabled.
 - [ ] `cd labs && python catch_up.py --through 2`, then `python lab2-hosted-knowledge-sessions/lab2_hosted_knowledge.py --demo-only`:
       `continuity check: OK` with two pids and a [KB-MKT-001] citation in turn 2.
 - [ ] One proctor has deployed `healthcare-marketplace-concierge-hosted` with `azd up` on the room project and

@@ -30,6 +30,7 @@ import json
 import os
 import sys
 import warnings
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -42,7 +43,7 @@ warnings.simplefilter("ignore")
 
 from common import guardrails, model_resilience, session_store  # noqa: E402
 
-from agent_framework import Agent, AgentResponse, Message  # noqa: E402
+from agent_framework import Agent, AgentContext, AgentResponse, Message, agent_middleware  # noqa: E402
 from agent_framework.foundry import FoundryChatClient  # noqa: E402
 from agent_framework_foundry_hosting import ResponsesHostServer  # noqa: E402
 from azure.identity import DefaultAzureCredential  # noqa: E402
@@ -207,7 +208,8 @@ async def handle_turn(text: str, session_hint: str | None) -> dict | None:
 
 
 # %% Agent middleware: every Responses turn goes through here before the outer model is called
-async def triage_router(context, call_next) -> None:
+@agent_middleware
+async def triage_router(context: AgentContext, call_next: Callable[[], Awaitable[None]]) -> None:
     """Short-circuit the run with the workflow result; fall through to the outer agent for anything else."""
     # VERIFY against https://learn.microsoft.com/en-us/agent-framework/user-guide/agents/middleware before delivery:
     # agent middleware signature (context, call_next), context.messages (list of Message), how the session id is
@@ -221,7 +223,7 @@ async def triage_router(context, call_next) -> None:
     if result is None:
         await call_next()
         return
-    context.result = AgentResponse(messages=[Message("assistant", text=json.dumps(result, default=str))])
+    context.result = AgentResponse(messages=[Message("assistant", contents=[json.dumps(result, default=str)])])
 
 
 # %% Build the hosted agent

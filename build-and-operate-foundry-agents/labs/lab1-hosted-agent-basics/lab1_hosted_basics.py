@@ -385,7 +385,15 @@ if "__file__" not in globals():
     assert result["text"].strip(), "The deployed agent returned an empty answer."
 
 
-# %% Step 1.12 - Run the command-line entry point
+# %% [markdown]
+# ## Script-only entry point - skip in Jupyter
+#
+# **Running this notebook cell by cell? Skip the next cell.** The earlier cells provide the notebook path.
+# The next cell is only the command-line entry point for running this lab's `.py` file as one program.
+# Its command-line invocation is guarded in the generated notebook; running the cell does not launch the lab.
+# For script mode instead, run `python lab1_hosted_basics.py --help` in a Bash terminal from this lab's folder and choose the desired options.
+
+# %% Step 1.12 - Script-only entry point (skip in Jupyter)
 def main(args: argparse.Namespace) -> None:
     if args.record_version:
         record_deployment(args.record_version, args.status)

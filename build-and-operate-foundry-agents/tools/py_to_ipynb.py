@@ -19,8 +19,8 @@ Rules:
 * Empty cells are skipped.
 * Notebook safety (disable with --keep-script-semantics): `Path(__file__)` falls back to a file in the
   notebook's folder so `parents[N]` arithmetic keeps working, and `if __name__ == "__main__":` entry points
-  are guarded so argparse does not see the kernel's argv. A closing Markdown cell tells the learner to call
-  build() / demo() directly.
+  are guarded so argparse does not see the kernel's argv. A closing Markdown cell tells notebook learners
+  to skip the script-only entry point and describes the alternative command-line path.
 
 Output is nbformat 4.5 JSON that `python -m json.tool` and Jupyter both accept. No nbformat dependency.
 """
@@ -70,11 +70,12 @@ def _split_docstring(text: str) -> tuple[str | None, str]:
 FILE_FALLBACK = 'Path(globals().get("__file__", Path.cwd() / "_walkthrough_.py"))'
 MAIN_GUARD = 'if __name__ == "__main__" and "__file__" in globals():'
 CLOSING_NOTE = [
-    "**Running this notebook.** The entry-point cell above is guarded and does not run here (it parses command-line",
-    "arguments). Call the functions directly in a new cell, for example `info = build()` then `demo(info)`, or open the",
-    "`.py` next to this notebook and run it top to bottom with `python <script>.py`. Paths resolve from this notebook's",
-    "folder, so start the kernel with the notebook's directory as the working directory. The setup cell at the top",
-    "shows the exact command; do not assume that VS Code started the kernel in the correct folder.",
+    "**Notebook users: skip the script-only entry-point cell above.** When running cell by cell in Jupyter or VS Code,",
+    "the earlier cells provide the notebook path. You do not need to call `main()`, `build()`, or `demo()` again.",
+    "The final code cell is only the command-line entry point for running the adjacent `.py` file as one program.",
+    "Its command-line invocation is guarded in this generated notebook; running the cell does not launch the lab.",
+    "For script mode instead, run `python <script>.py --help` in a Bash terminal from the lab folder and follow that lab's",
+    "CLI instructions. For notebook mode, follow the setup cell's kernel working-directory instructions.",
 ]
 
 

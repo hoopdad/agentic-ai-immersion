@@ -16,6 +16,7 @@
 - Shared line-ending policy: root `.gitattributes` normalizes text to LF; `.vscode/settings.json` defaults new files to LF. `.gitignore` permits these shared settings while excluding other VS Code files.
 - Learner setup: `.devcontainer/devcontainer.json`, `.devcontainer/compose.yaml`, `.env.example`, root `requirements.in` and `requirements.txt`.
 - Workshop entry point: `build-and-operate-foundry-agents/README.md` and `SETUP.md`.
+- Workshop customer collateral: `build-and-operate-foundry-agents/Datasheets/` contains editable HTML sources and rendered PDF/Word deliverables.
 - Workshop implementation: `common/` (data, environment and state), `data/` (synthetic fixtures), `labs/` (drivers and notebooks).
 - Lab 2 conversation history: Azure Blob/Azurite or files; shared `common/message_store.py` retains Redis support for other labs. Cloud Blob uses an existing account/container and managed identity.
 - Hosted model resilience: `common/model_resilience.py` provides visible, retry-header-aware Agent Framework
@@ -55,3 +56,11 @@ Lab 2 history is limited to Azure Blob/Azurite or files, and Lab 3 uses file-bac
 shared Redis remains available to generic store configurations.
 Added `build-and-operate-foundry-agents/common/model_resilience.py` for shared hosted-agent rate-limit
 handling and Responses failure reporting; updated affected drivers, hosted entry points, and generated notebooks.
+Added the two-page Build and Operate Foundry Agents workshop datasheet, Word version, and editable HTML source under
+`build-and-operate-foundry-agents/Datasheets/`.
+Lab 3 handler-registration and human-approval regression tests are in
+`build-and-operate-foundry-agents/tests/test_lab3_workflow.py` (real workflow, offline packet writer and
+streaming AgentExecutor graph). Lab 3 designates only the advisor coordinator as the final-output executor;
+specialist streaming updates are intermediate outputs.
+Baseline for this addition: `e34129302cdfbff4ed1a41defa5c9b930641a5da`; pending structural change considered:
+the new Lab 3 regression test file.

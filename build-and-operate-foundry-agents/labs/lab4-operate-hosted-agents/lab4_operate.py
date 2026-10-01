@@ -34,6 +34,11 @@
 #   operates that same deployment model rather than introducing another application host.
 # - **Optional:** Model-judged evaluators, the Foundry evaluation run, deployment, promotion, and rollback are
 #   extension paths. `--skip-judges` keeps the core deterministic policy gate available.
+# - **For tracing, including Step 4.11:** the publishing identity selected by `DefaultAzureCredential` needs
+#   **Monitoring Metrics Publisher** on the destination Application Insights resource. **Owner alone is not sufficient.**
+# - **Tracing connection and network:** use the complete Application Insights connection string in the root `.env`.
+#   If public ingestion is disabled, use the approved private network path, private DNS, and Azure Monitor
+#   Private Link Scope access; publishing permissions do not bypass network restrictions.
 #
 # **Checkpoint artifacts.** `artifacts/lab4/eval_report.md`, `artifacts/lab4/eval_results.jsonl`,
 # `artifacts/lab4/operate.json` (target, tracing, evaluators), `artifacts/lab4/pipeline.md` (the stages of
@@ -44,6 +49,19 @@
 #
 # Continue with the dev container, root `.env`, Azure sign-in, and `/usr/local/bin/python` kernel used in Labs 1
 # and 2. If you have not completed that setup, follow the workshop `SETUP.md` first.
+#
+# ### Application Insights permissions before tracing
+#
+# **Owner grants management-plane access, not telemetry publishing.** Lab 4 uses `DefaultAzureCredential`;
+# the selected local identity (usually your Azure CLI signed-in user) needs **Monitoring Metrics Publisher**
+# on the destination Application Insights resource or an inherited scope. A deployed hosted agent needs
+# the same role assigned to its agent identity. The shared permission script does not assign this role.
+#
+# With approval, open **Azure Portal > the destination Application Insights resource > Access control (IAM) >
+# Add role assignment**, select **Monitoring Metrics Publisher**, and select the publishing identity.
+# Ask the resource administrator if needed and allow permission propagation before the lab.
+# Confirm private-network access if public ingestion is disabled; do not disable security controls to bypass errors.
+# See [Lab 4 tracing prerequisites in SETUP.md](../../SETUP.md#lab-4-tracing-prerequisites).
 #
 # ### **If this notebook is already open in VS Code**
 #
@@ -95,6 +113,21 @@ LOCAL_PORT = 8088
 
 
 # %% Step 4.2 - Configure tracing
+def valid_connection_string(connection: object) -> bool:
+    if not isinstance(connection, str):
+        return False
+    try:
+        fields = {
+            key.strip().lower(): value.strip()
+            for part in connection.split(";")
+            if part.strip()
+            for key, value in [part.split("=", 1)]
+        }
+    except ValueError:
+        return False
+    return bool(fields.get("instrumentationkey"))
+
+
 def tracing_config() -> dict:
     """Where the connection string comes from and the azd command that puts it on the hosted agent."""
     connection, source = ENV.get("APPLICATIONINSIGHTS_CONNECTION_STRING"), ".env"
@@ -106,10 +139,14 @@ def tracing_config() -> dict:
         except Exception as exc:                # noqa: BLE001
             print(f"[lab4] tracing: no Application Insights connection string ({type(exc).__name__}); spans stay local")
             return {"enabled": False, "source": None}
+    if not valid_connection_string(connection):
+        print(f"[lab4] tracing: invalid Application Insights connection string from {source}; spans stay local")
+        return {"enabled": False, "source": None}
     print(f"[lab4] tracing: connection string from {source}")
     print("[lab4] tracing: the hosted agent needs it as container environment:")
     print('[lab4]   ( set -euo pipefail; azd env set APPLICATIONINSIGHTS_CONNECTION_STRING "${APPLICATIONINSIGHTS_CONNECTION_STRING:?Export the connection string first}"; azd up )')
-    print("[lab4]   hosted/main.py configure_tracing() then calls configure_azure_monitor + configure_otel_providers (VERIFY)")
+    print("[lab4]   local runs pass this connection string to the Lab 2 child process; azd is only needed for deployment")
+    print("[lab4] tracing: view Application Insights > Logs for this connection string; Foundry must be linked to the same resource")
     return {"enabled": True, "source": source, "connection_string": connection,
             "sensitive_data": os.environ.get("ENABLE_SENSITIVE_DATA", "").lower() == "true"}
 
@@ -118,10 +155,28 @@ def configure_local_tracing(tracing: dict) -> None:
     """The workstation wraps every golden question in a span so the hosted spans have a parent to hang from."""
     if not tracing.get("enabled"):
         return
+    from azure.identity import DefaultAzureCredential
     from azure.monitor.opentelemetry import configure_azure_monitor
 
-    configure_azure_monitor(connection_string=tracing["connection_string"])
-    print("[lab4] tracing: workstation spans on (marketplace.golden_question); portal > Observability > Tracing")
+    configure_azure_monitor(connection_string=tracing["connection_string"], credential=DefaultAzureCredential())
+    print("[lab4] tracing: workstation spans on (marketplace.golden_question); Application Insights > Logs > dependencies")
+
+
+def flush_local_tracing(tracing: dict) -> None:
+    if not tracing.get("enabled"):
+        return
+    from opentelemetry import trace
+    from opentelemetry.sdk.trace import TracerProvider
+
+    provider = trace.get_tracer_provider()
+    if not isinstance(provider, TracerProvider):
+        raise RuntimeError("[lab4] tracing: SDK tracer provider is unavailable; restart the notebook kernel and rerun setup")
+    if not provider.force_flush():
+        raise RuntimeError(
+            "[lab4] tracing: export flush timed out; completed results and KQL were saved/printed before export. "
+            "Inspect Azure Monitor exporter logs for 403 authorization/access errors or DNS/network failures."
+        )
+    print("[lab4] tracing: local exporter flushed; Azure ingestion is not verified (allow 2-5 minutes)")
 
 
 def tracer():
@@ -194,9 +249,12 @@ class HostedTarget:
         if mode == "local":
             self.lab2 = helpers.load_lab_module("lab2-hosted-knowledge-sessions/lab2_hosted_knowledge.py")
             if not self.lab2.port_open(LOCAL_PORT):
-                if tracing.get("enabled"):
-                    os.environ["APPLICATIONINSIGHTS_CONNECTION_STRING"] = tracing["connection_string"]
-                self.proc = self.lab2.start_server(knowledge, LOCAL_PORT)
+                connection = tracing["connection_string"] if tracing.get("enabled") else None
+                self.proc = self.lab2.HostedProcess(
+                    knowledge,
+                    port=LOCAL_PORT,
+                    env_overrides={"APPLICATIONINSIGHTS_CONNECTION_STRING": connection},
+                ).start()
             else:
                 print(f"[lab4] target: reusing the main.py already listening on {LOCAL_PORT}")
         else:
@@ -213,16 +271,16 @@ class HostedTarget:
 
     def close(self) -> None:
         if self.proc is not None:
-            self.lab2.stop_server(self.proc)
+            self.proc.stop()
 
 
 # %% Step 4.5 - Build the operations bundle
-def build(skip_judges: bool = False, target: str = "local") -> dict:
+def build(skip_judges: bool = False, target: str = "local", enable_tracing: bool = True) -> dict:
     hosted = helpers.require_artifact("lab2", "hosted.json", through=2, caller="lab4")
     knowledge = helpers.require_artifact("lab2", "knowledge.json", through=2, caller="lab4")
     lab3_path = helpers.artifact_path("lab3", "hosted.json")
     lab3 = foundry_env.load_artifact(lab3_path) if lab3_path.exists() else {}
-    tracing = tracing_config()
+    tracing = tracing_config() if enable_tracing else {"enabled": False, "source": None}
     judges = {} if skip_judges else build_judges()
     custom = {
         "must_not": MustNotEvaluator(),
@@ -281,13 +339,19 @@ def facts_for(participant_id: str) -> str:
 
 def answer(bundle: dict, target: HostedTarget, item: dict) -> dict:
     with tracer().start_as_current_span("marketplace.golden_question") as span:
+        if bundle["tracing"].get("enabled") and not span.is_recording():
+            raise RuntimeError("[lab4] tracing: question span is not recording; restart the kernel and check tracing setup and sampling")
         span.set_attribute("marketplace.golden_id", item.get("id", ""))
         span.set_attribute("marketplace.participant_id", item.get("participant_id", ""))
         span.set_attribute("marketplace.context", item.get("context", "universal"))
         span.set_attribute("marketplace.target", target.mode)
         text = target.ask(item["query"])
+        context = span.get_span_context()
+        trace_id = f"{context.trace_id:032x}" if context.is_valid else None
+    if bundle["tracing"].get("enabled"):
+        print(f"[lab4] trace: {item.get('id')} operation_Id={trace_id}")
     return {**{k: item.get(k) for k in ("id", "scenario", "query", "participant_id", "context", "expected_behavior", "must_include", "must_not")},
-            "response": text or "", "citations": sorted(set(helpers.CITATION_RE.findall(text or "")))}
+            "response": text or "", "citations": sorted(set(helpers.CITATION_RE.findall(text or ""))), "trace_id": trace_id}
 
 
 def score(bundle: dict, row: dict) -> dict:
@@ -354,8 +418,12 @@ def write_report(results: list[dict], summary: dict, bundle: dict) -> Path:
     for row in failures:
         lines += [f"- **{row['query']}**", f"  - response: {guardrails.redact_pii(row['response'])[:400]}"]
     lines += ["", "## Where to look in the portal",
-              "- Foundry portal > project > Observability > Tracing: `marketplace.golden_question` spans from the workstation; the hosted agent's own "
-              "spans (agent run, chat call, each tool call, the MCP call to healthcare-marketplace-kb) arrive from the container with the same connection string.",
+              "- Open the Application Insights resource matching `APPLICATIONINSIGHTS_CONNECTION_STRING` > Logs. "
+              "Question spans are in `dependencies`, not the `traces` log table. Allow 2-5 minutes after export.",
+              "- Filter `dependencies` on `name == \"marketplace.golden_question\"` and `customDimensions[\"marketplace.golden_id\"]`; "
+              "use the saved `trace_id` as `operation_Id` to find related spans in `dependencies` and `requests`.",
+              "- Foundry portal > project > Observability > Tracing only shows telemetry from the Application Insights resource "
+              "connected to that project; a local evaluation need not appear under the deployed agent's filter.",
               "- Application Insights > Transaction search: filter on `marketplace.golden_id` to find one question end to end.",
               "- Groundedness is scored against the systems-of-record facts plus the knowledge docs; a low score with a citation present "
               "usually means the model paraphrased beyond the source, not that retrieval failed."]
@@ -384,7 +452,18 @@ def demo(bundle: dict | None = None, limit: int | None = None, target_mode: str 
     finally:
         target.close()
     summary = summarize(results)
+    if bundle["tracing"].get("enabled"):
+        summary["trace_ids"] = [row["trace_id"] for row in results]
     write_report(results, summary, bundle)
+    if bundle["tracing"].get("enabled") and summary["trace_ids"]:
+        trace_filter = " or ".join(f"operation_Id == {json.dumps(trace_id)}" for trace_id in summary["trace_ids"])
+        print("\nRun this KQL in the destination Application Insights resource > Logs (ingestion is not yet verified):")
+        print(f"""union requests, dependencies
+| where timestamp > ago(1h)
+| where {trace_filter}
+| project timestamp, name, duration, id, operation_ParentId, customDimensions
+| order by timestamp asc""")
+    flush_local_tracing(bundle["tracing"])
     print(f"\n[lab4] summary: {json.dumps(summary)}")
     print("[lab4] next: python ./eval_gate.py   (reads eval_results.jsonl, writes gate_result.json, fails closed)")
     return summary
@@ -464,7 +543,7 @@ if "__file__" not in globals():
 
 # %% Step 4.10 - Test the local quality gate
 if "__file__" not in globals():
-    broken_bundle = build(skip_judges=True, target="local")
+    broken_bundle = build(skip_judges=True, target="local", enable_tracing=False)
     broken_summary = demo(broken_bundle, limit=8, target_mode="local")
     assert (
         broken_summary["no_recommendation_violations"] > 0
@@ -475,9 +554,91 @@ if "__file__" not in globals():
 # %% [markdown]
 # ## YOUR TURN (5 min): trace one question end to end
 #
-# Set `APPLICATIONINSIGHTS_CONNECTION_STRING` in the workshop `.env` and on the hosted agent before running this cell.
-# It evaluates exactly one question and asserts that the local run completed. Then find `marketplace.golden_question`
-# in Foundry > Observability > Tracing and identify the slowest child span.
+# ### Before running Step 4.11
+#
+# 1. Revert the temporary unsafe Lab 2 instruction from Step 4.10.
+# 2. Set `APPLICATIONINSIGHTS_CONNECTION_STRING` in the repository root `.env` to the complete connection string
+#    from **Azure Portal > your Application Insights resource > Overview > Connection String**.
+# 3. If you changed `.env` or reloaded an updated notebook, **restart the kernel and rerun Steps 4.1-4.6**,
+#    then run Step 4.11 below. OpenTelemetry providers are process-wide, so rerunning only this cell does not
+#    reliably switch the export destination.
+#
+# **This is a local run, not an invocation of the deployed agent.** Lab 4 passes the connection string to
+# the Lab 2 child process automatically; you do not need to run `azd up` for this exercise.
+#
+# The next cell evaluates one question, verifies that its span is recording, prints its `operation_Id`,
+# and flushes the notebook's exporter. **PASS does not verify Azure ingestion.**
+#
+# ### Find the question span
+#
+# Allow **2-5 minutes** after export. Open **Azure Portal > the Application Insights resource matching your
+# connection string > Logs**, select **KQL mode**, and run:
+#
+# ```kusto
+# dependencies
+# | where timestamp > ago(1h)
+# | where name == "marketplace.golden_question"
+# | project timestamp, name, operation_Id, duration, customDimensions
+# | order by timestamp desc
+# ```
+#
+# Match the printed `operation_Id`; it is also saved as `trace_id` in `../artifacts/lab4/eval_results.jsonl`.
+# The custom `marketplace.golden_question` span is in **`dependencies`**, not the **`traces`** log table.
+# Step 4.11 also prints a copy-ready query for the current trace, with its actual `operation_Id` filled in.
+#
+# ### Inspect the child spans
+#
+# Replace `<printed-trace-id>` with that `operation_Id`, then run:
+#
+# ```kusto
+# union requests, dependencies
+# | where timestamp > ago(1h)
+# | where operation_Id == "<printed-trace-id>"
+# | project timestamp, name, duration, id, operation_ParentId, customDimensions
+# | order by timestamp asc
+# ```
+#
+# Identify the slowest child span. The local HTTP request propagates the question's trace context to the
+# Lab 2 server so its request, agent, model, and tool spans can be correlated by `operation_Id`.
+#
+# ### If you are looking in Foundry
+#
+# **Foundry > project > Observability > Tracing** reads the Application Insights resource connected to
+# that project. Setting the connection string in `.env` does not create that project connection.
+# Confirm that the project is linked to the same resource, and remove any deployed-agent filter for this
+# local run. Use Application Insights > Logs as the direct lookup.
+#
+# ### If no rows appear
+#
+# Confirm the destination resource and time range; widen `ago(1h)` if the run was earlier.
+# Inspect Azure Monitor exporter errors in the notebook output and tracing setup or ingestion errors in
+# `../artifacts/lab2/hosted_local.log`. After correcting the connection string, restart the kernel, rerun
+# Steps 4.1-4.6 and Step 4.11, and search for the newly printed `operation_Id`.
+#
+# **Older records but no new telemetry, with `403 Forbidden` in exporter logs:** query/read access is
+# separate from ingestion permission. Both the notebook and local server use `DefaultAzureCredential`.
+# In **Azure Portal > the destination Application Insights resource > Access control (IAM)**, check that
+# the identity selected by that credential has **Monitoring Metrics Publisher** at this resource scope
+# (or an inherited scope). Despite its name, this role permits publishing traces as well as metrics.
+# **Owner alone is not sufficient:** Owner grants management-plane access, whereas telemetry publishing
+# requires the data-plane `Microsoft.Insights/Telemetry/Write` action granted by Monitoring Metrics Publisher.
+# For the local Azure CLI sign-in path, this is your developer account; for a deployed hosted agent,
+# grant the role to its agent identity. A Foundry role or Log Analytics Reader alone does not grant ingestion.
+# If you cannot assign roles, ask the resource administrator. After permission propagation, restart the
+# kernel, rerun Steps 4.1-4.6 and Step 4.11, and match the new `operation_Id`, not older records.
+# If the role is already effective, check the resource's ingestion authentication and network access rules.
+# If **public network access for ingestion** is disabled, the dev container must use an allowed private
+# network path to the resource. Reader or publishing permissions do not bypass this restriction; ask the
+# resource administrator to confirm the approved network path rather than disabling security controls.
+#
+# **Live-metrics DNS errors:** if logs say `Failed to resolve` for the live endpoint, copy the complete
+# connection string from the resource Overview instead of constructing endpoint hostnames manually,
+# and check DNS/network reachability from the dev container. This is separate from the ingestion 403.
+#
+# **`export flush timed out`:** the question completed, but the exporter did not finish within its deadline.
+# Completed results and copy-ready KQL are saved/printed before the flush attempt; a timeout still fails
+# the tracing gate and does not print PASS. Check the exporter errors above rather than simply increasing
+# the timeout. KQL may remain empty until ingestion access or connectivity is corrected.
 
 # %% Step 4.11 - Test tracing
 if "__file__" not in globals():
@@ -487,10 +648,19 @@ if "__file__" not in globals():
     )
     trace_summary = demo(trace_bundle, limit=1, target_mode="local")
     assert trace_summary["questions"] == 1, "The trace gate did not complete exactly one golden question."
-    print("PASS: one traced question completed. Verify its child spans in the Foundry portal.")
+    assert len(trace_summary["trace_ids"]) == 1, "The trace gate did not capture exactly one trace ID."
+    print("PASS: one question span recorded and local exporter flushed. Verify Azure ingestion in Application Insights > Logs.")
 
 
-# %% Step 4.12 - Run the command-line entry point
+# %% [markdown]
+# ## Script-only entry point - skip in Jupyter
+#
+# **Running this notebook cell by cell? Skip the next cell.** The earlier cells provide the notebook path.
+# The next cell is only the command-line entry point for running this lab's `.py` file as one program.
+# Its command-line invocation is guarded in the generated notebook; running the cell does not launch the lab.
+# For script mode instead, run `python lab4_operate.py --help` in a Bash terminal from this lab's folder and choose the desired options.
+
+# %% Step 4.12 - Script-only entry point (skip in Jupyter)
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--target", choices=["local", "deployed"], default="local")

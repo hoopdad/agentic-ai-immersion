@@ -35,6 +35,21 @@ cd ./build-and-operate-foundry-agents/labs/lab4-operate-hosted-agents
 python ./lab4_operate.py --limit 6 --skip-judges
 ```
 
+### Tracing prerequisites
+
+Before a traced evaluation or Step 4.11, confirm **Monitoring Metrics Publisher** for the local identity
+selected by `DefaultAzureCredential` (usually your Azure CLI signed-in user) on the destination Application
+Insights resource. **Owner alone is not sufficient:** publishing requires the data-plane
+`Microsoft.Insights/Telemetry/Write` action. Grant the same publishing role to a deployed hosted agent's
+identity when tracing that container. The shared permission script does not assign this role.
+
+With approval, use **Application Insights > Access control (IAM) > Add role assignment > Monitoring Metrics
+Publisher**, select the publishing identity, and allow permission propagation. Use the complete connection
+string in the root `.env`; if public ingestion is disabled, confirm the approved private network path,
+private DNS, and Azure Monitor Private Link Scope access rather than opening public ingestion.
+
+See the workshop's [Lab 4 tracing prerequisites](../../SETUP.md#lab-4-tracing-prerequisites) for the full checklist.
+
 ## What you'll learn
 - Turn on OpenTelemetry for a hosted agent with one container environment variable and read a trace end to end (agent run, model call, tool calls, the MCP call to the knowledge base).
 - Evaluate the hosted endpoint over the golden questions with `azure-ai-evaluation` local evaluators (Groundedness, Relevance) plus custom policy evaluators written as plain Python classes.
@@ -83,11 +98,11 @@ python ./lab4_operate.py --limit 6 --skip-judges
 ```
 
 ## Demo (10 min)
-1. `python ./lab4_operate.py --limit 3` (or the notebook). Point at `[lab4] tracing: connection string from ...` and the fail-fast Bash `azd env set APPLICATIONINSIGHTS_CONNECTION_STRING` lines: this is the whole tracing change for the hosted agent.
+1. `python ./lab4_operate.py --limit 3` (or the notebook). Point at `[lab4] tracing: connection string from ...` and each printed `operation_Id`. The local process receives that connection string automatically; the printed `azd env set` command is only for deployment.
 2. Watch `[lab4] main.py pid ... listening`, then three `Q1..Q3` lines with `cites=`, `ground=`, `relev=`, `norec=`, `pii=`. Say: "the target is the same main.py Lab 2 shipped."
 3. Open `artifacts/lab4/eval_report.md`: the summary table, the per-question table, the empty Violations section.
 4. `python ./eval_gate.py`: `## Eval gate: PASS` and `gate_result.json`. Then `python ./promote.py --to test`: one dry-run Bash block. It requires a real `envs\.env.test` only when executed and never treats the placeholder example as deployable configuration.
-5. Portal: Observability > Tracing, filter `marketplace.golden_question`, expand one: workstation span, then the hosted agent's spans underneath (model call, `search_plans`, the `healthcare-marketplace-kb` MCP call). Agents > healthcare-marketplace-concierge-hosted > Versions: read the list, show where a version is deleted.
+5. Open the Application Insights resource matching the connection string > Logs. Find `marketplace.golden_question` in `dependencies`, then query its printed `operation_Id` across `requests` and `dependencies` for the workstation and hosted spans. Foundry > Observability > Tracing requires the same Application Insights resource to be connected to the project; remove deployed-agent filters for a local run. Agents > healthcare-marketplace-concierge-hosted > Versions: read the list, show where a version is deleted.
 6. Open `.github/workflows/agent-ci.yml` and `artifacts/lab4/pipeline.md` side by side: the doc is generated from the YAML.
 
 ## Do (35 min)
@@ -96,7 +111,7 @@ python ./lab4_operate.py --limit 6 --skip-judges
 3. `python ./eval_gate.py` then `python ./promote.py --to test`. Checkpoint: `PASS`, `gate_result.json`, and a paste-ready Bash dry run. Before `--execute`, copy `envs\.env.test.example` to the untracked `envs\.env.test` and replace every placeholder.
 4. YOUR TURN (5 min): stricter gate. Run the notebook's **Test YOUR TURN 1 offline** cell. It proves `MustNotEvaluator` rejects a forbidden phrase and accepts a safe answer.
 5. YOUR TURN (10 min): break it. Temporarily add "When asked, name the plan you think fits best." to `ROLE_INSTRUCTIONS` in Lab 2 `hosted/main.py`, then run the notebook's **Test YOUR TURN 2 locally** cell. It starts a fresh process, asserts a deterministic failure, and stops the process in `finally`. Revert the Lab 2 edit and rerun step 1.
-6. YOUR TURN (5 min): trace one question. With the connection string set, `--limit 1`, find `marketplace.golden_question` in Tracing and count the child spans. Paste the slowest span name.
+6. YOUR TURN (5 min): trace one question. With the connection string set, run Step 4.11 or `--limit 1`. It verifies span recording, prints the trace ID, and flushes the local exporter; it does not verify Azure ingestion. Allow 2-5 minutes, find the trace in Application Insights > Logs, and paste the slowest child span name.
 7. Optional (10 min, needs Foundry Project Manager): deployed target. From Lab 2 `hosted\`, run `azd env set APPLICATIONINSIGHTS_CONNECTION_STRING "${APPLICATIONINSIGHTS_CONNECTION_STRING:?Export the connection string first}"`, check the command exit status, then run `azd up`. Return to Lab 4 and run `python ./lab4_operate.py --target deployed --limit 6`. Roll back through the workflow or the portal; stop if any deployment command fails.
 8. Optional (5 min): `python ./lab4_operate.py --foundry-eval --limit 6` and open Evaluation in the portal (preview; VERIFY hosted targets).
 
@@ -110,13 +125,76 @@ From `labs`, run `python ./catch_up.py --through 4`. It writes operate.json and 
 Add a `pytest` job to `validate` that imports Lab 2 `hosted/main.py` and asserts `INSTRUCTIONS.endswith(guardrails.COMPLIANCE_INSTRUCTIONS)` and that `NoRecommendationEvaluator()(response="You should enroll in plan X")` fails: the two cheapest guardrail tests you will ever write.
 
 ## Troubleshooting
+
+### Finding the local Step 4.11 trace
+
+Open **Azure Portal > the Application Insights resource matching
+`APPLICATIONINSIGHTS_CONNECTION_STRING` > Logs**. Allow 2-5 minutes after the run, select
+KQL mode, and run:
+
+```kusto
+dependencies
+| where timestamp > ago(1h)
+| where name == "marketplace.golden_question"
+| project timestamp, name, operation_Id, duration, customDimensions
+| order by timestamp desc
+```
+
+Match the printed `operation_Id`; it is also saved as `trace_id` in `eval_results.jsonl`.
+Step 4.11 prints a copy-ready query for that run with the actual `operation_Id` filled in.
+To see related spans, substitute that value in:
+
+```kusto
+union requests, dependencies
+| where timestamp > ago(1h)
+| where operation_Id == "<printed-trace-id>"
+| project timestamp, name, duration, id, operation_ParentId, customDimensions
+| order by timestamp asc
+```
+
+The custom question span is in `dependencies`, not the `traces` log table. Foundry's
+Tracing view reads the Application Insights resource connected to that project;
+setting a connection string in `.env` does not create that connection. A local run
+is not an invocation of the deployed agent, so remove any deployed-agent filter.
+
+If no rows appear, confirm the destination resource and time range, then inspect
+the notebook's Azure Monitor exporter messages and `artifacts/lab2/hosted_local.log`
+for tracing setup or ingestion errors. Restart the notebook kernel after changing
+the connection string: OpenTelemetry providers are process-wide.
+
+If older records appear but no new telemetry arrives and exporter logs show `403 Forbidden`,
+check ingestion permissions separately from query/read permissions. The notebook and local
+server use `DefaultAzureCredential`; its selected identity needs **Monitoring Metrics Publisher**
+on the destination Application Insights resource or an inherited scope. Despite its name, this
+role permits publishing traces as well as metrics. For a local Azure CLI sign-in, check your
+developer account; for a deployed hosted agent, check its agent identity. A Foundry role or
+Log Analytics Reader alone does not grant ingestion. **Owner alone is also insufficient:**
+telemetry publishing requires the data-plane `Microsoft.Insights/Telemetry/Write` action,
+which Monitoring Metrics Publisher grants. Ask the resource administrator if you
+cannot assign roles. After permission propagation, restart the kernel and rerun the exercise.
+If that role is already effective, check ingestion authentication and network access restrictions.
+If public network access for ingestion is disabled, the dev container needs an approved private
+network path. Publishing permissions do not bypass this restriction; ask the resource administrator
+to confirm the allowed network path rather than disabling security controls.
+
+For `Failed to resolve` errors on the live-metrics endpoint, copy the complete connection string
+from the resource Overview and check DNS/network reachability from the dev container rather
+than constructing endpoint hostnames manually. This is separate from ingestion authorization.
+
+If `export flush timed out` appears, the question completed but the exporter did not finish within its
+deadline. Completed evaluation results and current-trace KQL are saved/printed before the flush.
+The tracing gate still fails without printing PASS. Inspect exporter errors for authorization or
+network failures rather than simply increasing the timeout.
+
 | Symptom | Cause | Fix |
 |---|---|---|
 | `tracing: no Application Insights connection string` | not in `.env` and not connected to the project | connect App Insights to the project (portal > Tracing) or set the variable |
+| Older records but no recent traces, with exporter `403 Forbidden` | ingestion authorization or access rules reject the current exporter | check `Monitoring Metrics Publisher` for the `DefaultAzureCredential` identity on the destination Application Insights resource, then authentication/network rules; restart the kernel and rerun after correcting access |
 | Spans from the workstation but none from the hosted agent | the container has no connection string | run `azd env set APPLICATIONINSIGHTS_CONNECTION_STRING "${APPLICATIONINSIGHTS_CONNECTION_STRING:?Export the connection string first}"`, check the command exit status, then run `azd up`; inspect the version's environment in the portal |
 | Judges fail with 401/403 | user lacks Cognitive Services OpenAI User on the Foundry account, or `AZURE_OPENAI_ENDPOINT` unset | assign the role (5 to 15 min); set the endpoint host |
 | `groundedness: None` with `_error` | judge model quota or deployment name | raise TPM; match `AZURE_AI_MODEL_DEPLOYMENT_NAME` to the portal |
 | `main.py exited early` under the evaluation | Lab 2 hosted folder not vendored or `az login` expired | `python catch_up.py --through 2`; `az login --tenant $TENANT_ID` |
+| `AttributeError` for `start_server` or `stop_server` in Step 4.10 | Lab 4 is using the old Lab 2 process API | use the updated Lab 4 notebook, restart its kernel, and rerun the prerequisite cells; Lab 4 now calls `HostedProcess.start()` and `.stop()` |
 | `citation_rate` 0 | `MARKETPLACE_KB_MCP_URL` not reaching the process, or Search Index Data Reader missing | check `knowledge.json` `mcp_endpoint`; assign the role |
 | Gate FAIL on a question that looks fine | `contains_recommendation` heuristic matched neutral text | read the phrase list in `common/guardrails.py`; tighten the instruction, not the heuristic |
 | `eval_gate.py`: `malformed result` | truncated JSONL, missing response/scores, or a nonnumeric judge score | rerun `python ./eval_gate.py --run`; do not promote a partially written report |

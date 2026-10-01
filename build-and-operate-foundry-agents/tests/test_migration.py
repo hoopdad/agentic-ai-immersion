@@ -310,6 +310,42 @@ class DeploymentTests(unittest.TestCase):
         self.assertEqual(notebook["cells"][1]["cell_type"], "markdown")
         self.assertIn("Shell commands use the container filesystem", "".join(notebook["cells"][1]["source"]))
 
+    def test_walkthrough_final_runners_are_optional_and_guarded_in_notebooks(self):
+        cases = (
+            ("lab1-hosted-agent-basics/lab1_hosted_basics.py", "lab1_walkthrough.ipynb"),
+            ("lab2-hosted-knowledge-sessions/lab2_hosted_knowledge.py", "lab2_walkthrough.ipynb"),
+            ("lab3-hosted-multi-agent-handoff/lab3_hosted_multi_agent.py", "lab3_walkthrough.ipynb"),
+            ("lab4-operate-hosted-agents/lab4_operate.py", "lab4_walkthrough.ipynb"),
+            ("stretch5-prompt-agents-and-workflows/stretch5_prompt_agents.py", "stretch5_walkthrough.ipynb"),
+            ("stretch6-invocations-toolbox-skills/stretch6_invocations.py", "stretch6_walkthrough.ipynb"),
+        )
+        for relative, notebook_name in cases:
+            with self.subTest(driver=relative):
+                path = ROOT / "labs" / relative
+                notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
+                self.assertEqual(
+                    json.loads(path.with_name(notebook_name).read_text(encoding="utf-8"))["cells"],
+                    notebook["cells"],
+                )
+                index = max(
+                    i for i, cell in enumerate(notebook["cells"])
+                    if cell["cell_type"] == "code"
+                )
+                runner = notebook["cells"][index]
+                self.assertIn("Script-only entry point (skip in Jupyter)", runner["source"][0])
+                instructions = notebook["cells"][index - 1]
+                self.assertEqual(instructions["cell_type"], "markdown")
+                text = "".join(instructions["source"])
+                self.assertIn("Skip the next cell", text)
+                self.assertIn(f"python {path.name} --help", text)
+                closing_note = "".join(notebook["cells"][-1]["source"])
+                self.assertIn("skip the script-only entry-point cell above", closing_note)
+                self.assertIn("do not need to call `main()`, `build()`, or `demo()` again", closing_note)
+                namespace = {"__name__": "__main__", "argparse": argparse}
+                with patch.object(argparse, "ArgumentParser", side_effect=AssertionError("Notebook ran the CLI parser")):
+                    exec("".join(runner["source"]), namespace)
+                self.assertNotIn("parser", namespace)
+
     def test_lab2_build_is_executable_from_the_notebook(self):
         path = ROOT / "labs/lab2-hosted-knowledge-sessions/lab2_hosted_knowledge.py"
         notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
@@ -320,6 +356,60 @@ class DeploymentTests(unittest.TestCase):
             and cell["source"][0].startswith("# Step 2.2 -")
         )
         self.assertIn('if "__file__" not in globals():\n    hosted = build()', build_cell)
+
+    def test_lab3_classifier_gate_reports_results_without_false_success(self):
+        path = ROOT / "labs/lab3-hosted-multi-agent-handoff/lab3_hosted_multi_agent.py"
+        notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
+        self.assertEqual(
+            json.loads(path.with_name("lab3_walkthrough.ipynb").read_text(encoding="utf-8")),
+            notebook,
+        )
+        gate = next(
+            "".join(cell["source"])
+            for cell in notebook["cells"]
+            if cell["cell_type"] == "code"
+            and cell["source"][0].startswith("# Step 3.11 -")
+        )
+        for lob, status in (("accounts", "approved"), ("both", "approved"), ("accounts", "declined")):
+            with self.subTest(lob=lob, status=status):
+                logger = MagicMock()
+                uuid = MagicMock()
+                uuid.uuid4.return_value.hex = "offline123"
+                send = MagicMock(side_effect=[
+                    ({"status": "pending_advisor_approval", "packet": {"lob": lob}}, "response-1"),
+                    ({"status": status}, "response-2"),
+                ])
+                namespace = {
+                    "RUN_LAB3_EXERCISE_GATES": True,
+                    "build": MagicMock(),
+                    "uuid": uuid,
+                    "HostedProcess": MagicMock(),
+                    "post_turn": send,
+                    "LOCAL_BASE": "http://localhost:8088",
+                    "PENDING": "pending_advisor_approval",
+                    "json": json,
+                    "log": logger,
+                }
+                if lob == "accounts" and status == "approved":
+                    exec(gate, namespace)
+                    messages = [call.args[0] for call in logger.call_args_list]
+                    self.assertEqual(len(messages), 4)
+                    self.assertIn("participant> My card was declined", messages[0])
+                    self.assertIn("lob=accounts, status=pending_advisor_approval", messages[1])
+                    self.assertIn("advisor> approve (automatic)", messages[2])
+                    self.assertEqual(
+                        messages[3],
+                        "PASS Step 3.11: routed to accounts; advisor approval completed (status=approved).",
+                    )
+                    advisor_turn = json.loads(send.call_args.args[1])
+                    self.assertEqual(advisor_turn["advisor"], "approve")
+                    self.assertEqual(send.call_args.args[2], "response-1")
+                else:
+                    with self.assertRaises(AssertionError):
+                        exec(gate, namespace)
+                    self.assertFalse(any(
+                        "PASS" in call.args[0] for call in logger.call_args_list
+                    ))
 
     def test_lab2_embedding_retries_at_the_service_requested_time(self):
         module = load(
@@ -430,6 +520,273 @@ class DeploymentTests(unittest.TestCase):
         self.assertTrue(resources)
         self.assertTrue(all("jd-4821" in item.name for item in resources))
         self.assertEqual(cleanup.project_name("/accounts/demo/projects/workshop"), "workshop")
+
+
+class Lab4TracingTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.module = load(
+            "lab4_tracing_regression",
+            ROOT / "labs/lab4-operate-hosted-agents/lab4_operate.py",
+        )
+
+    def test_malformed_project_connection_string_disables_optional_tracing(self):
+        project = MagicMock()
+        project.telemetry.get_application_insights_connection_string.return_value = "not-a-connection-string"
+        with patch.object(self.module, "ENV", {"APPLICATIONINSIGHTS_CONNECTION_STRING": ""}), \
+                patch.object(self.module.foundry_env, "get_project_client", return_value=project):
+            self.assertEqual(self.module.tracing_config(), {"enabled": False, "source": None})
+
+    def test_local_tracing_uses_entra_authentication(self) -> None:
+        from azure.identity import DefaultAzureCredential
+        from azure.monitor.opentelemetry import configure_azure_monitor
+
+        credential = MagicMock(spec=DefaultAzureCredential)
+        tracing = {"enabled": True, "connection_string": "InstrumentationKey=example"}
+        with patch("azure.identity.DefaultAzureCredential", return_value=credential) as create_credential, \
+                patch("azure.monitor.opentelemetry.configure_azure_monitor", spec=configure_azure_monitor) as configure:
+            self.module.configure_local_tracing(tracing)
+            configure.assert_called_once_with(
+                connection_string=tracing["connection_string"], credential=credential,
+            )
+            create_credential.assert_called_once_with()
+            self.module.configure_local_tracing({"enabled": False})
+            configure.assert_called_once()
+
+    def test_hosted_tracing_uses_entra_authentication(self) -> None:
+        path = ROOT / "labs/lab2-hosted-knowledge-sessions/hosted/main.py"
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        function = next(node for node in tree.body if isinstance(node, ast.FunctionDef)
+                        and node.name == "configure_tracing")
+        create_credential = MagicMock()
+        namespace = {"os": os, "DefaultAzureCredential": create_credential, "log": MagicMock()}
+        exec(compile(ast.Module(body=[function], type_ignores=[]), str(path), "exec"), namespace)
+        with patch.dict(os.environ, {"APPLICATIONINSIGHTS_CONNECTION_STRING": "InstrumentationKey=example"}), \
+                patch("azure.monitor.opentelemetry.configure_azure_monitor") as configure, \
+                patch("agent_framework.observability.configure_otel_providers") as instrument:
+            self.assertTrue(namespace["configure_tracing"]())
+            configure.assert_called_once_with(
+                connection_string="InstrumentationKey=example",
+                credential=create_credential.return_value,
+            )
+            create_credential.assert_called_once_with()
+            instrument.assert_called_once_with()
+
+    def test_trace_gate_prints_kql_for_the_current_trace_id(self) -> None:
+        path = ROOT / "labs/lab4-operate-hosted-agents/lab4_operate.py"
+        notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
+        gate = next(
+            "".join(cell["source"]) for cell in notebook["cells"]
+            if cell["cell_type"] == "code" and cell["source"][0].startswith("# Step 4.11 -")
+        )
+        trace_id = "1234567890abcdef1234567890abcdef"
+        bundle = {"tracing": {"enabled": True}, "hosted": {}, "knowledge": {}, "custom": {}, "judges": {}}
+        row = {"id": "GQ-01", "query": "hello", "response": "safe answer", "citations": [], "trace_id": trace_id}
+        with patch.object(self.module, "configure_local_tracing"), \
+                patch.object(self.module, "flush_local_tracing"), \
+                patch.object(self.module, "HostedTarget"), \
+                patch.object(self.module, "load_golden", return_value=[row]), \
+                patch.object(self.module, "answer", return_value=row), \
+                patch.object(self.module, "write_report"), \
+                patch("builtins.print") as output:
+            namespace = {"build": MagicMock(return_value=bundle), "demo": self.module.demo}
+            exec(gate, namespace)
+        output = "\n".join(call.args[0] for call in output.call_args_list)
+        self.assertIn("union requests, dependencies", output)
+        self.assertIn(f'| where operation_Id == "{trace_id}"', output)
+        self.assertIn("| where timestamp > ago(1h)", output)
+        self.assertNotIn("<printed-trace-id>", output)
+        self.assertEqual(output.count("union requests, dependencies"), 1)
+
+    def test_export_timeout_preserves_results_and_prints_kql_without_false_success(self) -> None:
+        trace_id = "1234567890abcdef1234567890abcdef"
+        bundle = {"tracing": {"enabled": True}, "hosted": {}, "knowledge": {}, "custom": {}, "judges": {}}
+        row = {"id": "GQ-01", "query": "hello", "response": "safe answer", "citations": [], "trace_id": trace_id}
+        target = MagicMock(mode="local")
+        events = []
+        with patch.object(self.module, "configure_local_tracing"), \
+                patch.object(self.module, "HostedTarget", return_value=target), \
+                patch.object(self.module, "load_golden", return_value=[row]), \
+                patch.object(self.module, "answer", return_value=row), \
+                patch.object(self.module, "write_report", side_effect=lambda *_: events.append("saved")) as report, \
+                patch.object(self.module, "flush_local_tracing",
+                             side_effect=RuntimeError("export flush timed out")), \
+                patch("builtins.print") as output, \
+                self.assertRaisesRegex(RuntimeError, "export flush timed out"):
+            self.module.demo(bundle, limit=1)
+        target.close.assert_called_once()
+        report.assert_called_once()
+        self.assertEqual(events, ["saved"])
+        self.assertEqual(report.call_args.args[0][0]["trace_id"], trace_id)
+        output = "\n".join(call.args[0] for call in output.call_args_list)
+        self.assertIn(f'| where operation_Id == "{trace_id}"', output)
+        self.assertNotIn("PASS", output)
+        self.assertNotIn("next: python ./eval_gate.py", output)
+
+    def test_local_quality_gate_build_can_skip_tracing(self):
+        missing_lab3 = ROOT / "labs/artifacts/lab3/missing-hosted.json"
+        artifacts = [
+            {"agent_name": "concierge", "version_label": "test", "local_url": "http://localhost:8088"},
+            {"index_name": "plans"},
+        ]
+        with patch.object(self.module.helpers, "require_artifact", side_effect=artifacts), \
+                patch.object(self.module.helpers, "artifact_path", return_value=missing_lab3), \
+                patch.object(self.module.foundry_env, "save_artifact"), \
+                patch.object(self.module, "write_pipeline_md"), \
+                patch.object(self.module, "tracing_config", side_effect=AssertionError("tracing should be skipped")):
+            bundle = self.module.build(skip_judges=True, enable_tracing=False)
+        self.assertEqual(bundle["tracing"], {"enabled": False, "source": None})
+
+    def test_answer_records_a_searchable_trace_id(self) -> None:
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+        from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+
+        exporter = InMemorySpanExporter()
+        provider = TracerProvider()
+        provider.add_span_processor(SimpleSpanProcessor(exporter))
+        self.addCleanup(provider.shutdown)
+        target = MagicMock(mode="local")
+        target.ask.return_value = "A licensed advisor can compare the available plans."
+        item = {"id": "GQ-01", "participant_id": "P-1001", "context": "marketplace", "query": "hello"}
+        with patch.object(self.module, "tracer", return_value=provider.get_tracer("offline")), \
+                patch("builtins.print") as output:
+            row = self.module.answer({"tracing": {"enabled": True}}, target, item)
+        span, = exporter.get_finished_spans()
+        self.assertEqual(row["trace_id"], f"{span.context.trace_id:032x}")
+        self.assertEqual(span.name, "marketplace.golden_question")
+        self.assertEqual(span.attributes["marketplace.golden_id"], "GQ-01")
+        self.assertTrue(any(row["trace_id"] in call.args[0] for call in output.call_args_list))
+
+    def test_demo_returns_trace_ids_for_the_notebook_query(self) -> None:
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+        from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+
+        exporter = InMemorySpanExporter()
+        provider = TracerProvider()
+        provider.add_span_processor(SimpleSpanProcessor(exporter))
+        self.addCleanup(provider.shutdown)
+        target = MagicMock(mode="local")
+        target.ask.return_value = "safe answer"
+        bundle = {"tracing": {"enabled": True}, "hosted": {}, "knowledge": {}, "custom": {}, "judges": {}}
+        with patch.object(self.module, "configure_local_tracing"), \
+                patch.object(self.module, "flush_local_tracing") as flush, \
+                patch.object(self.module, "HostedTarget", return_value=target), \
+                patch.object(self.module, "load_golden", return_value=[{"id": "GQ-01", "query": "hello"}]), \
+                patch.object(self.module, "tracer", return_value=provider.get_tracer("offline")), \
+                patch.object(self.module, "write_report") as report:
+            summary = self.module.demo(bundle, limit=1)
+        span, = exporter.get_finished_spans()
+        self.assertEqual(summary["trace_ids"], [f"{span.context.trace_id:032x}"])
+        self.assertEqual(summary["questions"], 1)
+        target.close.assert_called_once()
+        flush.assert_called_once_with(bundle["tracing"])
+        self.assertEqual(report.call_args.args[0][0]["trace_id"], summary["trace_ids"][0])
+
+    def test_trace_gate_rejects_a_nonrecording_span(self) -> None:
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.sampling import ALWAYS_OFF
+
+        provider = TracerProvider(sampler=ALWAYS_OFF)
+        self.addCleanup(provider.shutdown)
+        target = MagicMock(mode="local")
+        target.ask.return_value = "safe answer"
+        with patch.object(self.module, "tracer", return_value=provider.get_tracer("offline")), \
+                self.assertRaisesRegex(RuntimeError, "not recording"):
+            self.module.answer({"tracing": {"enabled": True}}, target, {"query": "hello"})
+        target.ask.assert_not_called()
+
+    def test_tracing_flushes_and_reports_a_timeout(self) -> None:
+        from opentelemetry import trace
+        from opentelemetry.sdk.trace import TracerProvider
+
+        provider = TracerProvider()
+        self.addCleanup(provider.shutdown)
+        with patch.object(trace, "get_tracer_provider", return_value=provider), \
+                patch.object(provider, "force_flush", return_value=True) as flush:
+            self.module.flush_local_tracing({"enabled": True})
+            flush.assert_called_once()
+            self.module.flush_local_tracing({"enabled": False})
+            flush.assert_called_once()
+        with patch.object(trace, "get_tracer_provider", return_value=provider), \
+                patch.object(provider, "force_flush", return_value=False), \
+                self.assertRaisesRegex(RuntimeError, "flush timed out"):
+            self.module.flush_local_tracing({"enabled": True})
+
+    def test_local_request_propagates_the_question_trace_context(self) -> None:
+        from opentelemetry import trace
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
+
+        lab2 = self.module.helpers.load_lab_module(
+            "lab2-hosted-knowledge-sessions/lab2_hosted_knowledge.py"
+        )
+        provider = TracerProvider()
+        self.addCleanup(provider.shutdown)
+        response = MagicMock()
+        response.json.return_value = {"output_text": "safe answer"}
+        with provider.get_tracer("offline").start_as_current_span("marketplace.golden_question") as span, \
+                patch("httpx.post", return_value=response) as post:
+            lab2.ask(8088, "hello", "eval-offline")
+        headers = post.call_args.kwargs["headers"]
+        context = TraceContextTextMapPropagator().extract(headers)
+        parent = trace.get_current_span(context).get_span_context()
+        self.assertEqual(parent.trace_id, span.get_span_context().trace_id)
+        self.assertEqual(parent.span_id, span.get_span_context().span_id)
+        self.assertTrue(parent.is_remote)
+        self.assertEqual(post.call_args.kwargs["json"], {
+            "input": "hello", "stream": False, "conversation": "eval-offline",
+        })
+
+
+class Lab4HostedTargetTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.module = load(
+            "lab4_hosted_target_regression",
+            ROOT / "labs/lab4-operate-hosted-agents/lab4_operate.py",
+        )
+        cls.lab2 = cls.module.helpers.load_lab_module(
+            "lab2-hosted-knowledge-sessions/lab2_hosted_knowledge.py"
+        )
+
+    def test_local_target_uses_lab2_process_api_and_forwards_tracing(self) -> None:
+        knowledge = {"mcp_endpoint": "https://example.test/mcp"}
+        for connection in (None, "InstrumentationKey=example"):
+            with self.subTest(connection=connection):
+                tracing = {"enabled": connection is not None, "connection_string": connection}
+                with patch.object(self.module.helpers, "load_lab_module", return_value=self.lab2), \
+                        patch.object(self.lab2, "port_open", return_value=False), \
+                        patch.object(self.lab2.HostedProcess, "start", autospec=True,
+                                     side_effect=lambda server: server) as start, \
+                        patch.object(self.lab2.HostedProcess, "stop", autospec=True) as stop, \
+                        patch.object(self.lab2, "ask", return_value=("safe answer", {})) as ask, \
+                        patch.dict(os.environ, {"APPLICATIONINSIGHTS_CONNECTION_STRING": "inherited"}):
+                    target = self.module.HostedTarget("local", {}, knowledge, tracing)
+                    start.assert_called_once_with(target.proc)
+                    self.assertEqual(target.proc.knowledge, knowledge)
+                    self.assertEqual(target.proc.port, self.module.LOCAL_PORT)
+                    self.assertEqual(target.proc.env_overrides, {
+                        "APPLICATIONINSIGHTS_CONNECTION_STRING": connection,
+                    })
+                    self.assertEqual(os.environ["APPLICATIONINSIGHTS_CONNECTION_STRING"], "inherited")
+                    self.assertEqual(target.ask("hello"), "safe answer")
+                    self.assertEqual(ask.call_args.args[:2], (self.module.LOCAL_PORT, "hello"))
+                    self.assertTrue(ask.call_args.args[2].startswith("eval-"))
+                    target.close()
+                    stop.assert_called_once_with(target.proc)
+
+    def test_local_target_does_not_stop_an_existing_server(self) -> None:
+        with patch.object(self.module.helpers, "load_lab_module", return_value=self.lab2), \
+                patch.object(self.lab2, "port_open", return_value=True), \
+                patch.object(self.lab2.HostedProcess, "start", autospec=True) as start, \
+                patch.object(self.lab2.HostedProcess, "stop", autospec=True) as stop:
+            target = self.module.HostedTarget("local", {}, {}, {"enabled": False})
+            self.assertIsNone(target.proc)
+            target.close()
+            start.assert_not_called()
+            stop.assert_not_called()
 
 
 class PromotionTests(unittest.TestCase):

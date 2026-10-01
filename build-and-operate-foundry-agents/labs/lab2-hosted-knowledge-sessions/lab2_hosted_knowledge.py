@@ -339,13 +339,16 @@ def ask(
     previous_response_id: str | None = None,
 ) -> tuple[str, dict]:
     import httpx
+    from opentelemetry.propagate import inject
 
     body: dict = {"input": text, "stream": False}
     if session_id:
         body["conversation"] = session_id
     elif previous_response_id:
         body["previous_response_id"] = previous_response_id
-    response = httpx.post(f"http://localhost:{port}/responses", json=body, timeout=180.0)
+    headers: dict[str, str] = {}
+    inject(headers)
+    response = httpx.post(f"http://localhost:{port}/responses", json=body, headers=headers, timeout=180.0)
     response.raise_for_status()
     payload = response.json()
     model_resilience.ensure_response_succeeded(payload, LAB)
@@ -617,7 +620,15 @@ if "__file__" not in globals():
     print(deploy_commands())
 
 
-# %% Step 2.11 - Run the command-line entry point
+# %% [markdown]
+# ## Script-only entry point - skip in Jupyter
+#
+# **Running this notebook cell by cell? Skip the next cell.** The earlier cells provide the notebook path.
+# The next cell is only the command-line entry point for running this lab's `.py` file as one program.
+# Its command-line invocation is guarded in the generated notebook; running the cell does not launch the lab.
+# For script mode instead, run `python lab2_hosted_knowledge.py --help` in a Bash terminal from this lab's folder and choose the desired options.
+
+# %% Step 2.11 - Script-only entry point (skip in Jupyter)
 def main(args: argparse.Namespace) -> None:
     if args.record_version:
         record_deployment(args.record_version, args.status)

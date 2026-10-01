@@ -586,10 +586,10 @@ def record_deployment(version: str, status: str = "active") -> dict:
 # 1. In the setup cell, change `RUN_LAB3_EXERCISE_GATES = False` to `True`.
 # 2. Run the setup and function-definition cells above this section in order.
 # 3. Run the next code cell.
-# 4. When prompted for S3 advisor decisions, enter these responses exactly:
-#     - `revise: add the IEP dates for turning 65 to open_questions`
-#     - `approve`
-# 5. Confirm that the gate passes:
+#     - This run is automatic. Do not enter an advisor response.
+#     - The client sends the S3 participant message, then `revise: add the IEP dates for turning 65 to open_questions`, then `approve`.
+#     - The printed `advisor>` lines record automated client turns; they are not input prompts.
+# 4. Confirm that the gate passes:
 #     - `packet_attempts` is at least `2`.
 #     - `open_questions` contains an IEP or Initial Enrollment Period question.
 
@@ -615,17 +615,18 @@ if "__file__" not in globals() and RUN_LAB3_EXERCISE_GATES:
     ), "The revised packet did not add the IEP question."
 
 # %% [markdown]
-# ## YOUR TURN (10 min): revise instead of approve
+# ## YOUR TURN (10 min): lose the process, keep the case
 
 # 1. In the setup cell, change `RUN_LAB3_EXERCISE_GATES = False` to `True`.
 # 2. Run the setup and function-definition cells above this section in order.
 # 3. Run the next code cell.
-# 4. When prompted for S3 advisor decisions, enter these responses exactly:
-#     - `revise: add the IEP dates for turning 65 to open_questions`
-#     - `approve`
-# 5. Confirm that the gate passes:
-#     - `packet_attempts` is at least `2`.
-#     - `open_questions` contains an IEP or Initial Enrollment Period question.
+#     - This run is automatic. Do not enter an advisor response.
+#     - The client sends the S2 participant message, stops and restarts the local server, then sends `approve`.
+#     - The printed `advisor> approve` line records that automated client turn; it is not an input prompt.
+# 4. Confirm that the gate passes:
+#     - The resumed turn reports `resume_path=session_store`.
+#     - A session JSON file exists under `artifacts/lab3/sessions/`.
+#     - The final packet has `advisor_decision` set to `approve`.
 
 # If you changed `.env`, restart the notebook kernel first, then run all cells above this section again.
 # %% Step 3.9 - Test restart-safe sessions
@@ -707,8 +708,14 @@ if "__file__" not in globals() and RUN_LAB3_EXERCISE_GATES:
 #     - Do not add tools.
 # 3. Add the new agent to `build_all()`.
 # 4. Open `hosted/marketplace_workflow.py`.
-# 5. In `IntakeExecutor.start`, call the `lob-classifier` agent first.
-# 6. Keep `classify_lob()` as the fallback if the model classifier fails.
+# 5. Inspect `IntakeExecutor.start`: it already calls the optional `lob-classifier` before routing to specialists.
+#    `build_workflow()` already passes `agents.get("lob-classifier")` to this executor; adding the agent to `build_all()` enables it.
+# 6. Preserve the existing keyword fallback; no new fallback function is needed.
+#     - Keep `classify_lob()` and the initial `lob = classify_lob(intake.message, participant)` assignment.
+#     - A valid model response is parsed as `LobCall`, then `lob = classified.lob` replaces the keyword result.
+#     - If the model call raises an exception or its response cannot be parsed as `LobCall`, keep the original keyword result.
+#       The existing fallback branches log the failure; do not remove those messages.
+#     - If no `lob-classifier` agent is configured, the keyword result is used directly.
 # 7. Save both files.
 # 8. Ensure `RUN_LAB3_EXERCISE_GATES = True`.
 # 9. Run the setup and function-definition cells above this section in order.
@@ -717,6 +724,11 @@ if "__file__" not in globals() and RUN_LAB3_EXERCISE_GATES:
 #      `My card was declined when I tried to pay for a prescription.`
 #      is routed to `accounts`, not `both`.
 # 12. Confirm that the advisor approval completes successfully.
+#     Step 3.11 sends `approve` automatically; do not type an advisor response.
+#     The notebook shows the triage result and prints `PASS Step 3.11` only after routing and approval checks succeed.
+#
+# For this message, the keyword fallback returns `both`: "my card" matches accounts and "prescription" matches marketplace.
+# The model must identify the card-payment issue as `accounts`. Falling back keeps intake available, but does not pass this exercise's routing assertion.
 
 # If you changed `.env`, restart the notebook kernel first, then run all cells above this section again.
 
@@ -725,6 +737,7 @@ if "__file__" not in globals() and RUN_LAB3_EXERCISE_GATES:
     build(standalone=True)
     classifier_session = f"classifier-{uuid.uuid4().hex[:8]}"
     classifier_message = "My card was declined when I tried to pay for a prescription."
+    log(f"Step 3.11 participant> {classifier_message}")
     with HostedProcess():
         classifier_reply, classifier_response_id = post_turn(
             LOCAL_BASE,
@@ -737,16 +750,29 @@ if "__file__" not in globals() and RUN_LAB3_EXERCISE_GATES:
                 }
             ),
         )
-        assert classifier_reply["status"] == PENDING
+        assert classifier_reply["status"] == PENDING, (
+            f"Expected pending advisor approval, got {classifier_reply['status']}."
+        )
+        log(
+            f"Step 3.11 triage result: lob={classifier_reply['packet']['lob']}, "
+            f"status={classifier_reply['status']}"
+        )
         assert (
             classifier_reply["packet"]["lob"] == "accounts"
         ), f"Expected accounts for the card-decline case, got {classifier_reply['packet']['lob']}."
+        log("Step 3.11 advisor> approve (automatic)")
         classifier_final, _ = post_turn(
             LOCAL_BASE,
             json.dumps({"session_id": classifier_session, "advisor": "approve"}),
             classifier_response_id,
         )
-    assert classifier_final["status"] == "approved"
+    assert classifier_final["status"] == "approved", (
+        f"Expected advisor approval to complete, got {classifier_final['status']}."
+    )
+    log(
+        f"PASS Step 3.11: routed to {classifier_reply['packet']['lob']}; "
+        f"advisor approval completed (status={classifier_final['status']})."
+    )
 
 # %% [markdown]
 # ## Print Bash deployment commands
@@ -759,7 +785,15 @@ if "__file__" not in globals():
     print(deploy_commands())
 
 
-# %% Step 3.13 - Run the command-line entry point
+# %% [markdown]
+# ## Script-only entry point - skip in Jupyter
+#
+# **Running this notebook cell by cell? Skip the next cell.** The earlier cells provide the notebook path.
+# The next cell is only the command-line entry point for running this lab's `.py` file as one program.
+# Its command-line invocation is guarded in the generated notebook; running the cell does not launch the lab.
+# For script mode instead, run `python lab3_hosted_multi_agent.py --help` in a Bash terminal from this lab's folder and choose the desired options.
+
+# %% Step 3.13 - Script-only entry point (skip in Jupyter)
 def main(args: argparse.Namespace) -> None:
     if args.record_version:
         record_deployment(args.record_version, args.status)

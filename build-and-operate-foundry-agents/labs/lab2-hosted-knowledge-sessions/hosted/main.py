@@ -28,6 +28,7 @@ Verified shapes (BRIEF-shared 5d, base repo hosted-agents/benefits-advisor-respo
     ResponsesHostServer(agent).run()
     MCPStreamableHTTPTool(name="healthcare-marketplace-kb", url=MCP_URL, http_client=httpx.AsyncClient(auth=..., headers=...))
 """
+
 # %% Imports and path setup
 from __future__ import annotations
 
@@ -46,9 +47,14 @@ for folder in (HERE.parents[2] if len(HERE.parents) > 2 else HERE, HERE):
     if str(folder) not in sys.path:
         sys.path.insert(0, str(folder))
 
-warnings.simplefilter("ignore")                  # preview-feature warnings from the SDKs at import time
+warnings.simplefilter("ignore")  # preview-feature warnings from the SDKs at import time
 
-from common import guardrails, marketplace_data, model_resilience, session_store  # noqa: E402
+from common import (
+    guardrails,
+    marketplace_data,
+    model_resilience,
+    session_store,
+)  # noqa: E402
 
 import httpx  # noqa: E402
 from agent_framework import Agent, MCPStreamableHTTPTool, tool  # noqa: E402
@@ -61,12 +67,18 @@ LAB = "lab2"
 AGENT_NAME = "healthcare-marketplace-concierge-hosted"
 DEFAULT_MODEL = "gpt-5.4-mini"
 ENDPOINT = os.environ.get("FOUNDRY_PROJECT_ENDPOINT", "")
-MODEL = os.environ.get("AZURE_AI_MODEL_DEPLOYMENT_NAME") or os.environ.get("FOUNDRY_MODEL") or DEFAULT_MODEL
+MODEL = (
+    os.environ.get("AZURE_AI_MODEL_DEPLOYMENT_NAME")
+    or os.environ.get("FOUNDRY_MODEL")
+    or DEFAULT_MODEL
+)
 KB_MCP_URL = os.environ.get("MARKETPLACE_KB_MCP_URL", "")
 KB_SCOPE = "https://search.azure.com/.default"
 # Lab 2 uses Azure Blob/Azurite or local files; the shared Redis setting is for other workshop labs.
 os.environ.pop("MARKETPLACE_REDIS_URL", None)
-MESSAGE_STORE_DIR = Path(os.environ.get("MARKETPLACE_MESSAGE_STORE_DIR", str(HERE / "message_store")))
+MESSAGE_STORE_DIR = Path(
+    os.environ.get("MARKETPLACE_MESSAGE_STORE_DIR", str(HERE / "message_store"))
+)
 SESSION_DIR = Path(
     os.environ.get(
         "MARKETPLACE_SESSION_DIR",
@@ -102,7 +114,9 @@ How to work:
 
 """
 INSTRUCTIONS = ROLE_INSTRUCTIONS + guardrails.COMPLIANCE_INSTRUCTIONS
-assert INSTRUCTIONS.endswith(guardrails.COMPLIANCE_INSTRUCTIONS), "every agent carries the compliance block"
+assert INSTRUCTIONS.endswith(
+    guardrails.COMPLIANCE_INSTRUCTIONS
+), "every agent carries the compliance block"
 
 
 # %% Tools over the systems of record (pure functions from common.marketplace_data, wrapped with @tool)
@@ -118,7 +132,9 @@ def get_participant(participant_id: PID) -> dict:
 @tool(approval_mode="never_require")
 def get_enrollment_window(participant_id: PID) -> dict:
     """Which enrollment window applies to the participant today (AEP, IEP, OEP, SEP-possible, ACA open enrollment)."""
-    return marketplace_data.get_enrollment_window(participant_id, today=os.environ.get("MARKETPLACE_TODAY"))
+    return marketplace_data.get_enrollment_window(
+        participant_id, today=os.environ.get("MARKETPLACE_TODAY")
+    )
 
 
 @tool(approval_mode="never_require")
@@ -128,25 +144,55 @@ def get_hra_account(participant_id: PID) -> dict:
 
 
 @tool(approval_mode="never_require")
-def search_plans(county: Annotated[str, Field(description="Utah county name such as Salt Lake")],
-                 plan_type: Annotated[str | None, Field(description="Medicare Advantage HMO, Medicare Advantage PPO, "
-                                                                    "Medigap Plan G, Medigap Plan N, Part D, ACA Bronze, "
-                                                                    "ACA Silver, ACA Gold")] = None,
-                 max_premium: Annotated[float | None, Field(description="Maximum monthly premium")] = None,
-                 drug_name: Annotated[str | None, Field(description="Drug to check the formulary tier for, "
-                                                                    "for example atorvastatin")] = None) -> list[dict]:
+def search_plans(
+    county: Annotated[str, Field(description="Utah county name such as Salt Lake")],
+    plan_type: Annotated[
+        str | None,
+        Field(
+            description="Medicare Advantage HMO, Medicare Advantage PPO, "
+            "Medigap Plan G, Medigap Plan N, Part D, ACA Bronze, "
+            "ACA Silver, ACA Gold"
+        ),
+    ] = None,
+    max_premium: Annotated[
+        float | None, Field(description="Maximum monthly premium")
+    ] = None,
+    drug_name: Annotated[
+        str | None,
+        Field(
+            description="Drug to check the formulary tier for, "
+            "for example atorvastatin"
+        ),
+    ] = None,
+) -> list[dict]:
     """Plans available in a county for plan year 2027, sorted by premium then star rating (max 10). Educational only."""
-    return marketplace_data.search_plans(county=county, state="UT", plan_type=plan_type, max_premium=max_premium,
-                                 needs_drug_coverage=True if drug_name else None, drug_name=drug_name)
+    return marketplace_data.search_plans(
+        county=county,
+        state="UT",
+        plan_type=plan_type,
+        max_premium=max_premium,
+        needs_drug_coverage=True if drug_name else None,
+        drug_name=drug_name,
+    )
 
 
 @tool(approval_mode="never_require")
-def compare_plans(plan_ids: Annotated[list[str], Field(description="Two to four plan ids such as MA-CONTOSO-HMO-01")]) -> dict:
+def compare_plans(
+    plan_ids: Annotated[
+        list[str], Field(description="Two to four plan ids such as MA-CONTOSO-HMO-01")
+    ],
+) -> dict:
     """Side by side comparison fields for the given plans. Neutral facts; the agent must not rank them."""
     return marketplace_data.compare_plans(plan_ids)
 
 
-FUNCTION_TOOLS = [get_participant, get_enrollment_window, get_hra_account, search_plans, compare_plans]
+FUNCTION_TOOLS = [
+    get_participant,
+    get_enrollment_window,
+    get_hra_account,
+    search_plans,
+    compare_plans,
+]
 
 
 # %% Knowledge: the Foundry IQ knowledge base over MCP, called with the container's own identity
@@ -172,26 +218,32 @@ class EntraBearerAuth(httpx.Auth):
 def knowledge_tool(credential) -> MCPStreamableHTTPTool | None:
     """The knowledge base as an in-process MCP tool. Returns None when MARKETPLACE_KB_MCP_URL is not set."""
     if not KB_MCP_URL:
-        log("knowledge: MARKETPLACE_KB_MCP_URL not set, the agent runs without the knowledge base")
+        log(
+            "knowledge: MARKETPLACE_KB_MCP_URL not set, the agent runs without the knowledge base"
+        )
         return None
     # VERIFY against https://learn.microsoft.com/agent-framework/ before delivery: MCPStreamableHTTPTool keyword
     # names (name, url, http_client) and that the tool list exposes knowledge_base_retrieve to the model.
     http_client = httpx.AsyncClient(auth=EntraBearerAuth(credential), timeout=60)
     log(f"knowledge: MCP {KB_MCP_URL.split('?')[0]}")
-    return MCPStreamableHTTPTool(name="healthcare-marketplace-kb", url=KB_MCP_URL, http_client=http_client)
+    return MCPStreamableHTTPTool(
+        name="healthcare-marketplace-kb", url=KB_MCP_URL, http_client=http_client
+    )
 
 
 # %% Message store: history outside the container (Agent 2 owns common/message_store.py; Lab 2 imports it)
 try:
     from common import message_store as _message_store  # noqa: E402
-except ImportError:                              # module not written yet, or not vendored: in-memory only
+except ImportError:  # module not written yet, or not vendored: in-memory only
     _message_store = None
 
 
 def build_message_store():
     """Build the configured Azure Blob/Azurite or file history provider."""
     if _message_store is None:
-        log("WARNING common.message_store not found: history stays in memory and dies with the process")
+        log(
+            "WARNING common.message_store not found: history stays in memory and dies with the process"
+        )
         return None
     store = _message_store.get_message_store(MESSAGE_STORE_DIR)
     log(f"history: {_message_store.describe(store)}")
@@ -230,13 +282,13 @@ def configure_tracing() -> bool:
     try:
         from azure.monitor.opentelemetry import configure_azure_monitor
 
-        configure_azure_monitor(connection_string=connection)
+        configure_azure_monitor(connection_string=connection, credential=DefaultAzureCredential())
         # VERIFY against https://learn.microsoft.com/agent-framework/user-guide/observability before delivery.
         from agent_framework.observability import configure_otel_providers
 
         configure_otel_providers()
         return True
-    except Exception as exc:                     # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
         log(f"tracing setup failed ({type(exc).__name__}); running without traces")
         return False
 
@@ -244,8 +296,12 @@ def configure_tracing() -> bool:
 # %% The agent
 def build_agent() -> Agent:
     if not ENDPOINT:
-        sys.exit("[hosted] FOUNDRY_PROJECT_ENDPOINT is not set (locally: .env at the repo root; hosted: set by azd)")
-    credential = DefaultAzureCredential()        # az login locally; Foundry hosted agent identity when deployed
+        sys.exit(
+            "[hosted] FOUNDRY_PROJECT_ENDPOINT is not set (locally: .env at the repo root; hosted: set by azd)"
+        )
+    credential = (
+        DefaultAzureCredential()
+    )  # az login locally; Foundry hosted agent identity when deployed
     client = FoundryChatClient(
         project_endpoint=ENDPOINT,
         model=MODEL,
@@ -259,10 +315,18 @@ def build_agent() -> Agent:
     store = build_message_store()
     # store=False: the model service keeps no transcript; history is ours (Blob or files) and travels
     # with the session id, so any replica or a restarted container can continue the conversation.
-    agent = Agent(client=client, name=AGENT_NAME, instructions=INSTRUCTIONS, tools=tools,
-                  default_options={"store": False}, **agent_kwargs_for_store(store))
-    log(f"agent {AGENT_NAME} v2: model={MODEL} tools={len(tools)} knowledge={'on' if kb else 'off'} "
-        f"sessions={session_store.describe(SESSIONS)} started={datetime.now(timezone.utc).isoformat(timespec='seconds')}")
+    agent = Agent(
+        client=client,
+        name=AGENT_NAME,
+        instructions=INSTRUCTIONS,
+        tools=tools,
+        default_options={"store": False},
+        **agent_kwargs_for_store(store),
+    )
+    log(
+        f"agent {AGENT_NAME} v2: model={MODEL} tools={len(tools)} knowledge={'on' if kb else 'off'} "
+        f"sessions={session_store.describe(SESSIONS)} started={datetime.now(timezone.utc).isoformat(timespec='seconds')}"
+    )
     return agent
 
 
@@ -280,22 +344,32 @@ def build_agent() -> Agent:
 
 def claim_status_tool_acceptance_gate() -> None:
     """Run after the learner adds get_claim_status; deterministic and Azure-free."""
-    registered = {getattr(item, "name", getattr(item, "__name__", "")) for item in FUNCTION_TOOLS}
-    assert "get_claim_status" in registered, "Add get_claim_status to FUNCTION_TOOLS before running this gate."
+    registered = {
+        getattr(item, "name", getattr(item, "__name__", "")) for item in FUNCTION_TOOLS
+    }
+    assert (
+        "get_claim_status" in registered
+    ), "Add get_claim_status to FUNCTION_TOOLS before running this gate."
     claim = marketplace_data.get_claim_status("CLM-9003")
-    assert str(claim.get("status", "")).lower() == "denied", "CLM-9003 must be the denied-claim fixture."
-    assert claim.get("denial_reason"), "The claim tool must return the human-readable denial reason."
+    assert (
+        str(claim.get("status", "")).lower() == "denied"
+    ), "CLM-9003 must be the denied-claim fixture."
+    assert claim.get(
+        "denial_reason"
+    ), "The claim tool must return the human-readable denial reason."
 
 
 if os.environ.get("RUN_LAB2_CLAIM_TOOL_GATE") == "1":
     claim_status_tool_acceptance_gate()
 
 if __name__ == "__main__":
-    log(f"tracing: {'on' if configure_tracing() else 'off (no APPLICATIONINSIGHTS_CONNECTION_STRING)'}")
+    log(
+        f"tracing: {'on' if configure_tracing() else 'off (no APPLICATIONINSIGHTS_CONNECTION_STRING)'}"
+    )
     server = ResponsesHostServer(build_agent())
     port = int(os.environ.get("MARKETPLACE_HOSTED_PORT", "8088"))
     if port != 8088:
         # VERIFY against https://learn.microsoft.com/azure/foundry/agents/how-to/hosted-agents before delivery: run(port=...)
         server.run(port=port)
     else:
-        server.run()                             # POST /responses on http://localhost:8088; Foundry sets the port when hosted
+        server.run()  # POST /responses on http://localhost:8088; Foundry sets the port when hosted

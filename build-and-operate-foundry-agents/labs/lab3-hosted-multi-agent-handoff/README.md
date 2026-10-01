@@ -57,14 +57,14 @@ writes process output to `labs/artifacts/lab3/hosted_local.log`, and stops the c
 
 | Feature | Foundry / SDK object | Where in the code | Why it matters for Healthcare Marketplace |
 |---|---|---|---|
-| Explicit workflow graph | `WorkflowBuilder(start_executor=...).add_edge(a, b).build()` | `hosted/marketplace_workflow.py` `build_workflow()` | The triage path is a reviewed graph, not a prompt; edges are auditable |
+| Explicit workflow graph | `WorkflowBuilder(start_executor=..., output_from=[coordinator], intermediate_output_from="all_other").add_edge(a, b).build()` | `hosted/marketplace_workflow.py` `build_workflow()` | The triage path is a reviewed graph; only the coordinator emits the final packet, while specialist updates remain intermediate |
 | Custom executors | `Executor`, `@handler async def h(self, msg: T, ctx: WorkflowContext[Out])` | `IntakeExecutor`, `SpecialistMerge`, `ComplianceGate`, `AdvisorCoordinator` | Intake, merge, gate and coordinator are plain Python you can unit test |
 | Fan-out / fan-in | `ctx.send_message(..., target_id=...)` + a counting merge | `IntakeExecutor.start`, `SpecialistMerge.collect` | Marketplace and Accounts answer in parallel for "both LOB" participants |
 | Agents as workflow nodes | `AgentExecutor(agent, id=...)`, `AgentExecutorRequest/Response` | `build_workflow()` | Specialists are ordinary `Agent`s reused from any lab |
 | Structured outputs | `Agent(..., default_options={"response_format": ReviewVerdict / HandoffPacket})` | `hosted/marketplace_specialists.py` builders, `parse_structured()` | The advisor gets a schema-checked packet, not prose |
 | Reflection with a bound | `ComplianceGate.decide` (revise once, then flag) + `guardrails.contains_recommendation` | `hosted/marketplace_workflow.py` | A bad prompt cannot loop forever; unresolved drafts are flagged for the human |
 | Human in the loop | `ctx.request_info(request_data=..., response_type=str)`, `@response_handler`, `workflow.run(responses={...})` | `AdvisorCoordinator`, `start_case()`, `resume_case()` | Only a licensed advisor closes a case |
-| HITL across HTTP turns | Agent middleware `triage_router(context, call_next)` sets `context.result` | `hosted/main.py` `triage_router`, `TriageService.start/decide` | A web chat has no `input()`; the decision is simply the next turn |
+| HITL across HTTP turns | `@agent_middleware` router sets `context.result` | `hosted/main.py` `triage_router`, `TriageService.start/decide` | A web chat has no `input()`; the decision is simply the next turn |
 | Pending state | `common.session_store` (`SessionRecord.notes["packet"]`), file-backed under `artifacts/lab3/sessions/` | `TriageService.store_pending/store_final/decide` | A local process restart can resume from the packet (`resume_path=session_store`); files do not provide cross-replica or version-roll continuity |
 | Knowledge for specialists | local `search_knowledge` over `data/knowledge`, or `MCPStreamableHTTPTool` to Lab 2's KB when `MARKETPLACE_KB_MCP_URL` | `hosted/marketplace_specialists.py` `knowledge_tool()` | Same container, two knowledge backends; citations either way |
 
@@ -127,6 +127,9 @@ Enable `build_workflow(..., checkpoint_dir=...)` (VERIFY tag in `marketplace_wor
 | Symptom | Cause | Fix |
 |---|---|---|
 | `Missing artifact artifacts/lab2/hosted.json` | Lab 2 not run | `python catch_up.py --through 2`, or add `--standalone` (local knowledge search) |
+| Step 3.8 exits at startup with `Response handler parameter 'ctx' must be annotated as WorkflowContext` | Agent Framework 1.9.0 reads string annotations from `from __future__ import annotations` without resolving them | Keep that future import out of `hosted/marketplace_workflow.py`; its handler annotations must resolve to runtime types. Rerun Step 3.8 after updating the source; no dependency upgrade is required |
+| A case or revision fails with `Message.__init__() got an unexpected keyword argument 'text'` | The pinned SDK accepts message text in `contents`, not a `text` constructor argument | Use `Message("user", contents=[text])` for workflow requests and the same `contents` pattern for assistant replies |
+| Step 3.8 returns `TypeError: 'AgentResponseUpdate' object is not subscriptable` | Specialist streaming updates were designated as final workflow outputs and mistaken for the handoff packet | Set `output_from=[coordinator]` and `intermediate_output_from="all_other"` in `build_workflow`; rerun Step 3.8 after updating the source |
 | Reply `status: no_pending_case` on an advisor turn | Session id in the decision does not match the envelope's, or the case was already closed | Reuse the exact `session_id`; one case per session id; start a new session for a new case |
 | Reply `status: error` with `AgentExecutorResponse` or `executor_id` in the text | Framework build differs from the VERIFY notes in `marketplace_workflow.py` | Check the two VERIFY tags (`executor_id`, `AgentExecutor(agent, id=)`) against the installed version |
 | Turn takes 60-120 s | Two specialists, a reviewer and the packet writer run per case | Expected; the driver uses a 600 s timeout. Watch the log for progress |
@@ -160,6 +163,10 @@ python ./test_local.py --offline
 The offline suite checks all three classifier outcomes, the documented ambiguous keyword result, decision
 parsing/finalization, structured reviewer output, packet fields, citations, recommendation detection, PII
 redaction and profile minimization. The local/deployed smoke path runs S3 through pending, revise and approve.
+The workshop regression suite also checks hosted entry-point imports, agent construction and middleware replies, and runs the coordinator's
+pending, revise, approve and decline paths through a real workflow with an offline packet writer.
+It also runs the complete streaming specialist graph through the file-backed service, including compliance
+reflection and advisor revision, and verifies that only the final packet is emitted as `output`.
 
 ## References
 - Learn: [Orchestrate a multi-agent solution using the Microsoft Agent Framework](https://learn.microsoft.com/en-us/training/paths/develop-ai-agents-azure/) (module 8), [Build agent-driven workflows using Microsoft Foundry](https://learn.microsoft.com/en-us/training/paths/develop-ai-agents-azure/) (module 6)
