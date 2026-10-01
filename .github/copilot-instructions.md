@@ -1,5 +1,19 @@
 # Copilot Instructions for Agentic AI Immersion Day
 
+## Repository Index: Startup and Change Maintenance
+
+- At the start of every session working in this repository, load the
+  [repo-index skill](skills/repo-index/SKILL.md) and read [repo-index.md](repo-index.md)
+  before exploring files or making changes.
+- Navigate from the index first. If it is missing or stale, refresh it using the
+  skill. Search text only when the index cannot locate the target, then improve
+  the index with useful navigation information.
+- After adding, deleting, or renaming files, or changing architecture, boundaries,
+  entry points, ownership, major dependencies, workflows, or conventions, refresh
+  the affected index entries before completing the task. Keep the index compact,
+  preserve useful notes, and record the baseline commit and pending structural
+  changes considered. Do not rewrite it for minor edits that leave it accurate.
+
 ## Project Overview
 
 This is a hands-on workshop repository for building AI agents with Microsoft Azure AI Foundry. It covers Azure AI Agents SDK, Microsoft Agent Framework, observability, evaluations, and hosted agents.
@@ -17,6 +31,7 @@ agent-framework/            # Microsoft Agent Framework notebooks
   skills/                   #   Agent Skills (file-based, code-defined, FSI scenarios)
   observability/             #   Tracing with Foundry & OpenTelemetry
 observability-and-evaluations/  # Telemetry, agent evaluation, red-team testing
+build-and-operate-foundry-agents/ # Cumulative Healthcare Marketplace lab track
 byouc/                      # Bring Your Own Use Case templates
 ```
 
@@ -152,6 +167,7 @@ Skills are domain-specific knowledge packages. Each has a `SKILL.md` with YAML f
 |-------|---------|---------|
 | `cloud-solution-architect` | Azure architecture design, WAF reviews, design patterns, technology choices | Architecture decisions |
 | `mcp-builder` | Building MCP servers | `azure-ai-agents/7-mcp-tools.ipynb` |
+| [repo-index](skills/repo-index/SKILL.md) | Repository navigation at startup and index maintenance after structural changes | [repo-index.md](repo-index.md) |
 | `skill-creator` | Creating new custom skills | Extending the repo |
 
 ### Skill Selection
@@ -316,3 +332,13 @@ These principles are working if you see:
 - Clarifying questions come before implementation (not after mistakes)
 - Clean, minimal PRs without drive-by refactoring
 - Tests that document expected behavior
+
+
+### Build and Operate workshop
+
+The learner path is the repository Python 3.14 dev container with Bash instructions.
+Keep lab logic in Python; retain PowerShell
+only for shared permission setup. Edit the adjacent cell scripts and regenerate notebooks.
+Use the root requirements lock; hosted subsets must match its pins. Never import local `.env`,
+`.azure`, caches, vendored package output or executed notebook output. Validate offline with
+`python build-and-operate-foundry-agents/tools/validate_workshop.py`.

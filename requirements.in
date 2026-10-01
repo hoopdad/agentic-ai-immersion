@@ -23,6 +23,7 @@ azure-ai-agents>=1.1.0
 azure-ai-evaluation>=1.16.7
 azure-identity>=1.25.3
 azure-core>=1.38.0
+azure-storage-blob>=12.30.0
 
 # =============================================================================
 # Azure AI Search SDK (For Foundry IQ Knowledge Base)
@@ -48,6 +49,14 @@ requests>=2.31.0
 # =============================================================================
 jupyter>=1.0.0
 ipykernel>=6.29.0
+# These notebook integrations are Windows-only; preserve the markers in the shared lock.
+pywin32==312; sys_platform == "win32"
+pywinpty==3.0.5; sys_platform == "win32"
+
+# =============================================================================
+# Linting (build-and-operate-foundry-agents/ CI: labs/lab4-operate-hosted-agents/.github/workflows/agent-ci.yml)
+# =============================================================================
+ruff>=0.16.0
 
 # =============================================================================
 # Microsoft Agent Framework (PINNED — pre-release, breaks often; keep hosted in sync)

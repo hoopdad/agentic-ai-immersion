@@ -86,3 +86,11 @@ This workshop features **57 real-world FSI use cases** across all notebooks, dem
 | **Middleware** | Audit trails, compliance screening, filtering | 9 |
 | **Evaluation** | Agent quality, tool accuracy, security | 5 |
 | **Foundry IQ** | Agentic retrieval with knowledge bases | 2 |
+
+
+## End-to-end use-case workshop
+
+[Build and Operate Foundry Agents](build-and-operate-foundry-agents/README.md) follows one
+Healthcare Marketplace Concierge scenario through hosted-agent basics, knowledge and durable
+sessions, multi-agent handoff, evaluations and operations. Four core labs and two stretch labs
+form one cumulative learning track rather than additional independent capability notebooks.

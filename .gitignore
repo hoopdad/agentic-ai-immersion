@@ -133,7 +133,8 @@ ENV/
 # =============================================================================
 # 💻 IDE AND EDITORS
 # =============================================================================
-.vscode/
+.vscode/*
+!/.vscode/settings.json
 .idea/
 *.swp
 *.swo
@@ -290,9 +291,8 @@ run_one_nb.py
 # Squad GitHub Actions automation (heartbeat, triage, issue/label sync)
 .github/workflows/*squad*
 .github/workflows/sync-squad-labels.yml
-# Squad state MCP server config + append-only merge rules (root only)
+# Squad state MCP server config (root only)
 /.mcp.json
-/.gitattributes
 
 # Python test cache
 .pytest_cache/
@@ -303,3 +303,17 @@ run_one_nb.py
 .squad/.cache/
 # Squad: SubSquad activation file (local to this machine)
 .squad-workstream
+
+# Cumulative workshop runtime state and regenerated hosted packages.
+build-and-operate-foundry-agents/labs/artifacts/*
+!build-and-operate-foundry-agents/labs/artifacts/README.md
+build-and-operate-foundry-agents/labs/**/hosted*/common/
+build-and-operate-foundry-agents/labs/**/hosted*/data/
+build-and-operate-foundry-agents/labs/**/hosted*/skills/
+build-and-operate-foundry-agents/labs/**/hosted*/.vendored
+build-and-operate-foundry-agents/labs/**/hosted*/.vendored.json
+build-and-operate-foundry-agents/labs/**/hosted*/azure.yaml
+build-and-operate-foundry-agents/labs/**/hosted*/agent.yaml
+build-and-operate-foundry-agents/labs/**/hosted*/agent.manifest.yaml
+build-and-operate-foundry-agents/**/.env*
+!build-and-operate-foundry-agents/**/.env*.example

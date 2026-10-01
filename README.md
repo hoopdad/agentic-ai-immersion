@@ -95,6 +95,12 @@ agentic-ai-immersion-day/
 │   ├── infra/                                  # Bicep + per-environment params
 │   └── tests/                                  # unit / integration / smoke
 │
+├── 🏥 build-and-operate-foundry-agents/              # Healthcare Marketplace Concierge: end-to-end workshop (individual health insurance marketplace)
+│   ├── common/                                 # marketplace_data, foundry_env, guardrails, session_store, message_store
+│   ├── data/                                   # synthetic participants, sponsors, plans, knowledge, golden questions
+│   ├── tools/py_to_ipynb.py                    # script -> notebook converter
+│   └── labs/                                   # lab1-hosted-agent-basics ... stretch6-invocations-toolbox-skills
+│
 ├── 🧩 byouc/                                   # Bring Your Own Use Case
 │   ├── Agentic_UseCase_Spec.md                # Use case spec template (Markdown)
 │   └── Agentic_UseCase_Spec.docx              # Use case spec template (Word)
@@ -144,8 +150,10 @@ For a consistent, pre-configured environment with all dependencies:
    - Azure CLI and Azure Developer CLI (azd)
    - Jupyter notebooks support
    - GitHub Copilot extensions
+   - Bash, PowerShell 7 for shared setup, and a Redis companion service
+   - Local hosted-agent port 8088 forwarding
 
-> 💡 **Tip:** Your Azure credentials are automatically mounted from your local machine.
+> 💡 **Tip:** Sign in inside the dev container with `az login --use-device-code --tenant <tenant-id>`. Host credentials are not mounted.
 
 ### Option B: Local Setup
 
@@ -467,6 +475,19 @@ python -m pytest tests/unit tests/integration -q
 ```
 
 📖 [Architecture + pipeline guide](AgentOps/README.md)
+
+### 🏥 Phase 6: Build and Operate Foundry Agents (individual health insurance marketplace)
+**Location:** `build-and-operate-foundry-agents/`
+
+A one-day, pro-code lab sequence for engineers building benefits-marketplace agents on **Microsoft Foundry Hosted Agents**:
+Agent Framework code that Foundry builds into a container, versions and scales. Four core labs chain
+artifacts (Lab 1 basics -> Lab 2 knowledge + sessions -> Lab 3 multi-agent handoff with human approval ->
+Lab 4 operate/evaluate/CI) around one use case, the Healthcare Marketplace Concierge, plus two stretch
+labs (prompt agents & workflow agents; Invocations protocol, Toolbox and Skills). Reuses this repo's dev
+container, `.env` names, pinned requirements and RBAC script; extends the `hosted-agents/` and `AgentOps/`
+patterns. Synthetic data only.
+
+📖 [Lab sequence guide](build-and-operate-foundry-agents/README.md) • [Use case](build-and-operate-foundry-agents/USE-CASE.md) • [Setup](build-and-operate-foundry-agents/SETUP.md)
 
 ---
 

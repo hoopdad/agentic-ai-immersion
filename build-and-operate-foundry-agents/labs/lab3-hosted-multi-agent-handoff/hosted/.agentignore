@@ -1,0 +1,45 @@
+# Files excluded from agent code deployment packaging.
+# Uses .gitignore syntax. Keep vendored common/ and data/ in the package.
+
+# azd tooling files
+agent.yaml
+agent.manifest.yaml
+azure.yaml
+connection.yaml
+connection.yml
+toolbox.yaml
+toolbox.yml
+.agentignore
+appPackage.zip
+.appPackage.zip.azd-generated
+TEAMS_APP_SETUP.md
+
+# Security / local state
+.env
+.env.*
+.azure/
+.git/
+
+# Python
+__pycache__/
+.venv/
+venv/
+*.pyc
+*.pyo
+.mypy_cache/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Node and .NET
+node_modules/
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# Source deployment does not use Docker or learner tooling.
+Dockerfile
+.dockerignore
+test_local.py
+prepare.py

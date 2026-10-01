@@ -1,0 +1,41 @@
+services:
+  workshop:
+    image: mcr.microsoft.com/devcontainers/python:3.14
+    command: sleep infinity
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - ..:/workspaces/agentic-ai-immersion:cached
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - workshop-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:3.37.0
+    command:
+      - azurite-blob
+      - --blobHost
+      - 0.0.0.0
+      - --blobPort
+      - "10000"
+      - --location
+      - /data
+      - --disableProductStyleUrl
+    volumes:
+      - workshop-azurite:/data
+
+volumes:
+  workshop-redis:
+  workshop-azurite:

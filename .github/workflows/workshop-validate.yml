@@ -1,0 +1,37 @@
+name: Build and Operate - offline validation
+
+on:
+  pull_request:
+    paths:
+      - "build-and-operate-foundry-agents/**"
+      - ".devcontainer/**"
+      - "requirements*.txt"
+      - "requirements.in"
+      - ".github/workflows/workshop-validate.yml"
+  push:
+    branches: [main]
+    paths:
+      - "build-and-operate-foundry-agents/**"
+      - ".devcontainer/**"
+      - "requirements*.txt"
+      - "requirements.in"
+      - ".github/workflows/workshop-validate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - run: python -m pip check
+      - run: docker compose -f .devcontainer/compose.yaml config --quiet
+      - run: bash -n .devcontainer/bootstrap.sh
+      - run: python build-and-operate-foundry-agents/tools/validate_workshop.py
