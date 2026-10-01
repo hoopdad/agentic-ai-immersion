@@ -27,6 +27,9 @@
 - Deployment: each lab's `hosted*/main.py` and minimal pinned requirements; `prepare.py` vendors shared files. Generated packages, credentials and runtime artifacts are not source.
 - Shell integration: `labs/deployment.py`; Bash is the learner shell, Python holds deployment validation/logic.
 - Notebooks: edit the adjacent `# %%` Python driver and regenerate with `tools/py_to_ipynb.py`; preserve exercise gates.
+- Lab teaching alignment: `labs/README.md`, each lab README, and Markdown cells in the six adjacent Python
+  drivers connect outcomes to engineering decisions, acceptance evidence, ownership, and measurement limits.
+  Generated notebooks mirror that wording; runtime instructions and executable cells remain unchanged.
 - Offline checks: the workshop's `tools/validate_workshop.py` and `tests/`, plus `.github/workflows/workshop-validate.yml`. Validation checks notebook cells, dependency pins, self-tests, regression tests and all five hosted packages in a temporary copy.
 - Cloud pipeline: Lab 4's nested workflow is an opt-in template, not an active deployment workflow.
 - Shared RBAC setup: `scripts/setup-permissions.ps1` (PowerShell 7 in the dev container).
@@ -64,3 +67,7 @@ streaming AgentExecutor graph). Lab 3 designates only the advisor coordinator as
 specialist streaming updates are intermediate outputs.
 Baseline for this addition: `e34129302cdfbff4ed1a41defa5c9b930641a5da`; pending structural change considered:
 the new Lab 3 regression test file.
+Baseline for the lab-alignment documentation pass: `1d7fdc56a41928596ff64b6d2d7efb66a3c89331`.
+Pending changes considered: the lab overview, core and stretch READMEs, artifact and infrastructure guidance,
+six Python Markdown-cell sources, and their regenerated walkthrough notebooks. No runtime architecture,
+dependencies, executable cells, deployment workflow, storage implementation, or artifact contract changed.

@@ -35,7 +35,7 @@ The driver exits nonzero and does not save `handoff_packets/S1.json` when the wo
 - Create versioned prompt agents server-side with `PromptAgentDefinition`, `FunctionTool` schemas from `marketplace_data.TOOL_SCHEMAS`, and the knowledge base as an `MCPTool` through the project connection.
 - Run the client-side function-call loop once and explain why a workflow cannot run client tools (facts are pre-fetched into the case).
 - Deploy a declarative multi-agent workflow (`WorkflowAgentDefinition`, YAML, preview) and read its `workflow_action` stream.
-- Decide, per agent, when a platform-managed prompt agent fits (business-owned instructions, portal governance, no deployment) and when hosted code fits (custom Python, session state, your own dependencies).
+- Decide, per agent, when a platform-managed prompt agent fits (business-owned instructions, portal governance, no container deployment) and when hosted code fits (custom Python, session state, your own dependencies). This is an ownership and lifecycle choice, not a maturity ladder or evidence that one option is cheaper.
 - Connect the two: one `@tool` on the hosted agent that calls the workflow agent with `agent_reference`.
 
 ## Technical features taught
@@ -52,9 +52,9 @@ The driver exits nonzero and does not save `handoff_packets/S1.json` when the wo
 
 ## Teach (10 min)
 - Two kinds of agents in one project. A **prompt agent** is data: model, instructions, tools; Foundry runs it, versions it, shows it in the portal. A **hosted agent** is code: your container, your dependencies, your session store. Both are invoked the same way (`agent_reference`), both are eval targets, both show traces.
-- When a prompt agent fits: the behaviour is owned by the business (compliance reviewer wording, handoff packet fields), changes must be auditable without a deployment, and the tools are server-side (knowledge base over MCP) or simple. When hosted fits: custom Python around the model (session store, redaction middleware, in-process workflows), libraries the platform does not ship, or protocols like Invocations (Stretch 6).
+- When a prompt agent fits: the behaviour is owned by the business (compliance reviewer wording, handoff packet fields), changes must be auditable without redeploying a container, and the tools are server-side (knowledge base over MCP) or simple. When hosted fits: custom Python around the model (session store, redaction middleware, in-process workflows), libraries the platform does not ship, or protocols like Invocations (Stretch 6).
 - Workflows on the platform cannot answer a client-side `function_call`: nobody is there to run your Python. So the caller pre-fetches the facts from systems of record into a `TRIAGE CASE` header and the specialists work from that plus the knowledge base. The hosted agent is the natural caller: it already has the tools and the session.
-- The YAML: `OnConversationStart`, `InvokeAzureAgent` per step, `ConditionGroup` on the triage route, `EndConversation`. Every `InvokeAzureAgent` names an agent that already exists; the workflow is one more versioned agent.
+- The YAML: `OnConversationStart`, `InvokeAzureAgent` per step, `ConditionGroup` on the triage route, `EndConversation`. Every `InvokeAzureAgent` names an agent that already exists; the workflow is one more versioned agent. The declarative definition makes routing and ownership inspectable and reusable; it does not by itself establish lower reasoning cost or correct task execution.
 - Governance argument for the organization: compliance-reviewer and advisor-handoff instructions are regulated text. Keep them where compliance can read and change them (portal), not in a container image.
 - Preview means: keep the YAML small, verify the Power Fx helpers against the docs before the day.
 
@@ -73,7 +73,7 @@ The driver exits nonzero and does not save `handoff_packets/S1.json` when the wo
 1. `python stretch5_prompt_agents.py --concierge-turn`. Point at six `created prompt agent ... vN` lines and `created workflow agent healthcare-marketplace-triage-workflow`.
 2. The concierge turn: `tool get_participant(...)`, `tool get_enrollment_window(...)` printed by the client loop, then the answer. Say: "the platform asked us to run Python; a workflow cannot do that."
 3. S1: `workflow_action` lines in order (triage, marketplace, compliance, handoff), messages, `saved artifacts/stretch5/handoff_packets/S1.json (lob=marketplace, flags=0)`. Any workflow, ordering, packet, or safety failure exits nonzero.
-4. Portal: Agents > healthcare-marketplace-triage-workflow shows the graph; open the conversation to see the actions. Agents > compliance-reviewer > edit instructions in the portal: a new version, no deployment.
+4. Portal: Agents > healthcare-marketplace-triage-workflow shows the graph; open the conversation to see the actions. Agents > compliance-reviewer > edit instructions in the portal: a new definition version, no container redeployment.
 5. Open `hosted_tool_snippet.py`: one function, one Responses call, `agent_reference`. That is the whole integration.
 
 ## Do (35 min)
@@ -86,7 +86,7 @@ The driver exits nonzero and does not save `handoff_packets/S1.json` when the wo
 7. Optional (5 min): `python hosted_tool_snippet.py --call` runs the tool from the workstation against the workflow, no container needed.
 
 ## Checkpoint (5 min)
-Paste the `workflow_action` trail for S1 and the `lob=` line. `artifacts/stretch5/agents.json` must exist for the hosted tool to find the workflow name.
+Paste the `workflow_action` trail for S1 and the `lob=` line. The action trail records execution; the route and packet checks determine whether that execution met the intended outcome. `artifacts/stretch5/agents.json` must exist for the hosted tool to find the workflow name.
 
 ## Offline validation
 

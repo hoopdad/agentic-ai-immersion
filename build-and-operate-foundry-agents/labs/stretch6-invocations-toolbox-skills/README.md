@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| Goal | Host a deterministic denied-claims reviewer on Invocations, then add bundled Skills and an optional Foundry Toolbox to a Responses agent. |
+| Goal | Host an Invocations reviewer with deterministic denied-claim facts and a bounded model-authored explanation, then add reusable bundled Skills and an optional Foundry Toolbox to a Responses agent. |
 | Time | 45-60 min; complete Invocations first |
 | Produces | `artifacts/stretch6/invocations.json`, `artifacts/stretch6/claim_reviews/CLM-*.json`, `artifacts/stretch6/skills_transcript.md` |
 | Cloud required | No for `--offline`; yes for model-backed local demos and deployment |
@@ -59,8 +59,9 @@ python ./stretch6-invocations-toolbox-skills/hosted-invocations/test_local.py --
 ```
 
 The smoke test fails unless every deterministic field matches `claims_review.py` exactly, CLM-9003 carries the
-complete KB-ACC-001 accepted-document list, and safety checks pass. It returns a nonzero exit code on malformed or
-empty response envelopes.
+complete KB-ACC-001 accepted-document list, and safety checks pass. This is acceptance of the review's fact
+contract, not authorization to pay, resubmit a claim, or make a coverage decision. It returns a nonzero exit code
+on malformed or empty response envelopes.
 
 For the model-backed local Invocations demo, configure the workshop `.env`, omit `--offline`, and inspect
 `artifacts/stretch6/hosted-invocations_local.log`. The driver always stops its child server.
@@ -96,11 +97,16 @@ cd ./labs
 python ./stretch6-invocations-toolbox-skills/stretch6_invocations.py --skills-demo
 ```
 
-The startup log lists bundled skill names. `read_skill` logs the selected skill and governed source document.
+The startup log lists bundled skill names. `read_skill` logs the selected skill and governed source document. The
+versioned procedure is reusable intelligence; progressive disclosure exposes its index first and loads the
+relevant body when needed. This runtime Agent Skill is distinct from the human skill of specifying and reviewing
+agent work.
 
 ## YOUR TURN: a second skill
 
-Create `skills/debit-card-faq/SKILL.md` from `data/knowledge/debit-card-faq.md`. Set frontmatter
+Create `skills/debit-card-faq/SKILL.md` from `data/knowledge/debit-card-faq.md`. Review the source and its review
+date as part of authoring; source/version metadata describes provenance, but does not automatically refresh the
+skill or prove that its rules remain current. Set frontmatter
 `name: debit-card-faq` and `source_doc: KB-ACC-002`; include declined, blocked, and lost-card procedures plus the
 full-card-number safety rule. Run the notebook gate below the heading.
 
@@ -117,7 +123,8 @@ The Skills agent runs without Toolbox when both settings are absent. To enable i
 `TOOLBOX_SCOPE` defaults to `https://ai.azure.com/.default`. Partial configuration fails at startup. Token
 acquisition failures explicitly identify local `az login` or hosted managed-identity/RBAC as the next check;
 401/403 responses remain errors rather than silently disabling Toolbox. Only public information may go to
-`web_search`; participant data never may.
+`web_search`; never send participant data to it. This is a tool and data-exposure boundary stated in the sample's
+instructions, not a demonstration of complete runtime egress enforcement or production compliance.
 
 ## Print deployment commands
 

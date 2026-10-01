@@ -1,7 +1,7 @@
 # %% [markdown]
 # # Stretch 5: Prompt agents and a declarative workflow (platform-managed), called from the hosted agent
 #
-# **An optional platform-managed alternative to the code-hosted workflow.**
+# **An optional platform-managed alternative to the code-hosted workflow: choose ownership and lifecycle boundaries, then validate the same intended outcome.**
 #
 # |  | Details |
 # | --- | --- |
@@ -487,7 +487,8 @@ if "__file__" not in globals():
 #
 # Run the next cell. It creates a temporary triage version that always routes to accounts, runs S1, verifies that
 # the wrong branch ran and left marketplace questions open, then restores the canonical triage instructions in
-# `finally`. Every temporary conversation is deleted by `run_case`.
+# `finally`. Every temporary conversation is deleted by `run_case`. A completed workflow on the wrong branch is a
+# failed business outcome, even when its output is well formed.
 # %% Step S5.8 - Test a broken router
 if "__file__" not in globals():
     _project = foundry_env.get_project_client()

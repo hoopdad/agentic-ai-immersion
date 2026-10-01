@@ -1,7 +1,7 @@
 # %% [markdown]
 # # Lab 1: Hosted agent basics
 #
-# **The Healthcare Marketplace concierge as a Foundry Hosted Agent (Responses protocol).**
+# **The Healthcare Marketplace concierge as a Foundry Hosted Agent (Responses protocol): written intent, bounded tools, and human decision ownership.**
 #
 # |  | Details |
 # | --- | --- |
@@ -296,7 +296,8 @@ def record_deployment(version: str, status: str = "active") -> dict:
 # %% [markdown]
 # ## YOUR TURN (5 min): add a `get_sponsor` tool
 #
-# 1. Open `hosted/main.py`.
+# 1. State the intended outcome: use the sponsor tool to name Northwind and the $3,600 annual HRA for P-1001
+#    without inventing facts or recommending a plan. Then open `hosted/main.py`.
 # 2. Wrap `marketplace_data.get_sponsor(sponsor_id)` with `@tool`, following the three existing tool functions.
 # 3. Append the new function to `TOOLS`, then save the file.
 # 4. Run the next cell. `build()` vendors your saved code, starts a fresh local server, asks for P-1001's sponsor

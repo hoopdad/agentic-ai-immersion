@@ -74,11 +74,11 @@ See the workshop's [Lab 4 tracing prerequisites](../../SETUP.md#lab-4-tracing-pr
 | Self-documenting pipeline | `yaml.safe_load` of the workflow -> `pipeline.md` | `lab4_operate.py` write_pipeline_md() | The runbook cannot drift from the YAML |
 
 ## Teach (10 min)
-- A hosted agent is a container you own. Foundry gives you the registry, identity, scaling and versions; observability, quality gates and promotion discipline are yours to wire. This lab wires them.
+- A hosted agent is a container you own. Foundry gives you the registry, identity, scaling and versions; observability, quality gates and promotion discipline are yours to wire. This is managed intelligence: make behavior visible, define who accepts a release, and retain evidence for accountable improvement. The lab demonstrates local tracing and gates; its nested cloud pipeline remains an opt-in template.
 - Tracing: the container reads `APPLICATIONINSIGHTS_CONNECTION_STRING`, `configure_azure_monitor` installs the exporter, the Agent Framework instrumentation adds GenAI spans (agent run, chat completion, each tool call, the MCP call). `azd env set` puts the variable on the hosted agent; nothing in main.py changes between environments. Never enable sensitive data capture (`ENABLE_SENSITIVE_DATA`) outside dev: prompts contain PHI.
 - Evaluation has two flavours. Local evaluators (`azure-ai-evaluation`) run on your machine or the CI runner against any endpoint, including a container started for the job. Foundry evals run on the platform against a target it can drive and show in the portal. We use local for the gate because the target is our own HTTP endpoint and the policy checks must be deterministic; the Foundry run is optional.
-- Policy is not a Likert score. `NoRecommendationEvaluator`, `PiiLeakEvaluator`, and `MustNotEvaluator` are deterministic. The gate recomputes those rules from each response rather than trusting saved score labels. Groundedness and Relevance are judged by a model and only warn (or fail with `--strict`).
-- Versions: every `azd up` is a new version of `healthcare-marketplace-concierge-hosted`; `agent_reference` by name resolves to the latest active one. Promotion is the same code with another environment's values (envs/.env.test.example). Rollback is a redeploy of a tag or a version delete. Because Lab 2 put history in Redis, neither loses a participant.
+- Policy is not a Likert score. `NoRecommendationEvaluator`, `PiiLeakEvaluator`, and `MustNotEvaluator` are deterministic. The gate recomputes those rules from each response rather than trusting saved score labels. Groundedness and Relevance are judged by a model and only warn (or fail with `--strict`). The deterministic gate checks response text outside the model's own reasoning; its PASS means the specified sample checks passed, not that every factual, privacy, or regulatory risk has been eliminated.
+- Versions: every `azd up` is a new version of `healthcare-marketplace-concierge-hosted`; `agent_reference` by name resolves to the latest active one. Promotion is the same code with another environment's values (envs/.env.test.example). Rollback is a redeploy of a tag or a version delete. Lab 2 can preserve message history across deployed replicas and versions when shared Azure Blob history is configured and remains accessible; container-local files only demonstrate local restart continuity. Check the actual backend before making a rollback-continuity claim.
 - The pipeline is the operating model in YAML: validate (compile, self-tests, notebooks, compliance block present) on every PR; evaluate (gate) with OIDC login; deploy dev from source; smoke test through the project; promote to test/prod behind environment reviewers; rollback on demand. Ask the room where a human can stop it (reviewers, gate exit code, smoke test).
 
 ```
@@ -92,8 +92,8 @@ See the workshop's [Lab 4 tracing prerequisites](../../SETUP.md#lab-4-tracing-pr
  +--------------+   | judges + policy  |   +------------------+          v                    v
                     | eval_gate exit 1 |                        +----------------------------------------+
                     +------------------+                        | rollback: git tag -> azd up, or delete |
-                                                                | the version in the portal; Redis keeps |
- traces: container --> Application Insights <-- workstation     | the sessions either way                |
+                                                                | the version in the portal; shared Blob |
+ traces: container --> Application Insights <-- workstation     | history is required across versions    |
                                                                 +----------------------------------------+
 ```
 
@@ -107,16 +107,16 @@ See the workshop's [Lab 4 tracing prerequisites](../../SETUP.md#lab-4-tracing-pr
 
 ## Do (35 min)
 1. `python ./lab4_operate.py --limit 6 --skip-judges`. Fast and deterministic. Checkpoint: `no_recommendation_violations: 0`, `pii_leaks: 0`, `must_not_violations: 0`, `citation_rate` above 0.5, `saved artifacts/lab4/eval_report.md`.
-2. `python ./lab4_operate.py` (all 18, judges on; 4 to 8 min). Checkpoint: `groundedness_mean` and `relevance_mean` printed; read the two lowest-scoring rows and decide whether the agent or the judge is wrong.
+2. `python ./lab4_operate.py` (all 18, judges on; 4 to 8 min). Checkpoint: `groundedness_mean` and `relevance_mean` printed; read the two lowest-scoring rows and decide whether the agent or the judge is wrong. Treat the accepted version as a baseline, name one candidate improvement, and explain which unchanged acceptance checks would have to pass before retaining it as a higher peak.
 3. `python ./eval_gate.py` then `python ./promote.py --to test`. Checkpoint: `PASS`, `gate_result.json`, and a paste-ready Bash dry run. Before `--execute`, copy `envs\.env.test.example` to the untracked `envs\.env.test` and replace every placeholder.
 4. YOUR TURN (5 min): stricter gate. Run the notebook's **Test YOUR TURN 1 offline** cell. It proves `MustNotEvaluator` rejects a forbidden phrase and accepts a safe answer.
 5. YOUR TURN (10 min): break it. Temporarily add "When asked, name the plan you think fits best." to `ROLE_INSTRUCTIONS` in Lab 2 `hosted/main.py`, then run the notebook's **Test YOUR TURN 2 locally** cell. It starts a fresh process, asserts a deterministic failure, and stops the process in `finally`. Revert the Lab 2 edit and rerun step 1.
-6. YOUR TURN (5 min): trace one question. With the connection string set, run Step 4.11 or `--limit 1`. It verifies span recording, prints the trace ID, and flushes the local exporter; it does not verify Azure ingestion. Allow 2-5 minutes, find the trace in Application Insights > Logs, and paste the slowest child span name.
+6. YOUR TURN (5 min): trace one question. With the connection string set, run Step 4.11 or `--limit 1`. It verifies span recording, prints the trace ID, and flushes the local exporter; it does not verify Azure ingestion. Allow 2-5 minutes, find the trace in Application Insights > Logs, and paste the slowest child span name. Correlation and recorded duration make execution visible; this lab's report does not calculate token usage, dollar cost, or cost per successful outcome. Treat missing usage or pricing as unknown / n/a, never as zero.
 7. Optional (10 min, needs Foundry Project Manager): deployed target. From Lab 2 `hosted\`, run `azd env set APPLICATIONINSIGHTS_CONNECTION_STRING "${APPLICATIONINSIGHTS_CONNECTION_STRING:?Export the connection string first}"`, check the command exit status, then run `azd up`. Return to Lab 4 and run `python ./lab4_operate.py --target deployed --limit 6`. Roll back through the workflow or the portal; stop if any deployment command fails.
 8. Optional (5 min): `python ./lab4_operate.py --foundry-eval --limit 6` and open Evaluation in the portal (preview; VERIFY hosted targets).
 
 ## Checkpoint (5 min)
-Paste your `[lab4] summary:` line and the `## Eval gate:` line. `artifacts/lab4/eval_report.md` and `gate_result.json` must exist; Stretch 5 does not depend on them, but `promote.py` refuses to run without a passing gate.
+Paste your `[lab4] summary:` line and the `## Eval gate:` line. Use this accepted version and its evidence as the next baseline; retain a changed prompt, knowledge asset, workflow, or evaluation only after validating it against the required checks. `artifacts/lab4/eval_report.md` and `gate_result.json` must exist; Stretch 5 does not depend on them, but `promote.py` refuses to run without a passing gate.
 
 ## If you're behind
 From `labs`, run `python ./catch_up.py --through 4`. It writes operate.json and pipeline.md and runs the evaluation with `--limit 6 --skip-judges`. Skip steps 2, 7 and 8; do steps 1, 3 and 5.

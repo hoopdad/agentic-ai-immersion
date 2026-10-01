@@ -1,7 +1,7 @@
 # %% [markdown]
 # # Lab 2: Hosted knowledge and durable sessions
 #
-# **Building upon the Healthcare Marketplace concierge from Lab 1.**
+# **Building upon the Healthcare Marketplace concierge from Lab 1: reusable governed knowledge and conversation continuity, with separate evidence for each.**
 #
 # |  | Details |
 # | --- | --- |
@@ -587,7 +587,8 @@ if "__file__" not in globals() and os.environ.get("RUN_LAB2_BROKEN_STORE_GATE") 
 #
 # The gate asks for premium-claim proof with the MCP URL present and requires `[KB-ACC-001]`. It then starts a
 # fresh server without `MARKETPLACE_KB_MCP_URL`, asks again in a new conversation, and requires the answer to
-# state that the rule text is not at hand rather than inventing a citation.
+# state that the rule text is not at hand rather than inventing a citation. Both outcomes count: use available
+# governed knowledge, and make its absence explicit instead of manufacturing certainty.
 
 # %% Step 2.9 - Test grounded knowledge
 def knowledge_acceptance_gate(knowledge: dict | None = None) -> None:

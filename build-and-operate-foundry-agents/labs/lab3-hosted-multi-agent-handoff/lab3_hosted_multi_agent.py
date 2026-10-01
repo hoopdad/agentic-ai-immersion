@@ -1,7 +1,7 @@
 # %% [markdown]
 # # Lab 3: Hosted multi-agent handoff
 #
-# **A workflow inside the container, with human approval across HTTP turns.**
+# **A role-separated workflow inside the container, with bounded review and simulated advisor approval across HTTP turns.**
 #
 # |  | Details |
 # | --- | --- |
@@ -38,7 +38,8 @@
 #   the core lab.
 #
 # **Checkpoint artifact.** `labs/artifacts/lab3/handoff_packets/S1.json`, `S2.json`, `S3.json` (final packets with
-# `advisor_decision`) and `labs/artifacts/lab3/hosted.json`. Lab 4 evaluates and operates this agent.
+# `advisor_decision`) and `labs/artifacts/lab3/hosted.json`. Lab 4 evaluates and operates the Lab 2 concierge; it
+# may record this workflow agent's metadata, but does not require or evaluate these handoff packets.
 #
 # %% [markdown]
 # ## Before the first run (dev-container Bash)
@@ -728,7 +729,9 @@ if "__file__" not in globals() and RUN_LAB3_EXERCISE_GATES:
 #     The notebook shows the triage result and prints `PASS Step 3.11` only after routing and approval checks succeed.
 #
 # For this message, the keyword fallback returns `both`: "my card" matches accounts and "prescription" matches marketplace.
-# The model must identify the card-payment issue as `accounts`. Falling back keeps intake available, but does not pass this exercise's routing assertion.
+# The model must identify the card-payment issue as `accounts`. This is task routing under an acceptance criterion,
+# not model right-sizing or a token-cost comparison. Falling back keeps intake available, but does not pass this
+# exercise's routing assertion.
 
 # If you changed `.env`, restart the notebook kernel first, then run all cells above this section again.
 

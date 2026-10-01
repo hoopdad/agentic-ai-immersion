@@ -1,7 +1,7 @@
 # %% [markdown]
 # # Stretch 6: Invocations, Toolbox and Skills
 #
-# **The second hosting protocol, compared with the Responses protocol from Lab 1.**
+# **The second hosting protocol, compared with the Responses protocol from Lab 1: deterministic facts, bounded model reasoning, and reusable governed procedures.**
 #
 # |  | Details |
 # | --- | --- |

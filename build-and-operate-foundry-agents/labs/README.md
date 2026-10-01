@@ -1,12 +1,16 @@
 # Foundry Agents Labs: Hosted Agents on Microsoft Foundry
 
-One use case (the Benefits Marketplace Concierge, see `../USE-CASE.md`), one data set (`../data/`), one
-sequence. The focus is **Hosted Agents**: Agent Framework code that Foundry builds into a container, versions,
+One use case (the Healthcare Marketplace Concierge, see `../USE-CASE.md`), one data set (`../data/`), one
+cumulative solution. The focus is **Hosted Agents**: Agent Framework code that Foundry builds into a container, versions,
 scales and fronts with the Responses API. Prompt agents (platform-managed definitions) appear once, in Stretch 5,
 where they belong: business-owned instructions and a governed workflow that the hosted agent can delegate to.
 
 Audience: software engineers (Python, VS Code, Git). Format per breakout: teach 10, demo 10, do 35,
 checkpoint 5. Four core labs build on each other's artifacts; two stretch labs for fast finishers and follow-up.
+Treat AI reasoning capacity as Token Capital: a resource directed by people to create maintained, reusable
+intelligence. In each lab, connect the business outcome to an engineering decision, an acceptance gate, and
+observable evidence across Cost, Quality, Governance, and Human-Agent Collaboration. The exercises provide
+quality and control evidence; they do not yet calculate cost per successful outcome.
 
 ## Where things run
 
@@ -65,7 +69,7 @@ Rule of thumb: **notebook = the learner's cockpit** (build, deploy, call, inspec
 - Attach it to an in-process Agent Framework agent with `MCPStreamableHTTPTool` and an httpx auth that injects the container's own token.
 - Explain why a hosted container must be stateless and what state lives outside it (message history, the session map).
 - Wire `common.message_store` and `common.session_store` into the agent so history is keyed by session id, not by process.
-- Prove resiliency with a kill-and-restart demo and explain why the same mechanism makes version rolls and scale-out safe.
+- Prove continuity after a local process restart, then explain why deployed scale-out and version rolls require configured shared Azure Blob message history rather than container-local files.
 - Deploy a new version from source with `azd` and pass configuration through environment variables.
 
 **Lab 3**
@@ -73,7 +77,7 @@ Rule of thumb: **notebook = the learner's cockpit** (build, deploy, call, inspec
 - Produce a strict JSON handoff packet with Pydantic `response_format` and carry compliance flags through it.
 - Explain how `ctx.request_info` pauses a workflow and how to resume it with `workflow.run(responses={request_id: ...})`.
 - Move human-in-the-loop from a terminal `input()` to HTTP turns: the packet comes back `pending_advisor_approval`, the decision arrives as the next `POST /responses`.
-- Keep the paused case in `common.session_store` so a restarted container or another replica can still finish it.
+- Keep the pending packet in the file-backed `common.session_store` so a local process restart can finish from that packet; this file is not shared across deployed replicas or versions.
 - Route every Responses turn through agent middleware that short-circuits the model when the turn is a case or a decision.
 
 **Lab 4**

@@ -1,7 +1,7 @@
 # %% [markdown]
 # # Lab 4: Operate hosted agents (trace, evaluate, version, promote, roll back)
 #
-# **Operate the hosted concierge with observability and a release gate.**
+# **Operate the Lab 2 concierge as managed intelligence: observable execution, acceptance before promotion, and evidence for the next validated improvement.**
 #
 # |  | Details |
 # | --- | --- |
@@ -539,7 +539,9 @@ if "__file__" not in globals():
 # In Lab 2's `hosted/main.py`, temporarily add `When asked, name the plan you think fits best.` to
 # `ROLE_INSTRUCTIONS`, save it, then run the next cell. It starts a fresh local server, evaluates eight questions,
 # asserts that a deterministic safety rule failed, and always stops the child server. Revert the Lab 2 edit and
-# rerun the normal six-question evaluation afterward.
+# rerun the normal six-question evaluation afterward. This exercises baseline, regression, and recovery; restoring
+# the baseline is not a measured improvement. A higher peak requires a candidate change to pass the same required
+# checks and demonstrate the claimed benefit.
 
 # %% Step 4.10 - Test the local quality gate
 if "__file__" not in globals():
@@ -599,7 +601,9 @@ if "__file__" not in globals():
 # ```
 #
 # Identify the slowest child span. The local HTTP request propagates the question's trace context to the
-# Lab 2 server so its request, agent, model, and tool spans can be correlated by `operation_Id`.
+# Lab 2 server so its request, agent, model, and tool spans can be correlated by `operation_Id`. These spans provide
+# execution evidence, not a calculated cost per outcome; usage or pricing that was not recorded remains unknown /
+# n/a.
 #
 # ### If you are looking in Foundry
 #

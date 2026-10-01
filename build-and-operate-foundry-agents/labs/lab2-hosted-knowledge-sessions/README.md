@@ -55,13 +55,18 @@ python ./lab2-hosted-knowledge-sessions/lab2_hosted_knowledge.py
 ## What the lab proves
 
 1. `knowledge_base.py` creates two Search indexes, two knowledge sources, one Foundry IQ knowledge base, and a
-   project managed-identity connection. Both ARM and MCP authentication use Entra bearer tokens.
+   project managed-identity connection. Both ARM and MCP authentication use Entra bearer tokens. The reviewed
+   source documents are reusable intelligence: the same governed rules can serve later agents without rewriting
+   the knowledge in each prompt. Their review dates still need human maintenance; indexing does not enforce
+   freshness.
 2. `hosted/prepare.py` copies all imported `common/` and `data/` files beside `main.py`. `.agentignore` excludes
    credentials, local state, notebooks, caches, and deployment tooling without excluding the vendored app.
 3. The local demo sends a stable Responses API `conversation` ID, kills the Python process after turn 2, restarts
    it, and asserts that turn 3 remembers `atorvastatin`.
-4. Local files are a one-workstation teaching backend. They are not a deployed durability claim. Azure Blob
-   Storage can keep message history available across multiple Foundry replicas and version rolls.
+4. Local files are a one-workstation teaching backend. They are not a deployed durability claim. Conversation
+   history preserves continuity for a session; it is not automatically reviewed organizational knowledge or
+   evidence that the agent learned a reusable improvement. Azure Blob Storage can keep message history available
+   across multiple Foundry replicas and version rolls.
 5. The deployment command generator requires `PROJECT_RESOURCE_ID`, prints an absolute quoted Bash block,
    checks the command exit status after every external command, and never deploys by itself.
 
@@ -102,7 +107,8 @@ python ./test_local.py --session 'lab2-manual'
 ## Learner acceptance gates
 
 The notebook preserves each **YOUR TURN** exercise and follows it with executable guarded code that always stops
-child processes. The same gates are available from the driver:
+child processes. These acceptance gates distinguish shared-history continuity, deliberate history loss, and
+honest behavior when governed knowledge is unavailable. The same gates are available from the driver:
 
 ```bash
 # Uses the configured Azurite or Azure Blob shared-history backend
@@ -170,4 +176,6 @@ python ./test_local.py --deployed --session 'lab2-deployed-smoke'
 ## Checkpoint
 
 Share the continuity `PASS`, the two process IDs, one grounded answer with a `[KB-...]` citation, and the `deployed`
-block from `artifacts/lab2/hosted.json`. Lab 3 consumes the Lab 2 artifact shape and agent name.
+block from `artifacts/lab2/hosted.json`. Explain which state backend the continuity check exercised and which
+source rule supports the answer; a document ID alone does not establish correctness or freshness. Lab 3 consumes
+the Lab 2 artifact shape and agent name.
