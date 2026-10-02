@@ -67,6 +67,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import re
 import sys
@@ -87,6 +88,25 @@ from azure.ai.projects.models import (
     PromptAgentDefinition,
     WorkflowAgentDefinition,
 )
+
+
+def function_tool_is_registered(source: str, tool_name: str) -> bool:
+    """Return whether source registers tool_name in FUNCTION_TOOLS."""
+    tree = ast.parse(source)
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Assign, ast.AnnAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            value = node.value
+            if any(isinstance(target, ast.Name) and target.id == "FUNCTION_TOOLS" for target in targets) \
+                    and isinstance(value, (ast.List, ast.Tuple)) \
+                    and any(isinstance(item, ast.Name) and item.id == tool_name for item in value.elts):
+                return True
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) \
+                and isinstance(node.func.value, ast.Name) and node.func.value.id == "FUNCTION_TOOLS" \
+                and node.func.attr == "append" and len(node.args) == 1 \
+                and isinstance(node.args[0], ast.Name) and node.args[0].id == tool_name:
+            return True
+    return False
 
 ENV = foundry_env.load_env()
 MODEL = helpers.pick_model(ENV)
@@ -132,7 +152,10 @@ NEEDS_ADVISOR: yes | no, followed by the reason
 CASE:
 (copy the TRIAGE CASE below this line unchanged)
 Routing: marketplace = plans, premiums, formularies, networks, enrollment periods, ACA, turning 65; accounts = HRA,
-claims, denials, proof of payment, debit card, auto-reimbursement; both when the case touches both or when unsure.
+claims, denials, proof of payment, debit card, auto-reimbursement. Route from participant_message only: supporting
+facts do not create an intent. Use both only when the participant explicitly asks about both areas; never use both
+merely because account or plan facts are present. When unsure, choose the area of the participant's stated question.
+If routing_hint is present, copy it exactly into ROUTE.
 Never answer the participant yourself.
 
 """,
@@ -174,6 +197,7 @@ case_id, participant_id, lob (marketplace|accounts|both), summary (2-4 sentences
 facts_gathered [{"fact","source"}] (source = tool name, KB doc id or "participant statement"), options_discussed [str]
 (neutral, never a preference), open_questions [str], recommended_next_step_for_advisor (a process step, never a
 plan choice), compliance_flags [str] (copy from the review, [] when none), created_at (ISO 8601 UTC).
+Set lob from the triage ROUTE, not from supporting facts that the participant did not ask about.
 Never include a date of birth, SSN, Medicare number or card number. Use only facts present in the input.
 
 """,
@@ -222,7 +246,7 @@ def render_workflow() -> str:
     return text
 
 
-# %% Step S5.3 - Build prompt agents and the workflow
+# %% Step S5.3 - Define prompt-agent and workflow publishing
 def build(project=None, overrides: dict[str, str] | None = None) -> dict:
     resource_names.suffix(ENV, required=True)
     knowledge = helpers.require_artifact("lab2", "knowledge.json", through=2, caller="stretch5")
@@ -266,7 +290,7 @@ def create_prompt_version(project, name: str, instructions: str, knowledge: dict
 
 
 # %% Step S5.4 - Build the case header
-def gather_facts(participant_id: str, claim_ids: list[str] | None = None) -> dict:
+def gather_facts(participant_id: str, claim_ids: list[str] | None = None, include_accounts: bool = False) -> dict:
     participant = dict(marketplace_data.get_participant(participant_id))
     for hidden in ("dob", "contact_preference"):
         participant.pop(hidden, None)
@@ -282,18 +306,24 @@ def gather_facts(participant_id: str, claim_ids: list[str] | None = None) -> dic
         ids.insert(0, participant["current_plan_id"])
     keep = ["plan_id", "carrier", "plan_name", "plan_type", "premium_monthly", "deductible_annual", "max_out_of_pocket",
             "star_rating", "network_type", "drug_coverage", "formulary_tier_examples"]
-    return {"participant": participant, "sponsor": marketplace_data.get_sponsor(participant.get("sponsor_id", "")),
-            "enrollment_window": marketplace_data.get_enrollment_window(participant_id, today=ENV.get("MARKETPLACE_TODAY")),
-            "hra_account": marketplace_data.get_hra_account(participant_id), "claims": [marketplace_data.get_claim_status(c) for c in (claim_ids or [])],
-            "plan_candidates": [{k: p[k] for k in keep if k in p} for p in marketplace_data.compare_plans(ids).get("plans", [])],
-            "note": "doctor networks are NOT in the data"}
+    facts = {"participant": participant, "sponsor": marketplace_data.get_sponsor(participant.get("sponsor_id", "")),
+             "enrollment_window": marketplace_data.get_enrollment_window(participant_id, today=ENV.get("MARKETPLACE_TODAY")),
+             "plan_candidates": [{k: p[k] for k in keep if k in p} for p in marketplace_data.compare_plans(ids).get("plans", [])],
+             "note": "doctor networks are NOT in the data"}
+    if include_accounts or claim_ids:
+        facts["hra_account"] = marketplace_data.get_hra_account(participant_id)
+        facts["claims"] = [marketplace_data.get_claim_status(claim_id) for claim_id in (claim_ids or [])]
+    return facts
 
 
 def case_header(scenario: dict) -> tuple[str, str]:
     case_id = f"{scenario['id']}-{helpers.now_iso()[:10].replace('-', '')}-{scenario['participant_id']}"
     header = "\n".join([f"TRIAGE CASE {case_id}", f"case_id: {case_id}", f"participant_id: {scenario['participant_id']}", "channel: chat",
-                        f"participant_message: \"{scenario['message']}\"", "facts (systems of record, verified by the caller):",
-                        json.dumps(gather_facts(scenario["participant_id"], scenario.get("claim_ids")), default=str)])
+                        f"participant_message: \"{scenario['message']}\"",
+                        f"routing_hint: {scenario['routing_hint']}" if scenario.get("routing_hint") else "",
+                        "facts (systems of record, verified by the caller):",
+                        json.dumps(gather_facts(scenario["participant_id"], scenario.get("claim_ids"),
+                                                include_accounts=scenario.get("include_accounts", False)), default=str)])
     return case_id, header
 
 
@@ -418,7 +448,7 @@ def run_concierge_turn(openai_client, user_text: str) -> tuple[str, list[dict]]:
 
 
 # %% Step S5.6 - Run the workflow demo
-S1 = {"id": "S1", "title": "AEP shopper", "participant_id": "P-1001",
+S1 = {"id": "S1", "title": "AEP shopper", "participant_id": "P-1001", "routing_hint": "marketplace",
       "message": "I am on the Contoso Advantage Choice HMO. Is there a plan with a lower cost for my atorvastatin where I could keep "
                  "my cardiologist, Dr. Osei? And when am I allowed to switch?"}
 
@@ -459,13 +489,24 @@ def demo(info: dict | None = None, concierge_turn: bool = False) -> dict:
 
 
 # %% [markdown]
+# ## Publish the agents and run the baseline
+#
+# Run the next cell before the exercises. `build()` publishes new versions of the concierge, four specialists,
+# and the workflow agent to Foundry, then `demo()` runs S1 through that published workflow. After it completes,
+# **Agents > healthcare-marketplace-concierge** exists in the portal for the first YOUR TURN.
+# %% Step S5.7 - Publish agents and run the baseline
+if "__file__" not in globals():
+    _info = build()
+    demo(_info)
+
+# %% [markdown]
 # ## YOUR TURN (5 min): change an instruction in the portal
 #
 # In Foundry, open **Agents > healthcare-marketplace-concierge**, add `Always greet the participant by first name`
 # to the instructions, and save the new version. Run the next cell. It calls the latest version by name, verifies
 # that P-1001 is greeted as Evelyn without recommendation or PII leakage, deletes the test conversation, and
 # restores the canonical concierge instructions in `finally`.
-# %% Step S5.7 - Inspect portal instructions
+# %% Step S5.8 - Inspect portal instructions
 if "__file__" not in globals():
     _project = foundry_env.get_project_client()
     _client = foundry_env.get_openai_client()
@@ -485,47 +526,62 @@ if "__file__" not in globals():
 # %% [markdown]
 # ## YOUR TURN (5 min): break the router on purpose
 #
-# Run the next cell. It creates a temporary triage version that always routes to accounts, runs S1, verifies that
-# the wrong branch ran and left marketplace questions open, then restores the canonical triage instructions in
-# `finally`. Every temporary conversation is deleted by `run_case`. A completed workflow on the wrong branch is a
+# Run the next cell. It simulates an upstream classifier bug by changing S1's authoritative `routing_hint` to
+# `accounts`, runs the existing workflow, and verifies that the wrong branch ran. No agent versions are created or
+# changed. Every temporary conversation is deleted by `run_case`. A completed workflow on the wrong branch is a
 # failed business outcome, even when its output is well formed.
-# %% Step S5.8 - Test a broken router
+# %% Step S5.9 - Test a broken router
 if "__file__" not in globals():
-    _project = foundry_env.get_project_client()
     _client = foundry_env.get_openai_client()
     _info = helpers.require_artifact(LAB, "agents.json", through=5, caller="stretch5")
-    _broken = INSTRUCTIONS[TRIAGE].replace("ROUTE: marketplace | accounts | both", "ROUTE: accounts (always)")
-    try:
-        create_prompt_version(_project, TRIAGE, _broken)
-        _case_id, _header = case_header(S1)
-        _run = run_case(_client, _info["workflow_name"], _header)
-        assert not _run["errors"], f"Workflow errors: {_run['errors']}"
-        assert not validate_action_order(_run["actions"], ("triage", "accounts", "compliance", "handoff"), forbidden=("marketplace",))
-        _packet = extract_packet(_run["messages"])
-        assert _packet is not None, "The broken-router run did not return a packet."
-        assert _packet.get("open_questions"), "The broken route did not leave the marketplace questions open."
-    finally:
-        _restored = create_prompt_version(_project, TRIAGE, INSTRUCTIONS[TRIAGE])
-        print(f"[stretch5] restored {TRIAGE} as v{_restored.version}")
+    _broken_s1 = {**S1, "routing_hint": "accounts"}
+    _case_id, _header = case_header(_broken_s1)
+    _run = run_case(_client, _info["workflow_name"], _header)
+    assert not _run["errors"], f"Workflow errors: {_run['errors']}"
+    _order_problems = validate_action_order(
+        _run["actions"],
+        ("triage", "accounts", "compliance", "handoff"),
+        forbidden=("marketplace",),
+    )
+    assert not _order_problems, f"Broken router did not run the expected path: {_order_problems}"
+    _packet = extract_packet(_run["messages"])
+    assert _packet is not None, "The broken-router run did not return a packet."
+    assert _packet.get("open_questions"), "The broken route did not leave the marketplace questions open."
+    print("[stretch5] expected failure observed: an incorrect routing hint sent S1 to accounts")
 
 # %% [markdown]
 # ## YOUR TURN (10 min): wire and verify hosted delegation
 #
-# Paste the marked block from `hosted_tool_snippet.py` into Lab 2 `hosted/main.py`, append the tool to
-# `FUNCTION_TOOLS`, add the instruction shown in that file, and set `MARKETPLACE_WORKFLOW_AGENT_NAME` for the
-# hosted deployment. Do not create another hosted package for this stretch.
+# Paste the marked block from `hosted_tool_snippet.py` into Lab 2 `hosted/main.py`, add
+# `run_triage_workflow` to the existing `FUNCTION_TOOLS` list, and add the instruction shown in that file. Calling
+# `FUNCTION_TOOLS.append(run_triage_workflow)` after the list is defined is also valid. Do not create another
+# hosted package for this stretch.
+#
+# After the acceptance cell passes, open a Bash terminal at the workshop root and redeploy from Lab 2's hosted
+# directory, not Lab 3. This is the directory containing the `azure.yaml` for the hosted agent you edited:
+#
+# ```bash
+# cd labs/lab2-hosted-knowledge-sessions/hosted
+# azd env set MARKETPLACE_WORKFLOW_AGENT_NAME healthcare-marketplace-triage-workflow
+# azd up
+# ```
+#
+# `azd env set` stores the workflow name in the active azd environment used by `azd up`. Alternatively, vendor
+# `artifacts/stretch5/agents.json` next to `main.py` before running `azd up`.
 #
 # Before redeploying Lab 2, run the next cell from this notebook. It exercises the exact delegation function,
 # verifies the Lab 2 source has the function and tool registration, validates the returned packet, and relies on
-# the tool's `finally` block to delete its temporary conversation.
-# %% Step S5.9 - Test hosted delegation
+# the tool's `finally` block to delete its temporary conversation. Success prints a clear `PASSED` message and
+# confirms that Lab 2 is ready to deploy.
+# %% Step S5.10 - Test hosted delegation
 if "__file__" not in globals():
     import hosted_tool_snippet as _hosted_tool
 
     _lab2_main = LABS_DIR / "lab2-hosted-knowledge-sessions" / "hosted" / "main.py"
     _lab2_source = _lab2_main.read_text(encoding="utf-8")
     assert "def run_triage_workflow(" in _lab2_source, f"Paste the hosted tool into {_lab2_main}."
-    assert "FUNCTION_TOOLS.append(run_triage_workflow)" in _lab2_source, "Register run_triage_workflow in FUNCTION_TOOLS."
+    assert function_tool_is_registered(_lab2_source, "run_triage_workflow"), \
+        "Add run_triage_workflow to the FUNCTION_TOOLS list."
     _hosted_tool.WORKFLOW = _hosted_tool.load_workflow_reference()
     _hosted_tool._openai_client = None
     _result = _hosted_tool.run_triage_workflow(
@@ -538,6 +594,12 @@ if "__file__" not in globals():
         _result["packet"],
         expected={"case_id": "hosted-gate-P-1005", "participant_id": "P-1005", "lob": "marketplace"},
     )
+    print(
+        "[stretch5] PASSED hosted delegation: "
+        f"workflow={_result.get('workflow', _hosted_tool.WORKFLOW['workflow_name'])}, "
+        f"case_id={_result['packet']['case_id']}, participant_id={_result['packet']['participant_id']}, "
+        f"lob={_result['packet']['lob']}; Lab 2 is ready to deploy"
+    )
 
 # %% [markdown]
 # ## Script-only entry point - skip in Jupyter
@@ -547,7 +609,7 @@ if "__file__" not in globals():
 # Its command-line invocation is guarded in the generated notebook; running the cell does not launch the lab.
 # For script mode instead, run `python stretch5_prompt_agents.py --help` in a Bash terminal from this lab's folder and choose the desired options.
 
-# %% Step S5.10 - Script-only entry point (skip in Jupyter)
+# %% Step S5.11 - Script-only entry point (skip in Jupyter)
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--build-only", action="store_true")

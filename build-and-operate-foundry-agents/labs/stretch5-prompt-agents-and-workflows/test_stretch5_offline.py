@@ -54,6 +54,36 @@ class WorkflowRenderingTests(unittest.TestCase):
         self.assertIn(f"name: {stretch5.MARKETPLACE}", text)
         self.assertNotIn("{marketplace}", text)
 
+    def test_notebook_publishes_agents_before_first_exercise(self):
+        source = (HERE / "stretch5_prompt_agents.py").read_text(encoding="utf-8")
+        first_exercise = source.index("## YOUR TURN")
+        publish_cell = source.index('if "__file__" not in globals():\n    _info = build()\n    demo(_info)')
+        self.assertLess(publish_cell, first_exercise)
+
+    def test_marketplace_case_does_not_include_unrequested_account_facts(self):
+        _case_id, header = stretch5.case_header(stretch5.S1)
+        self.assertIn("routing_hint: marketplace", header)
+        self.assertNotIn('"hra_account"', header)
+        self.assertNotIn('"claims"', header)
+
+    def test_account_case_includes_requested_account_facts(self):
+        facts = stretch5.gather_facts("P-1001", include_accounts=True)
+        self.assertIn("hra_account", facts)
+        self.assertIn("claims", facts)
+
+    def test_broken_router_scenario_overrides_the_routing_hint(self):
+        _case_id, header = stretch5.case_header({**stretch5.S1, "routing_hint": "accounts"})
+        self.assertIn("routing_hint: accounts", header)
+        self.assertNotIn("routing_hint: marketplace", header)
+
+    def test_hosted_tool_registration_accepts_list_item_or_append(self):
+        in_list = "FUNCTION_TOOLS = [first_tool, run_triage_workflow]"
+        appended = "FUNCTION_TOOLS = [first_tool]\nFUNCTION_TOOLS.append(run_triage_workflow)"
+        missing = "FUNCTION_TOOLS = [first_tool]"
+        self.assertTrue(stretch5.function_tool_is_registered(in_list, "run_triage_workflow"))
+        self.assertTrue(stretch5.function_tool_is_registered(appended, "run_triage_workflow"))
+        self.assertFalse(stretch5.function_tool_is_registered(missing, "run_triage_workflow"))
+
 
 class PacketTests(unittest.TestCase):
     def test_extracts_fenced_packet_from_last_message(self):

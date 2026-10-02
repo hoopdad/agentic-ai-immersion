@@ -82,7 +82,15 @@ The driver exits nonzero and does not save `handoff_packets/S1.json` when the wo
 3. Open `S1.json`: check `options_discussed` has no preference, `facts_gathered` sources are tool names or KB ids, `recommended_next_step_for_advisor` is a process step.
 4. YOUR TURN (5 min): change an instruction in the portal (healthcare-marketplace-concierge: "Always greet the participant by first name"), then run the acceptance cell immediately below that heading. It calls the latest version, asserts the Evelyn greeting and safety checks, deletes the conversation, and restores the canonical concierge instructions in `finally`.
 5. YOUR TURN (5 min): run the broken-router acceptance cell. It creates a temporary `ROUTE: accounts` triage version, proves the wrong branch ran and left marketplace questions open, deletes the conversation, and restores the canonical triage instructions in `finally`.
-6. YOUR TURN (10 min): wire the hosted agent. Paste the block from `hosted_tool_snippet.py` into Lab 2 `hosted/main.py`, append the tool to `FUNCTION_TOOLS`, add the instruction line, and set `MARKETPLACE_WORKFLOW_AGENT_NAME=healthcare-marketplace-triage-workflow` in the server environment. Do not create a separate hosted package for this stretch. Run the hosted-delegation acceptance cell before redeploying Lab 2; it verifies the function and tool registration in Lab 2 source, requires `status=completed`, validates the packet, and the tool deletes its temporary conversation in `finally`. After redeployment, ask as P-1005 "Which ACA plan should I pick?" then accept the advisor.
+6. YOUR TURN (10 min): wire the hosted agent. Paste the block from `hosted_tool_snippet.py` into Lab 2 `hosted/main.py`, add `run_triage_workflow` to the existing `FUNCTION_TOOLS` list, and add the instruction line. Calling `FUNCTION_TOOLS.append(run_triage_workflow)` after the list is defined is also valid. Do not create a separate hosted package for this stretch. Run the hosted-delegation acceptance cell before redeploying Lab 2; it verifies the function and tool registration in Lab 2 source, requires `status=completed`, validates the packet, and the tool deletes its temporary conversation in `finally`. Success ends with `[stretch5] PASSED hosted delegation` and `Lab 2 is ready to deploy`. After it passes, open a Bash terminal at the workshop root and run:
+
+   ```bash
+   cd labs/lab2-hosted-knowledge-sessions/hosted
+   azd env set MARKETPLACE_WORKFLOW_AGENT_NAME healthcare-marketplace-triage-workflow
+   azd up
+   ```
+
+   Use Lab 2, not Lab 3. Run both `azd` commands from this directory because it contains the `azure.yaml` for the hosted agent you edited. `azd env set` saves the workflow name in the active azd environment used by `azd up`. Alternatively, vendor `artifacts/stretch5/agents.json` next to `main.py` before running `azd up`. After redeployment, ask as P-1005 "Which ACA plan should I pick?" then accept the advisor.
 7. Optional (5 min): `python hosted_tool_snippet.py --call` runs the tool from the workstation against the workflow, no container needed.
 
 ## Checkpoint (5 min)

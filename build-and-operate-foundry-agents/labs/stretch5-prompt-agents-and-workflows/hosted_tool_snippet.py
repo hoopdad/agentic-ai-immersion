@@ -10,11 +10,16 @@ to the workflow agent Stretch 5 created. The workflow runs on the platform with 
 
 How to wire it into Lab 2 hosted/main.py:
     1. copy the block between the markers into main.py after the other @tool functions
-    2. FUNCTION_TOOLS.append(run_triage_workflow)
+    2. register `run_triage_workflow` by adding it to the existing `FUNCTION_TOOLS` list (or by calling
+       `FUNCTION_TOOLS.append(run_triage_workflow)` after that list is defined)
     3. add to ROLE_INSTRUCTIONS: "When the participant accepts an advisor handoff, call run_triage_workflow with a
        short case summary (participant id, LOB, what was asked, facts already gathered)."
-    4. give the container the workflow name: azd env set MARKETPLACE_WORKFLOW_AGENT_NAME healthcare-marketplace-triage-workflow (or vendor
-       artifacts/stretch5/agents.json next to main.py), azd up
+    4. in a Bash terminal, change to `labs/lab2-hosted-knowledge-sessions/hosted/` (Lab 2, not Lab 3; this is
+       the directory containing the `azure.yaml` for the hosted agent you edited), then give the deployment
+       the workflow name and redeploy:
+           azd env set MARKETPLACE_WORKFLOW_AGENT_NAME healthcare-marketplace-triage-workflow
+           azd up
+       Alternatively, vendor `artifacts/stretch5/agents.json` next to `main.py` before running `azd up`.
 The hosted agent's managed identity needs Azure AI User on the project to call the workflow agent.
 """
 from __future__ import annotations
