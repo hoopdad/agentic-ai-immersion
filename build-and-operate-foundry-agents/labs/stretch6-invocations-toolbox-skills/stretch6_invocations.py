@@ -1,6 +1,9 @@
 # %% [markdown]
 # # Stretch 6: Invocations, Toolbox and Skills
 #
+# **Technology focus.** This lab uses Microsoft Foundry (Invocations; optional Toolbox) and Microsoft Agent Framework
+# (`InvocationsHostServer`; `@tool`; schema).
+#
 # **The second hosting protocol, compared with the Responses protocol from Lab 1: deterministic facts, bounded model reasoning, and reusable governed procedures.**
 #
 # |  | Details |

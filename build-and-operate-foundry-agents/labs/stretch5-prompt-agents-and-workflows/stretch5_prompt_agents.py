@@ -1,6 +1,9 @@
 # %% [markdown]
 # # Stretch 5: Prompt agents and a declarative workflow (platform-managed), called from the hosted agent
 #
+# **Technology focus.** This lab uses Microsoft Foundry (`PromptAgentDefinition`; YAML workflow) and Microsoft Agent
+# Framework (Hosted `@tool` bridge, not a new graph).
+#
 # **An optional platform-managed alternative to the code-hosted workflow: choose ownership and lifecycle boundaries, then validate the same intended outcome.**
 #
 # |  | Details |

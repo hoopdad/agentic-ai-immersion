@@ -1,6 +1,9 @@
 # %% [markdown]
 # # Lab 3: Hosted multi-agent handoff
 #
+# **Technology focus.** This lab uses Microsoft Foundry (Hosted triage; HTTP turns) and Microsoft Agent Framework
+# (`WorkflowBuilder`; `request_info`).
+#
 # **A role-separated workflow inside the container, with bounded review and simulated advisor approval across HTTP turns.**
 #
 # |  | Details |

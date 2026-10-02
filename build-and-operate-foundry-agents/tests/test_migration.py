@@ -435,6 +435,44 @@ class DeploymentTests(unittest.TestCase):
         self.assertEqual(notebook["cells"][1]["cell_type"], "markdown")
         self.assertIn("Shell commands use the container filesystem", "".join(notebook["cells"][1]["source"]))
 
+    def test_walkthrough_headers_include_table_sourced_technology_focus(self):
+        cases = {
+            "lab1-hosted-agent-basics/lab1_hosted_basics.py": (
+                "Hosted version; Responses",
+                "`Agent`; `FoundryChatClient`; `@tool`",
+            ),
+            "lab2-hosted-knowledge-sessions/lab2_hosted_knowledge.py": (
+                "Foundry IQ; Search; MCP",
+                "`MCPStreamableHTTPTool`; history",
+            ),
+            "lab3-hosted-multi-agent-handoff/lab3_hosted_multi_agent.py": (
+                "Hosted triage; HTTP turns",
+                "`WorkflowBuilder`; `request_info`",
+            ),
+            "lab4-operate-hosted-agents/lab4_operate.py": (
+                "Tracing; evaluation; versions",
+                "Evaluate the Framework-built agent",
+            ),
+            "stretch5-prompt-agents-and-workflows/stretch5_prompt_agents.py": (
+                "`PromptAgentDefinition`; YAML workflow",
+                "Hosted `@tool` bridge, not a new graph",
+            ),
+            "stretch6-invocations-toolbox-skills/stretch6_invocations.py": (
+                "Invocations; optional Toolbox",
+                "`InvocationsHostServer`; `@tool`; schema",
+            ),
+        }
+        for relative, (foundry_topics, framework_topics) in cases.items():
+            with self.subTest(driver=relative):
+                path = ROOT / "labs" / relative
+                notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
+                header = " ".join("".join(notebook["cells"][0]["source"]).split())
+                expected = (
+                    f"**Technology focus.** This lab uses Microsoft Foundry ({foundry_topics}) "
+                    f"and Microsoft Agent Framework ({framework_topics})."
+                )
+                self.assertIn(expected, header)
+
     def test_walkthrough_final_runners_are_optional_and_guarded_in_notebooks(self):
         cases = (
             ("lab1-hosted-agent-basics/lab1_hosted_basics.py", "lab1_walkthrough.ipynb"),

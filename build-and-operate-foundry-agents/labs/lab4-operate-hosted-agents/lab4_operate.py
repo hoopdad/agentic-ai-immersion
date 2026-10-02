@@ -1,6 +1,9 @@
 # %% [markdown]
 # # Lab 4: Operate hosted agents (trace, evaluate, version, promote, roll back)
 #
+# **Technology focus.** This lab uses Microsoft Foundry (Tracing; evaluation; versions) and Microsoft Agent Framework
+# (Evaluate the Framework-built agent).
+#
 # **Operate the Lab 2 concierge as managed intelligence: observable execution, acceptance before promotion, and evidence for the next validated improvement.**
 #
 # |  | Details |

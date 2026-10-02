@@ -1,6 +1,9 @@
 # %% [markdown]
 # # Lab 1: Hosted agent basics
 #
+# **Technology focus.** This lab uses Microsoft Foundry (Hosted version; Responses) and Microsoft Agent Framework
+# (`Agent`; `FoundryChatClient`; `@tool`).
+#
 # **The Healthcare Marketplace concierge as a Foundry Hosted Agent (Responses protocol): written intent, bounded tools, and human decision ownership.**
 #
 # |  | Details |

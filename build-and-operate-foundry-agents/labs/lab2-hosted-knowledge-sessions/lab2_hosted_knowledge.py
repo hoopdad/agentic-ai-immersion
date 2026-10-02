@@ -1,6 +1,9 @@
 # %% [markdown]
 # # Lab 2: Hosted knowledge and durable sessions
 #
+# **Technology focus.** This lab uses Microsoft Foundry (Foundry IQ; Search; MCP) and Microsoft Agent Framework
+# (`MCPStreamableHTTPTool`; history).
+#
 # **Building upon the Healthcare Marketplace concierge from Lab 1: reusable governed knowledge and conversation continuity, with separate evidence for each.**
 #
 # |  | Details |
