@@ -141,6 +141,13 @@ compare those runtime headers with the deployment's quota allocation in Foundry.
 
 ## 4. Azure resources and connections
 
+To provision a complete private workshop environment instead of using existing
+shared resources, follow the Terraform deployment in
+[`infra/README.md`](infra/README.md). Its outputs map directly to the environment
+variables in section 2. Because every data-plane endpoint is private, connect the
+learner workstation to the deployed virtual network before running preflight or
+the labs.
+
 | Resource | Needed by | Setup |
 |---|---|---|
 | Foundry account + project | all | Create the project first; copy `FOUNDRY_PROJECT_ENDPOINT` and `PROJECT_RESOURCE_ID` |

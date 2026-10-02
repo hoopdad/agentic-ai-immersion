@@ -228,7 +228,7 @@ def build(*, vendor: bool = True, standalone: bool = True) -> dict:
     return record
 
 
-# %% Step 3.4 - Run the local hosted server
+# %% Step 3.4 - Define the local hosted server
 class HostedProcess:
     def __init__(
         self,
@@ -380,7 +380,7 @@ def deployed_turn(
     return parse_reply(response.output_text), getattr(response, "id", None)
 
 
-# %% Step 3.6 - Run the handoff demo
+# %% Step 3.6 - Define the handoff demo
 def interactive_decider(reply: dict) -> str:
     print(
         f"\n[{LAB}] ----- ADVISOR REVIEW ({reply.get('case_id')}) -----\n{reply.get('advisor_prompt')}"

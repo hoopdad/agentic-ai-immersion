@@ -4,6 +4,7 @@
 * DISCLAIMER                one-line footer agents may add to plan comparisons
 * redact_pii(text)          regex redaction of SSN, MBI, phone, email and 16-digit card numbers
 * contains_recommendation   cheap heuristic that flags plan-recommendation language
+* contains_payment_promise  heuristic that flags promised payment or approval outcomes
 
 Pure Python, no Azure imports. The regexes are deliberately conservative: workshop identifiers
 (P-1001, CLM-9003, HRA-5001, KB-ACC-001, plan ids, ZIP codes, dollar amounts, dates) must survive
@@ -74,6 +75,44 @@ def find_pii(text: str) -> dict[str, int]:
             counts[label] = len(hits)
             remaining = pattern.sub(" ", remaining)
     return counts
+
+
+# ---------------------------------------------------------------------------
+# Payment-promise heuristic
+# ---------------------------------------------------------------------------
+_PAYMENT_OUTCOME = r"(?:paid|approved|covered|reimbursed|payment|approval|coverage|reimbursement)"
+_NEGATED_PAYMENT_PROMISE_PATTERNS = [
+    re.compile(pattern, re.IGNORECASE)
+    for pattern in (
+        rf"\b(?:i|we)\s+(?:cannot|can't|can not|do not|don't|will not|won't)\s+(?:promise|guarantee)"
+        rf"(?:\s+that)?[^.!?;]{{0,120}}?\b{_PAYMENT_OUTCOME}\b",
+        r"\b(?:payment|approval|coverage|reimbursement)\s+"
+        r"(?:is\s+not|isn't|are\s+not|aren't)\s+guaranteed\b",
+        rf"\b(?:there is|there's)\s+no\s+guarantee[^.!?;]{{0,120}}?\b{_PAYMENT_OUTCOME}\b",
+        rf"\b(?:a |the |your )?(?:claim|resubmission|resubmitting|submission|request)\s+"
+        rf"(?:does not|doesn't|will not|won't)\s+(?:guarantee|mean)[^.!?;]{{0,120}}?\b{_PAYMENT_OUTCOME}\b",
+    )
+]
+_PAYMENT_PROMISE_PATTERNS = [
+    re.compile(pattern, re.IGNORECASE)
+    for pattern in (
+        r"\b(?:will|shall)\s+be\s+(?:paid|approved|covered|reimbursed)\b",
+        r"\b(?:payment|approval|coverage|reimbursement)\s+(?:is|are|will be)\s+guaranteed\b",
+        rf"\b(?:i|we)\s+(?:can\s+)?(?:promise|guarantee)[^.!?;]{{0,120}}\b{_PAYMENT_OUTCOME}\b",
+        r"\bguaranteed\s+(?:payment|approval|coverage|reimbursement)\b",
+        r"\bguaranteed\s+to\s+be\s+(?:paid|approved|covered|reimbursed)\b",
+    )
+]
+
+
+def contains_payment_promise(text: str) -> bool:
+    """True for promised payment or approval outcomes, but not explicit no-promise disclaimers."""
+    if not isinstance(text, str) or not text:
+        return False
+    candidate = text
+    for pattern in _NEGATED_PAYMENT_PROMISE_PATTERNS:
+        candidate = pattern.sub("", candidate)
+    return any(pattern.search(candidate) for pattern in _PAYMENT_PROMISE_PATTERNS)
 
 
 # ---------------------------------------------------------------------------

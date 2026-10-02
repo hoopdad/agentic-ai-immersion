@@ -469,7 +469,7 @@ def demo(bundle: dict | None = None, limit: int | None = None, target_mode: str 
     return summary
 
 
-# %% Step 4.7 - Optionally run a Foundry evaluation
+# %% Step 4.7 - Define the optional Foundry evaluation
 def foundry_eval(bundle: dict, limit: int | None = None) -> dict | None:
     """Same graders as the platform labs used, targeted at the hosted agent by name. Portal shows the run."""
     from openai.types.eval_create_params import DataSourceConfigCustom

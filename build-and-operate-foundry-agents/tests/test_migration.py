@@ -76,7 +76,100 @@ class MessageSerializationTests(unittest.TestCase):
         self.assertIsNot(result, row)
 
 
+class GuardrailTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.guardrails = load("payment_promise_guardrails", ROOT / "common/guardrails.py")
+
+    def test_payment_promise_detector_allows_explicit_disclaimers(self) -> None:
+        disclaimers = (
+            "A resubmission is reviewed under the plan rules, and payment is not guaranteed.",
+            "I cannot promise that any resubmission will be paid.",
+            "There is no guarantee that the claim will be approved.",
+            "Resubmitting does not mean the claim will be covered.",
+        )
+        for text in disclaimers:
+            with self.subTest(text=text):
+                self.assertFalse(self.guardrails.contains_payment_promise(text))
+
+    def test_payment_promise_detector_rejects_positive_outcomes(self) -> None:
+        promises = (
+            "Your resubmission will be paid.",
+            "Payment is guaranteed.",
+            "I guarantee payment after resubmission.",
+            "Payment is not guaranteed, but your claim will be paid.",
+        )
+        for text in promises:
+            with self.subTest(text=text):
+                self.assertTrue(self.guardrails.contains_payment_promise(text))
+
+
 class DeploymentTests(unittest.TestCase):
+    def test_stretch6_vendoring_removes_generated_python_artifacts(self):
+        prepare_paths = (
+            ROOT / "labs/stretch6-invocations-toolbox-skills/hosted-invocations/prepare.py",
+            ROOT / "labs/stretch6-invocations-toolbox-skills/hosted-responses-skills/prepare.py",
+        )
+        for index, prepare_path in enumerate(prepare_paths):
+            with self.subTest(package=prepare_path.parent.name), tempfile.TemporaryDirectory() as tmp:
+                package = Path(tmp) / "package"
+                package.mkdir()
+                module = load(f"stretch6_prepare_{index}", prepare_path)
+                sources = {}
+                for name in module.SOURCES:
+                    source = Path(tmp) / f"{name}-source"
+                    source.mkdir()
+                    (source / "shared.py").write_text("VALUE = 1\n", encoding="utf-8")
+                    sources[name] = source
+                for filename in module.REQUIRED_ROOT_FILES:
+                    (package / filename).touch()
+                (package / ".agentignore").write_text(".azure/\n", encoding="utf-8")
+                cache = package / "__pycache__"
+                cache.mkdir()
+                bytecode = cache / "main.cpython-314.pyc"
+                bytecode.write_bytes(b"generated")
+                with patch.object(module, "HERE", package), \
+                        patch.object(module, "SOURCES", sources), \
+                        patch.object(module, "MANIFEST", package / ".vendored.json"):
+                    module.vendor()
+                self.assertFalse(bytecode.exists())
+                self.assertFalse(cache.exists())
+
+    def test_stretch6_vendoring_retains_ignored_azd_environment_state(self):
+        prepare_paths = (
+            ROOT / "labs/stretch6-invocations-toolbox-skills/hosted-invocations/prepare.py",
+            ROOT / "labs/stretch6-invocations-toolbox-skills/hosted-responses-skills/prepare.py",
+        )
+        for index, prepare_path in enumerate(prepare_paths):
+            with self.subTest(package=prepare_path.parent.name), tempfile.TemporaryDirectory() as tmp:
+                package = Path(tmp) / "package"
+                package.mkdir()
+                module = load(f"stretch6_prepare_state_{index}", prepare_path)
+                sources = {}
+                for name in module.SOURCES:
+                    source = Path(tmp) / f"{name}-source"
+                    source.mkdir()
+                    (source / "shared.py").write_text("VALUE = 1\n", encoding="utf-8")
+                    sources[name] = source
+                for filename in module.REQUIRED_ROOT_FILES:
+                    (package / filename).touch()
+                (package / ".agentignore").write_text(".azure/\n.env\n.env.*\n", encoding="utf-8")
+                azd_environment = package / ".azure/dev"
+                azd_environment.mkdir(parents=True)
+                azd_config = package / ".azure/config.json"
+                azd_config.write_text("{}\n", encoding="utf-8")
+                azd_env = azd_environment / ".env"
+                azd_env.write_text("AZURE_ENV_NAME=dev\n", encoding="utf-8")
+                with patch.object(module, "HERE", package), \
+                        patch.object(module, "SOURCES", sources), \
+                        patch.object(module, "MANIFEST", package / ".vendored.json"):
+                    module.vendor()
+                    self.assertTrue(azd_config.is_file())
+                    self.assertTrue(azd_env.is_file())
+                    (package / ".env").write_text("SECRET=do-not-package\n", encoding="utf-8")
+                    with self.assertRaisesRegex(SystemExit, r"forbidden package files: \.env"):
+                        module.review()
+
     def test_lab1_smoke_can_disable_storage_without_changing_multiturn_default(self):
         module = load("lab1_storage_regression", ROOT / "labs/lab1-hosted-agent-basics/lab1_hosted_basics.py")
         project = MagicMock()
@@ -210,6 +303,38 @@ class DeploymentTests(unittest.TestCase):
                     self.assertEqual(len(commands), 2 if index == 3 else 1)
                     for command in commands:
                         self.assertIn("--project-endpoint", command)
+
+    def test_stretch6_driver_help_runs_as_a_script(self):
+        script = ROOT / "labs/stretch6-invocations-toolbox-skills/stretch6_invocations.py"
+        result = subprocess.run(
+            [sys.executable, str(script), "--help"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("--deploy", result.stdout)
+
+    def test_stretch6_driver_loads_workshop_environment_module(self):
+        script = ROOT / "labs/stretch6-invocations-toolbox-skills/stretch6_invocations.py"
+        command = (
+            "import runpy; "
+            f"module = runpy.run_path({str(script)!r}, run_name='stretch6_test'); "
+            "print(module['foundry_env'].__file__)"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", command],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            Path(result.stdout.strip()).resolve(),
+            (ROOT / "common/foundry_env.py").resolve(),
+        )
 
     def test_lab2_storage_uses_blob_or_files_not_redis(self):
         module = load(

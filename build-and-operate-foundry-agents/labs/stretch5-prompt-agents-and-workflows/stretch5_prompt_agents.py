@@ -447,7 +447,7 @@ def run_concierge_turn(openai_client, user_text: str) -> tuple[str, list[dict]]:
         openai_client.conversations.delete(conversation_id=conversation.id)
 
 
-# %% Step S5.6 - Run the workflow demo
+# %% Step S5.6 - Define the workflow demo
 S1 = {"id": "S1", "title": "AEP shopper", "participant_id": "P-1001", "routing_hint": "marketplace",
       "message": "I am on the Contoso Advantage Choice HMO. Is there a plan with a lower cost for my atorvastatin where I could keep "
                  "my cardiologist, Dr. Osei? And when am I allowed to switch?"}

@@ -24,6 +24,11 @@
 - Workshop resource lifecycle: `common/resource_names.py` applies one attendee suffix to every created
   agent, evaluation, Search resource and project connection; `tools/cleanup_workshop.py` provides
   dry-run-first cleanup for one suffix or every workshop suffix without deleting shared infrastructure.
+- Workshop infrastructure: `build-and-operate-foundry-agents/infra/README.md` is the entry point for a
+  self-contained private Microsoft Foundry Standard Agent deployment. `variables.tf` and
+  `terraform.tfvars.example` configure Azure placement, naming, networking, models and capacity; Terraform owns
+  the VNet/private DNS, identity, Storage, Cosmos DB, AI Search, Foundry project/capability host, monitoring,
+  registry and vault. Outputs map directly to the workshop `.env`; no concrete Azure identifiers are committed.
 - Deployment: each lab's `hosted*/main.py` and minimal pinned requirements; `prepare.py` vendors shared files. Generated packages, credentials and runtime artifacts are not source.
 - Shell integration: `labs/deployment.py`; Bash is the learner shell, Python holds deployment validation/logic.
 - Notebooks: edit the adjacent `# %%` Python driver and regenerate with `tools/py_to_ipynb.py`; preserve exercise gates.
@@ -53,8 +58,9 @@ Updated for attendee-scoped resource naming, dry-run cleanup, startup Redis conf
 lab-specific step identifiers in generated walkthrough notebooks.
 Updated for optional Azure Blob conversation history and the local Azurite emulator in Lab 2.
 Removed the workshop's `deck/` directory on 2026-09-30; runnable lab assets remain in place.
-Also removed seven facilitator/authoring documents and the unused top-level workshop `infra/`
-scaffolding. Lab 4's `infra/README.md`, hosted packaging rules and runnable lab assets remain.
+Also removed seven facilitator/authoring documents and the old top-level workshop `infra/`
+scaffolding. A self-contained private Standard Agent `infra/` implementation is pending addition;
+Lab 4's `infra/README.md`, hosted packaging rules and runnable lab assets remain.
 Lab 2 history is limited to Azure Blob/Azurite or files, and Lab 3 uses file-backed session state;
 shared Redis remains available to generic store configurations.
 Added `build-and-operate-foundry-agents/common/model_resilience.py` for shared hosted-agent rate-limit
@@ -71,3 +77,7 @@ Baseline for the lab-alignment documentation pass: `1d7fdc56a41928596ff64b6d2d7e
 Pending changes considered: the lab overview, core and stretch READMEs, artifact and infrastructure guidance,
 six Python Markdown-cell sources, and their regenerated walkthrough notebooks. No runtime architecture,
 dependencies, executable cells, deployment workflow, storage implementation, or artifact contract changed.
+Baseline for the sanitized workshop infrastructure addition: `2798ac5d51e00ed6d418d27c5f67dc9a813ba000`.
+Pending structural change considered: `build-and-operate-foundry-agents/infra/`, including the deployment
+README, ignored local tfvars convention, provider lock, complete Standard Agent resource graph and workshop
+environment outputs. This supersedes the registry-coupled draft and its PowerShell-only deployment checks.

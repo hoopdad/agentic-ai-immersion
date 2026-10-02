@@ -230,7 +230,7 @@ def record_deployment(version: str, status: str = "active") -> dict:
     return record
 
 
-# %% Step 2.4 - Run a local hosted process
+# %% Step 2.4 - Define a local hosted process
 def port_open(port: int, host: str = "127.0.0.1") -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.settimeout(0.5)

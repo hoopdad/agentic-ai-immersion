@@ -140,7 +140,7 @@ def build(*, vendor: bool = True) -> dict:
     return record
 
 
-# %% Step 1.4 - Run the local hosted server
+# %% Step 1.4 - Define the local hosted server
 class HostedProcess:
     """Start and stop hosted/main.py. Logs go to artifacts/lab1/hosted_local.log so the room can read them."""
 
@@ -226,7 +226,7 @@ def call_deployed(text: str, *, previous_response_id: str | None = None, store: 
     return {"text": response.output_text, "id": getattr(response, "id", None), "raw": None}
 
 
-# %% Step 1.6 - Run the local demo
+# %% Step 1.6 - Define the local demo
 def run_scenario(key: str, scenario: dict, send) -> list[dict]:
     log(f"=== {key} {scenario['title']} ({scenario['participant_id']}) ===")
     turns, previous_id = [], None

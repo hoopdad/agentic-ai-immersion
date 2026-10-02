@@ -80,7 +80,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]      # workshop root (common/ and data/ live here)
 LABS_DIR = ROOT / "labs"
 LAB_DIR = Path(__file__).resolve().parent
-for folder in (ROOT, LABS_DIR, LAB_DIR / "hosted-invocations"):
+for folder in reversed((ROOT, LABS_DIR, LAB_DIR / "hosted-invocations")):
     if str(folder) not in sys.path:
         sys.path.insert(0, str(folder))
 from common import foundry_env, guardrails, marketplace_data, resource_names  # noqa: E402
@@ -113,7 +113,7 @@ def nightly_denial_ids() -> list[str]:
     return sorted(denied)
 
 
-BATCH = ["CLM-9003", "CLM-9021", "CLM-9001"]      # denied with a fix, denied without a fix, paid
+BATCH = nightly_denial_ids()
 S2_QUESTION = "Hi, this is P-1003, ZIP 84604. My claim CLM-9003 was denied. Why, and what exactly do I need to send?"
 DEBIT_CARD_QUESTION = "Hi, this is P-1004, ZIP 38103. My card was declined at the pharmacy. What should I check?"
 FACT_FIELDS = (
@@ -175,7 +175,7 @@ def build(*, vendor: bool = True) -> dict:
     return record
 
 
-# %% Step S6.4 - Run the local hosted server
+# %% Step S6.4 - Define the local hosted server
 class HostedProcess:
     def __init__(self, hosted_dir: Path, port: int = PORT, extra_env: dict | None = None):
         self.hosted_dir, self.port, self.extra_env = hosted_dir, port, extra_env or {}
@@ -250,8 +250,8 @@ def assert_review_facts(reviews: list[dict], claim_ids: list[str], *, require_ex
         explanation = str(packet.get("participant_explanation") or "").strip()
         if require_explanations and (not explanation or "[KB-ACC-001]" not in explanation):
             raise AssertionError(f"{claim_id} participant_explanation must be non-empty and cite [KB-ACC-001]")
-        if "will be paid" in explanation.lower() or "guarantee" in explanation.lower():
-            raise AssertionError(f"{claim_id} participant_explanation promises an outcome")
+        if guardrails.contains_payment_promise(explanation):
+            raise AssertionError(f"{claim_id} participant_explanation promises an outcome: {explanation!r}")
 
 
 def save_reviews(reviews: list[dict], source: str) -> None:
@@ -261,7 +261,7 @@ def save_reviews(reviews: list[dict], source: str) -> None:
     log(f"wrote {len(reviews)} packets to {REVIEWS_DIR.relative_to(LABS_DIR)}/ ({source})")
 
 
-# %% Step S6.6 - Run the Invocations demo
+# %% Step S6.6 - Define the Invocations demo
 def demo(base: str | None = None, *, offline: bool = False, claim_ids: list[str] = BATCH) -> dict:
     if offline:
         reviews, source, path = review_claims(claim_ids), "offline (claims_review.py, no model)", None
@@ -291,7 +291,7 @@ def demo(base: str | None = None, *, offline: bool = False, claim_ids: list[str]
     return record["sample_run"]
 
 
-# %% Step S6.7 - Run the skills demo
+# %% Step S6.7 - Define the Skills demos and acceptance gates
 def skills_demo(base: str | None = None) -> str:
     lab1 = lab_helpers.load_lab_module("lab1-hosted-agent-basics/lab1_hosted_basics.py")   # reuse post_responses()
     server = None
@@ -380,16 +380,16 @@ def deploy_commands(env: dict | None = None) -> str:
 # %% [markdown]
 # ## Print-only deployment
 #
-# Set `PROJECT_RESOURCE_ID` in the workshop `.env`, then copy this Bash cell. It prints the two blocks; it
-# does not execute `azd`, vendor the packages, or deploy either agent.
+# Set `PROJECT_RESOURCE_ID` in the workshop `.env`, then run the next cell. It prints both paste-ready Bash
+# deployment blocks in the notebook; it does not execute `azd`, vendor the packages, or deploy either agent.
 
-# %% [raw] Step S6.9 - Return to the lab folder
-# cd ../..
-# python ./labs/stretch6-invocations-toolbox-skills/stretch6_invocations.py --deploy
+# %% Step S6.9 - Print the Bash deployment commands
+if "__file__" not in globals():
+    print(deploy_commands())
 
 # %% Step S6.10 - Process nightly denials
-# Change BATCH to nightly_denial_ids(), then run this cell. The gate invokes the exact batch, checks every
-# deterministic field, and stops its child server even when an assertion fails.
+# Run this cell to process the data-derived nightly denial batch. The gate invokes the exact batch, checks
+# every deterministic field, and stops its child server even when an assertion fails.
 if "__file__" not in globals():
     nightly_denials_acceptance_gate(offline=False)
 
@@ -424,7 +424,7 @@ def main(args: argparse.Namespace) -> None:
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(description="Run the Stretch 6 Invocations, Toolbox, and Skills lab.")
     parser.add_argument("--offline", action="store_true", help="no model: deterministic review packets only")
     parser.add_argument("--skills-demo", action="store_true", help="also run the Responses + Skills agent on S2")
     parser.add_argument("--skip-demo", action="store_true")

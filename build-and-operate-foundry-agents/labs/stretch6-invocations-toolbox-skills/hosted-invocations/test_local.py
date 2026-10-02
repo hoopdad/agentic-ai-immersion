@@ -118,8 +118,8 @@ def check(reviews: list[dict], claim_ids: list[str]) -> bool:
             print(f"[invocations-test] {review['claim_id']}> {explanation}")
             if "[KB-ACC-001]" not in explanation:
                 failures.append(f"{review.get('claim_id')} explanation does not cite [KB-ACC-001]")
-            if "will be paid" in explanation.lower() or "guarantee" in explanation.lower():
-                failures.append(f"{review.get('claim_id')} explanation promises an outcome")
+            if guardrails.contains_payment_promise(explanation):
+                failures.append(f"{review.get('claim_id')} explanation promises an outcome: {explanation!r}")
     print(f"[invocations-test] claims back: {sorted(by_id)}  exact facts: {not failures}  pii leak: {leaks}  recommendation: {recommends}")
     for failure in failures:
         print(f"[invocations-test] FAIL: {failure}")

@@ -12,6 +12,7 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2]
 SOURCES = {"common": ROOT / "common", "data": ROOT / "data"}
 REQUIRED_ROOT_FILES = ("main.py", "claims_review.py", "requirements.txt", ".agentignore")
+REQUIRED_AZD_STATE_IGNORE = ".azure/"
 IGNORED_NAMES = {"__pycache__", ".pytest_cache", ".mypy_cache", ".git", ".azure", ".venv", "venv"}
 IGNORED_SUFFIXES = {".pyc", ".pyo"}
 MANIFEST = HERE / ".vendored.json"
@@ -31,8 +32,29 @@ def _manifest(root: Path) -> dict[str, str]:
     }
 
 
+def _clean_python_artifacts() -> None:
+    for path in HERE.rglob("*"):
+        if path.is_file() and path.suffix in IGNORED_SUFFIXES:
+            path.unlink()
+    for path in sorted(HERE.rglob("__pycache__"), reverse=True):
+        if path.is_dir():
+            shutil.rmtree(path)
+
+
+def _is_forbidden_package_file(path: Path) -> bool:
+    if path.parts and path.parts[0] == ".azure":
+        return False
+    return (
+        any(part in {".azure", ".git", ".venv", "venv", "__pycache__"} for part in path.parts)
+        or path.name == ".env"
+        or path.name.startswith(".env.")
+        or path.suffix in IGNORED_SUFFIXES
+    )
+
+
 def vendor() -> dict[str, int]:
     """Replace vendored inputs and record their deterministic SHA-256 manifests."""
+    _clean_python_artifacts()
     manifests: dict[str, dict[str, str]] = {}
     for name, source in SOURCES.items():
         source_manifest = _manifest(source)
@@ -61,6 +83,15 @@ def review() -> dict[str, int]:
     missing = [name for name in REQUIRED_ROOT_FILES if not (HERE / name).is_file()]
     if missing:
         raise SystemExit(f"[hosted-invocations] package is missing required files: {', '.join(missing)}")
+    agentignore = {
+        line.strip()
+        for line in (HERE / ".agentignore").read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
+    if REQUIRED_AZD_STATE_IGNORE not in agentignore:
+        raise SystemExit(
+            f"[hosted-invocations] .agentignore must exclude {REQUIRED_AZD_STATE_IGNORE}"
+        )
     if not MANIFEST.is_file():
         raise SystemExit("[hosted-invocations] .vendored.json is missing; run python .\\prepare.py")
     recorded = json.loads(MANIFEST.read_text(encoding="utf-8"))
@@ -75,15 +106,9 @@ def review() -> dict[str, int]:
             raise SystemExit(f"[hosted-invocations] {name}/ is stale; run python .\\prepare.py")
         counts[name] = len(target_manifest)
     forbidden = [
-        path.relative_to(HERE).as_posix()
+        relative.as_posix()
         for path in HERE.rglob("*")
-        if path.is_file()
-        and (
-            any(part in {".azure", ".git", ".venv", "venv", "__pycache__"} for part in path.relative_to(HERE).parts)
-            or path.name == ".env"
-            or path.name.startswith(".env.")
-            or path.suffix in IGNORED_SUFFIXES
-        )
+        if path.is_file() and _is_forbidden_package_file(relative := path.relative_to(HERE))
     ]
     if forbidden:
         raise SystemExit(f"[hosted-invocations] forbidden package files: {', '.join(sorted(forbidden))}")
