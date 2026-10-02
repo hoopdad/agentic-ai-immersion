@@ -282,7 +282,9 @@ def configure_tracing() -> bool:
     try:
         from azure.monitor.opentelemetry import configure_azure_monitor
 
-        configure_azure_monitor(connection_string=connection, credential=DefaultAzureCredential())
+        configure_azure_monitor(
+            connection_string=connection, credential=DefaultAzureCredential()
+        )
         # VERIFY against https://learn.microsoft.com/agent-framework/user-guide/observability before delivery.
         from agent_framework.observability import configure_otel_providers
 
