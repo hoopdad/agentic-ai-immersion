@@ -24,7 +24,7 @@ public data-plane access are disabled.
 
 ## Prerequisites
 
-1. Install Terraform `1.11` or later and Azure CLI.
+1. Install Terraform `1.12` or later and Azure CLI.
 2. Sign in with Azure CLI and select the deployment subscription:
 
    ```bash

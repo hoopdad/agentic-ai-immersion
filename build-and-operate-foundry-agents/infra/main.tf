@@ -47,6 +47,28 @@ locals {
     }
   }
 
+  ipv4_cidrs = {
+    agent_subnet            = var.agent_subnet_address_prefix
+    private_endpoint_subnet = var.private_endpoint_subnet_address_prefix
+    rfc1918_10              = "10.0.0.0/8"
+    rfc1918_172             = "172.16.0.0/12"
+    rfc1918_192             = "192.168.0.0/16"
+    virtual_network         = var.virtual_network_address_space
+  }
+
+  ipv4_ranges = {
+    for name, cidr in local.ipv4_cidrs : name => {
+      first = sum([
+        for index, octet in split(".", cidrhost(cidr, 0)) :
+        tonumber(octet) * pow(256, 3 - index)
+      ])
+      last = sum([
+        for index, octet in split(".", cidrhost(cidr, -1)) :
+        tonumber(octet) * pow(256, 3 - index)
+      ])
+    }
+  }
+
   tags = merge({
     environment = var.environment
     managed-by  = "terraform"
@@ -57,37 +79,27 @@ locals {
 
 check "subnet_layout" {
   assert {
-    condition = (
-      (
-        cidrcontains("10.0.0.0/8", cidrhost(var.virtual_network_address_space, 0)) &&
-        cidrcontains("10.0.0.0/8", cidrhost(var.virtual_network_address_space, -1))
-      ) ||
-      (
-        cidrcontains("172.16.0.0/12", cidrhost(var.virtual_network_address_space, 0)) &&
-        cidrcontains("172.16.0.0/12", cidrhost(var.virtual_network_address_space, -1))
-      ) ||
-      (
-        cidrcontains("192.168.0.0/16", cidrhost(var.virtual_network_address_space, 0)) &&
-        cidrcontains("192.168.0.0/16", cidrhost(var.virtual_network_address_space, -1))
-      )
-    )
+    condition = anytrue([
+      for range_name in ["rfc1918_10", "rfc1918_172", "rfc1918_192"] :
+      local.ipv4_ranges.virtual_network.first >= local.ipv4_ranges[range_name].first &&
+      local.ipv4_ranges.virtual_network.last <= local.ipv4_ranges[range_name].last
+    ])
     error_message = "virtual_network_address_space must be fully contained by an RFC 1918 private IPv4 range."
   }
 
   assert {
-    condition = (
-      cidrcontains(var.virtual_network_address_space, cidrhost(var.agent_subnet_address_prefix, 0)) &&
-      cidrcontains(var.virtual_network_address_space, cidrhost(var.agent_subnet_address_prefix, -1)) &&
-      cidrcontains(var.virtual_network_address_space, cidrhost(var.private_endpoint_subnet_address_prefix, 0)) &&
-      cidrcontains(var.virtual_network_address_space, cidrhost(var.private_endpoint_subnet_address_prefix, -1))
-    )
+    condition = alltrue([
+      for subnet_name in ["agent_subnet", "private_endpoint_subnet"] :
+      local.ipv4_ranges[subnet_name].first >= local.ipv4_ranges.virtual_network.first &&
+      local.ipv4_ranges[subnet_name].last <= local.ipv4_ranges.virtual_network.last
+    ])
     error_message = "Both subnet prefixes must be contained by virtual_network_address_space."
   }
 
   assert {
-    condition = !(
-      cidrcontains(var.agent_subnet_address_prefix, cidrhost(var.private_endpoint_subnet_address_prefix, 0)) ||
-      cidrcontains(var.private_endpoint_subnet_address_prefix, cidrhost(var.agent_subnet_address_prefix, 0))
+    condition = (
+      local.ipv4_ranges.agent_subnet.last < local.ipv4_ranges.private_endpoint_subnet.first ||
+      local.ipv4_ranges.private_endpoint_subnet.last < local.ipv4_ranges.agent_subnet.first
     )
     error_message = "agent_subnet_address_prefix and private_endpoint_subnet_address_prefix must not overlap."
   }
