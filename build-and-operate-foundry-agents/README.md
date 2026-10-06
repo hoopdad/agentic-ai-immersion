@@ -82,6 +82,10 @@ build-and-operate-foundry-agents/
   SETUP.md                 environment: where things run, env vars, models, connections, RBAC, verification, proctor checklist
   common/                  marketplace_data (systems of record over JSON), foundry_env, guardrails, session_store, message_store
   data/                    synthetic participants, sponsors, plans, HRA accounts, 9 knowledge docs, golden questions, call transcripts
+  infra/README.md          choose a Terraform deployment; run Terraform inside the selected variant
+    privatelink/           original private endpoints, private DNS and virtual network deployment
+    public-network/        public Foundry/data endpoints; IP-restricted Key Vault/ACR; retained Entra/RBAC
+  tests/                   offline workshop and infrastructure-contract regression tests
   tools/py_to_ipynb.py     stdlib converter: `# %%` script -> notebook (how every labN_walkthrough.ipynb is produced)
   labs/
     README.md              sequence overview, agenda, what you'll learn, features by lab, artifact chain, facilitator notes
@@ -135,6 +139,14 @@ Run offline validation from the repository root:
 
 ```bash
 python build-and-operate-foundry-agents/tools/validate_workshop.py
+```
+
+The validator discovers the infrastructure-contract tests for both Terraform
+variants without authenticating, planning or deploying Azure resources. To run
+only those dependency-free checks:
+
+```bash
+python -m unittest discover -s build-and-operate-foundry-agents/tests -p test_infra_network_variants.py -v
 ```
 
 Azure deployment and live evaluations are explicit actions, not part of bootstrap or offline CI.
