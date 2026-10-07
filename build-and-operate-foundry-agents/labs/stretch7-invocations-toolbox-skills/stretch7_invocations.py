@@ -43,6 +43,9 @@
 # %% [markdown]
 # This cell loads deterministic claim-review helpers and configures both hosted protocols and their artifacts.
 #
+# Edit the optional Toolbox inputs in this cell before running it; blank values disable the preview integration.
+# Leave `SKILL_NAMES` blank to embed every local workshop skill, including the later second-skill exercise.
+#
 # %% Step S7.1 - Imports and paths
 from __future__ import annotations
 
@@ -54,6 +57,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from urllib.parse import urlsplit
 
 SOURCE_PATH = (
     Path(__file__).resolve() if "__file__" in globals() else next(
@@ -75,11 +79,32 @@ from claims_review import hra_rules, review_claims  # noqa: E402  (pure Python; 
 
 LAB = "stretch7"
 ENV = foundry_env.load_env()
+SKILLS_SRC = LAB_DIR / "skills"
+if "__file__" not in globals():
+    TOOLBOX_NAME = ""  # Optional preview: fill both Toolbox inputs, or leave both blank.
+    TOOLBOX_MCP_URL = ""  # Administrator-provided HTTPS MCP endpoint without credentials.
+    SKILL_NAMES = ""  # Blank embeds every local workshop skill, not inherited root samples.
+    TOOLBOX_NAME, TOOLBOX_MCP_URL = TOOLBOX_NAME.strip(), TOOLBOX_MCP_URL.strip()
+    if bool(TOOLBOX_NAME) != bool(TOOLBOX_MCP_URL):
+        raise ValueError("Configure both TOOLBOX_NAME and TOOLBOX_MCP_URL, or leave both blank.")
+    if TOOLBOX_MCP_URL:
+        endpoint = urlsplit(TOOLBOX_MCP_URL)
+        if endpoint.scheme != "https" or not endpoint.hostname or endpoint.username or endpoint.password \
+                or endpoint.query or endpoint.fragment:
+            raise ValueError("TOOLBOX_MCP_URL must be an HTTPS endpoint without credentials or query strings.")
+    selected_skills = [name.strip() for name in SKILL_NAMES.split(",") if name.strip()]
+    available_skills = {path.parent.name for path in SKILLS_SRC.glob("*/SKILL.md")}
+    unknown_skills = set(selected_skills) - available_skills
+    if unknown_skills:
+        raise ValueError("SKILL_NAMES must name local workshop skills: " + ", ".join(sorted(unknown_skills)))
+    SKILL_NAMES = ",".join(selected_skills)
+    optional_config = {"TOOLBOX_NAME": TOOLBOX_NAME, "TOOLBOX_MCP_URL": TOOLBOX_MCP_URL, "SKILL_NAMES": SKILL_NAMES}
+    os.environ.update(optional_config)
+    ENV.update(optional_config)
 INVOCATIONS_AGENT = resource_names.name(resource_names.HOSTED_CLAIMS, ENV)
 SKILLS_AGENT = resource_names.name(resource_names.HOSTED_CONCIERGE, ENV)
 INVOCATIONS_DIR = LAB_DIR / "hosted-invocations"
 SKILLS_HOST_DIR = LAB_DIR / "hosted-responses-skills"
-SKILLS_SRC = LAB_DIR / "skills"
 ARTIFACTS = lab_helpers.artifact_path(LAB)
 RECORD = ARTIFACTS / "invocations.json"
 REVIEWS_DIR = ARTIFACTS / "claim_reviews"
@@ -134,7 +159,8 @@ if "__file__" not in globals():
 # This cell vendors both local hosted packages and records their runtime contracts without deploying to Azure.
 # %% Step S7.3 - Build both hosted packages
 def build(*, vendor: bool = True) -> dict:
-    env = foundry_env.load_env()
+    env = dict(foundry_env.load_env())
+    env.update({key: os.environ.get(key, "") for key in ("TOOLBOX_NAME", "TOOLBOX_MCP_URL", "SKILL_NAMES")})
     resource_names.suffix(env, required=True)
     previous = lab_helpers.artifact_path("lab2", "hosted.json")
     lab2 = foundry_env.load_artifact(previous) if previous.exists() else {}
@@ -146,7 +172,8 @@ def build(*, vendor: bool = True) -> dict:
         responses_prepare = lab_helpers.load_lab_module(f"{LAB_DIR.name}/hosted-responses-skills/prepare.py")
         counts["hosted-invocations"] = invocations_prepare.vendor()
         counts["hosted-responses-skills"] = responses_prepare.vendor()
-    skills = sorted(p.parent.name for p in SKILLS_SRC.glob("*/SKILL.md"))
+    skills = [name.strip() for name in env.get("SKILL_NAMES", "").split(",") if name.strip()] \
+        or sorted(p.parent.name for p in SKILLS_SRC.glob("*/SKILL.md"))
     existing = json.loads(RECORD.read_text(encoding="utf-8")) if RECORD.exists() else {}
     record = {
         "lab": LAB, "preview": ["Foundry Toolbox", "Foundry Skills"],
@@ -381,12 +408,23 @@ if "__file__" not in globals():
 def deploy_commands(env: dict | None = None) -> str:
     from deployment import bash_deploy_block
     env = foundry_env.load_env() if env is None else env
+    skill_settings = {
+        key: env.get(key, os.environ.get(key, ""))
+        for key in ("TOOLBOX_NAME", "TOOLBOX_MCP_URL", "SKILL_NAMES")
+    }
+    skill_settings["SKILL_NAMES"] = skill_settings["SKILL_NAMES"] or ",".join(
+        sorted(path.parent.name for path in SKILLS_SRC.glob("*/SKILL.md"))
+    )
+    skill_settings = {key: value for key, value in skill_settings.items() if value}
     blocks = []
     for folder, name, protocol in (
         (INVOCATIONS_DIR, INVOCATIONS_AGENT, "invocations"),
         (SKILLS_HOST_DIR, SKILLS_AGENT, "responses"),
     ):
-        blocks.append(bash_deploy_block(folder, name, protocol, env, check_package=True))
+        blocks.append(bash_deploy_block(
+            folder, name, protocol, env,
+            settings=skill_settings if protocol == "responses" else None, check_package=True,
+        ))
     return "\n\n".join(blocks)
 
 # %% [markdown]

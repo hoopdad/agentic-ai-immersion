@@ -23,6 +23,7 @@ import re
 import sys
 import time
 from pathlib import Path
+from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parents[2]      # build-and-operate-foundry-agents/ (common/ and data/ live here)
 sys.path.insert(0, str(ROOT))
@@ -95,6 +96,54 @@ def aoai_resource_url() -> str:
         raise SystemExit("[lab3] set AZURE_OPENAI_ENDPOINT (or FOUNDRY_PROJECT_ENDPOINT) in .env")
     print(f"[lab3] AZURE_OPENAI_ENDPOINT not set, using the Foundry host {host.group(0)}")
     return host.group(0)
+
+
+def deployed_model_name(kind: str, deployment_name: str) -> str:
+    """Resolve the underlying model, never treating an attendee deployment alias as a model name."""
+    path = helpers.artifact_path("lab1", "project.json")
+    if path.is_file():
+        checkpoint = foundry_env.load_artifact(path)
+        expected = {
+            "project_resource_id": ENV.get("PROJECT_RESOURCE_ID"),
+            "project_endpoint": ENV.get("FOUNDRY_PROJECT_ENDPOINT"),
+            "resource_suffix": ENV.get("MARKETPLACE_RESOURCE_SUFFIX"),
+        }
+        if checkpoint.get("provisioning_state") != "Succeeded" or any(
+            checkpoint.get("smoke_tests", {}).get(model) != "passed" for model in ("chat", "embedding")
+        ):
+            raise RuntimeError("Complete the Lab 1 model smoke tests before building Search resources.")
+        if any(not value or checkpoint.get(key) != value for key, value in expected.items()) or \
+                checkpoint.get("azure_openai_endpoint", "").rstrip("/") != aoai_resource_url() or \
+                checkpoint.get("chat_deployment", {}).get("name") != MODEL or \
+                checkpoint.get("embedding_deployment", {}).get("name") != EMBEDDING:
+            raise RuntimeError("Lab 1 model checkpoint does not match the current project and deployment configuration.")
+        deployment = checkpoint.get(f"{kind}_deployment", {})
+    else:
+        project_id = ENV.get("PROJECT_RESOURCE_ID", "")
+        match = re.fullmatch(
+            r"(/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft\.CognitiveServices/accounts/[^/]+)"
+            r"/projects/[^/]+",
+            project_id, re.IGNORECASE,
+        )
+        if not match:
+            raise RuntimeError("Set the current PROJECT_RESOURCE_ID before discovering deployed model metadata.")
+        setup = helpers.load_lab_module("lab1-foundry-project-models/project_setup.py")
+        cli = setup.AzureCLI()
+        account = cli.rest("get", match.group(1))
+        project = cli.rest("get", project_id)
+        project_endpoint, openai_endpoint = setup.endpoints(account, project)
+        if project_endpoint != ENV.get("FOUNDRY_PROJECT_ENDPOINT", "").rstrip("/") or \
+                openai_endpoint.rstrip("/") != aoai_resource_url():
+            raise RuntimeError("Discovered model account does not match the current project and OpenAI endpoints.")
+        resource_id = f"{match.group(1)}/deployments/{quote(deployment_name, safe='')}"
+        deployment = cli.rest("get", resource_id)
+        if deployment.get("name") != deployment_name or deployment.get("id", "").lower() != resource_id.lower() or \
+                deployment.get("properties", {}).get("provisioningState") != "Succeeded":
+            raise RuntimeError("Discovered model deployment does not match the current target or is not ready.")
+    model = deployment.get("properties", {}).get("model", {})
+    if model.get("format") != "OpenAI" or not model.get("name"):
+        raise RuntimeError("The deployed OpenAI model metadata is missing; rerun the Lab 1 verified handoff.")
+    return model["name"]
 
 
 # %% Documents: frontmatter, heading chunks, index records
@@ -237,7 +286,8 @@ def index_definition(name: str) -> SearchIndex:
         vectorizers=[AzureOpenAIVectorizer(
             vectorizer_name="marketplace-aoai-vectorizer",
             parameters=AzureOpenAIVectorizerParameters(resource_url=aoai_resource_url(),
-                                                       deployment_name=EMBEDDING, model_name=EMBEDDING))],
+                                                       deployment_name=EMBEDDING,
+                                                       model_name=deployed_model_name("embedding", EMBEDDING)))],
     )
     semantic = SemanticSearch(
         default_configuration_name="marketplace-semantic",
@@ -282,7 +332,8 @@ def build_knowledge_base(index_client: SearchIndexClient) -> KnowledgeBase:
                     "handoff and privacy policy. Retrieve first, then cite doc ids like [KB-ACC-001].",
         knowledge_sources=[KnowledgeSourceReference(name=ks) for ks in KNOWLEDGE_SOURCES],
         models=[KnowledgeBaseAzureOpenAIModel(azure_open_ai_parameters=AzureOpenAIVectorizerParameters(
-            resource_url=aoai_resource_url(), deployment_name=MODEL, model_name=MODEL))],
+            resource_url=aoai_resource_url(), deployment_name=MODEL,
+            model_name=deployed_model_name("chat", MODEL)))],
     )
     index_client.create_or_update_knowledge_base(knowledge_base=kb)
     print(f"[lab3] knowledge base {KB_NAME} with sources {list(KNOWLEDGE_SOURCES)}")

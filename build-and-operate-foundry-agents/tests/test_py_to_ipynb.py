@@ -11,6 +11,7 @@ import sys
 from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock
+from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
@@ -121,18 +122,36 @@ class ConverterTests(unittest.TestCase):
         notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
         cell = next(cell for cell in notebook["cells"] if "".join(cell["source"]).startswith("# Step 2.2 -"))
         action = compile(notebook_action("".join(cell["source"])), str(path), "exec")
-        verified = {"provisioning_state": "Succeeded", "smoke_tests": {"chat": "passed", "embedding": "passed"}}
+        environment = {
+            "PROJECT_RESOURCE_ID": "/project", "FOUNDRY_PROJECT_ENDPOINT": "https://project.example.test",
+            "MARKETPLACE_RESOURCE_SUFFIX": "jd-4821", "AZURE_AI_MODEL_DEPLOYMENT_NAME": "chat-jd-4821",
+        }
+        verified = {
+            "provisioning_state": "Succeeded", "smoke_tests": {"chat": "passed", "embedding": "passed"},
+            "project_resource_id": environment["PROJECT_RESOURCE_ID"],
+            "project_endpoint": environment["FOUNDRY_PROJECT_ENDPOINT"],
+            "resource_suffix": environment["MARKETPLACE_RESOURCE_SUFFIX"],
+            "chat_deployment": {"name": environment["AZURE_AI_MODEL_DEPLOYMENT_NAME"]},
+        }
         for record, valid in ((verified, True), ({}, False),
                               ({**verified, "smoke_tests": {"chat": "passed", "embedding": "failed"}}, False)):
             with self.subTest(record=record):
                 require = Mock(return_value=record)
-                namespace = {"LAB": "lab2", "lab_helpers": SimpleNamespace(require_artifact=require)}
+                namespace = {"LAB": "lab2", "ENV": environment, "lab_helpers": SimpleNamespace(require_artifact=require)}
                 if valid:
                     exec(action, namespace)
                 else:
                     with self.assertRaises(RuntimeError):
                         exec(action, namespace)
                 require.assert_called_once_with("lab1", "project.json", through=1, caller="lab2")
+        for key in environment:
+            with self.subTest(mismatched_config=key):
+                namespace = {
+                    "LAB": "lab2", "ENV": {**environment, key: "other"},
+                    "lab_helpers": SimpleNamespace(require_artifact=Mock(return_value=verified)),
+                }
+                with self.assertRaisesRegex(RuntimeError, key):
+                    exec(action, namespace)
         require = Mock(side_effect=AssertionError("Internal builds must not provision or require setup."))
         exec(action, {"__file__": str(path), "lab_helpers": SimpleNamespace(require_artifact=require)})
         require.assert_not_called()
@@ -195,6 +214,56 @@ class ConverterTests(unittest.TestCase):
             cwd=path.parent,
             check=True,
         )
+
+    def test_stretch7_inputs_override_unrelated_skill_defaults_and_validate_toolbox(self):
+        path = ROOT / "labs" / DRIVERS[6][0]
+        notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
+        source = next(
+            "".join(cell["source"]) for cell in notebook["cells"]
+            if "".join(cell["source"]).startswith("# Step S7.1 -")
+        )
+        action = notebook_action(source)
+        for name, url, valid in (
+            ("", "", True),
+            ("approved-toolbox", "https://toolbox.example.test/mcp", True),
+            ("", "https://toolbox.example.test/mcp", False),
+            ("approved-toolbox", "", False),
+            ("approved-toolbox", "http://toolbox.example.test/mcp", False),
+            ("approved-toolbox", "https://attendee@toolbox.example.test/mcp", False),
+            ("approved-toolbox", "https://toolbox.example.test/mcp?sig=credential", False),
+        ):
+            with self.subTest(name=name, url=url):
+                configured = ast.parse(ast.unparse(action).replace(
+                    "TOOLBOX_NAME = ''", f"TOOLBOX_NAME = {name!r}"
+                ).replace("TOOLBOX_MCP_URL = ''", f"TOOLBOX_MCP_URL = {url!r}"))
+                environment = {"SKILL_NAMES": "unrelated-root-sample", "TOOLBOX_NAME": "old-toolbox"}
+                namespace = {
+                    "ENV": {}, "os": SimpleNamespace(environ=environment),
+                    "urlsplit": urlsplit, "SKILLS_SRC": path.parent / "skills",
+                }
+                if valid:
+                    exec(compile(configured, str(path), "exec"), namespace)
+                    self.assertEqual(environment["SKILL_NAMES"], "")
+                    self.assertEqual(namespace["ENV"], {
+                        "TOOLBOX_NAME": name, "TOOLBOX_MCP_URL": url, "SKILL_NAMES": "",
+                    })
+                else:
+                    with self.assertRaises(ValueError):
+                        exec(compile(configured, str(path), "exec"), namespace)
+                    self.assertEqual(environment["SKILL_NAMES"], "unrelated-root-sample")
+        for names, valid in (("hra-reimbursement-rules", True), ("unrelated-root-sample", False), ("../outside", False)):
+            with self.subTest(skills=names):
+                configured = ast.parse(ast.unparse(action).replace("SKILL_NAMES = ''", f"SKILL_NAMES = {names!r}"))
+                namespace = {
+                    "ENV": {}, "os": SimpleNamespace(environ={}),
+                    "urlsplit": urlsplit, "SKILLS_SRC": path.parent / "skills",
+                }
+                if valid:
+                    exec(compile(configured, str(path), "exec"), namespace)
+                    self.assertEqual(namespace["ENV"]["SKILL_NAMES"], names)
+                else:
+                    with self.assertRaisesRegex(ValueError, "local workshop skills"):
+                        exec(compile(configured, str(path), "exec"), namespace)
 
 
 if __name__ == "__main__":

@@ -99,7 +99,7 @@ agentic-ai-immersion-day/
 │   ├── common/                                 # marketplace_data, foundry_env, guardrails, session_store, message_store
 │   ├── data/                                   # synthetic participants, sponsors, plans, knowledge, golden questions
 │   ├── tools/py_to_ipynb.py                    # script -> notebook converter
-│   └── labs/                                   # lab1-hosted-agent-basics ... stretch6-invocations-toolbox-skills
+│   └── labs/                                   # lab1-foundry-project-models ... stretch7-invocations-toolbox-skills
 │
 ├── 🧩 byouc/                                   # Bring Your Own Use Case
 │   ├── Agentic_UseCase_Spec.md                # Use case spec template (Markdown)
@@ -479,10 +479,11 @@ python -m pytest tests/unit tests/integration -q
 ### 🏥 Phase 6: Build and Operate Foundry Agents (individual health insurance marketplace)
 **Location:** `build-and-operate-foundry-agents/`
 
-A one-day, pro-code lab sequence for engineers building benefits-marketplace agents on **Microsoft Foundry Hosted Agents**:
-Agent Framework code that Foundry builds into a container, versions and scales. Four core labs chain
-artifacts (Lab 1 basics -> Lab 2 knowledge + sessions -> Lab 3 multi-agent handoff with human approval ->
-Lab 4 operate/evaluate/CI) around one use case, the Healthcare Marketplace Concierge, plus two stretch
+A notebook-only lab sequence for engineers building benefits-marketplace agents on **Microsoft Foundry Hosted Agents**:
+Agent Framework code that Foundry builds into a container, versions and scales. Five core labs chain
+artifacts (Lab 1 project + models -> Lab 2 basics -> Lab 3 knowledge + sessions ->
+Lab 4 multi-agent handoff with human approval -> Lab 5 operate/evaluate/CI)
+around one use case, the Healthcare Marketplace Concierge, plus two stretch
 labs (prompt agents & workflow agents; Invocations protocol, Toolbox and Skills). Reuses this repo's dev
 container, `.env` names, pinned requirements and RBAC script; extends the `hosted-agents/` and `AgentOps/`
 patterns. Synthetic data only.

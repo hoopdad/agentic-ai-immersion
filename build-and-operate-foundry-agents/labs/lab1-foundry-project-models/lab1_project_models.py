@@ -92,11 +92,13 @@ print(json.dumps({"context": CONTEXT, "account_id": ACCOUNT["id"], "attendee_suf
 # %% [markdown]
 # This cell creates or safely reuses your project and two compatible account-level deployments and waits for successful provisioning.
 # %% Step 1.6 - Provision project and models
+SMOKE_TESTS = {}
+SMOKE_TARGET = None
+ARTIFACT.unlink(missing_ok=True)
 if APPROVE_PROVISIONING is not True:
     raise RuntimeError("Review Step 1.5, set APPROVE_PROVISIONING=True and rerun it before proceeding.")
 CURRENT_CONTEXT = project_setup.azure_context(CLI, CONTEXT["subscription_id"], CONTEXT["tenant_id"])
 ACCOUNT = project_setup.verify_account(CLI, CURRENT_CONTEXT, RESOURCE_GROUP, FOUNDRY_ACCOUNT_NAME)
-ARTIFACT.unlink(missing_ok=True)  # An interrupted rerun must not leave an earlier successful checkpoint.
 PROJECT = project_setup.ensure_project(CLI, ACCOUNT, SUFFIX)
 CHAT = project_setup.ensure_deployment(CLI, ACCOUNT, CHAT_NAME, CHAT_SPEC)
 EMBEDDING = project_setup.ensure_deployment(CLI, ACCOUNT, EMBEDDING_NAME, EMBEDDING_SPEC)
@@ -108,12 +110,26 @@ print(json.dumps({"project_id": PROJECT["id"], "project_endpoint": PROJECT_ENDPO
 # %% [markdown]
 # This cell calls both deployed models with Azure CLI Entra credentials and confirms assistant text plus a 3072-dimensional embedding.
 # %% Step 1.7 - Hello-world and embedding smoke tests
+SMOKE_TESTS = {}
+SMOKE_TARGET = None
+ARTIFACT.unlink(missing_ok=True)
 project_setup.azure_context(CLI, CONTEXT["subscription_id"], CONTEXT["tenant_id"])
+TESTED_TARGET = project_setup.smoke_target(
+    PROJECT["id"], PROJECT_ENDPOINT, OPENAI_ENDPOINT, CONTEXT["tenant_id"],
+    CHAT_NAME, CHAT_SPEC, EMBEDDING_NAME, EMBEDDING_SPEC)
 SMOKE_TESTS = project_setup.smoke_test(CLI, OPENAI_ENDPOINT, CHAT_NAME, EMBEDDING_NAME)
+SMOKE_TARGET = TESTED_TARGET
 
 # %% [markdown]
 # This cell saves verified noncredential outputs to the root environment and project checkpoint while preserving unrelated configuration.
 # %% Step 1.8 - Publish the downstream handoff
+ARTIFACT.unlink(missing_ok=True)
+CURRENT_TARGET = project_setup.smoke_target(
+    PROJECT["id"], PROJECT_ENDPOINT, OPENAI_ENDPOINT, CONTEXT["tenant_id"],
+    CHAT_NAME, CHAT_SPEC, EMBEDDING_NAME, EMBEDDING_SPEC)
+if (SMOKE_TESTS.get("chat") != "passed" or SMOKE_TESTS.get("embedding") != "passed"
+        or SMOKE_TARGET != CURRENT_TARGET):
+    raise RuntimeError("Run Step 1.7 successfully for this exact project, endpoints and deployment plan before publishing.")
 OUTPUT_ENV = {
     "FOUNDRY_PROJECT_ENDPOINT": PROJECT_ENDPOINT, "PROJECT_RESOURCE_ID": PROJECT["id"],
     "TENANT_ID": CONTEXT["tenant_id"], "AZURE_AI_MODEL_DEPLOYMENT_NAME": CHAT_NAME,
@@ -128,8 +144,6 @@ OPTIONAL_INPUTS = {
     "MARKETPLACE_TODAY": MARKETPLACE_TODAY,
 }
 OUTPUT_ENV.update({key: value.strip() for key, value in OPTIONAL_INPUTS.items() if value.strip()})
-if SMOKE_TESTS.get("chat") != "passed" or SMOKE_TESTS.get("embedding") != "passed":
-    raise RuntimeError("Both model smoke tests must pass before publishing.")
 project_setup.write_env(REPO_ROOT / ".env", OUTPUT_ENV)
 ENV = foundry_env.load_env()
 if any(ENV.get(key) != value for key, value in OUTPUT_ENV.items()):

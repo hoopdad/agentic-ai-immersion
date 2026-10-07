@@ -23,6 +23,7 @@
 - Workshop implementation: `common/` (data, environment and state), `data/` (synthetic fixtures), `labs/` (notebooks and adjacent authoring sources).
 - First lab: `labs/lab1-foundry-project-models/` creates a project in an approved existing Foundry account, deploys chat/embedding models, and saves the notebook configuration and `artifacts/lab1/project.json`.
 - Lab 3 conversation history: Azure Blob/Azurite or files; shared storage utilities retain optional backend implementations, but Redis is not a learner prerequisite or default.
+- Lab 3 Search configuration: `labs/lab3-hosted-knowledge-sessions/knowledge_base.py` resolves underlying model identities separately from attendee-scoped deployment aliases.
 - Hosted model resilience: `common/model_resilience.py` provides visible, retry-header-aware Agent Framework
   throttling retries and consistent failed Responses payload handling for Labs 2-4 and Stretch 7.
 - Workshop resource lifecycle: `common/resource_names.py` applies one attendee suffix to every created

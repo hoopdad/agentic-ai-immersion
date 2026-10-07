@@ -263,6 +263,17 @@ def smoke_test(cli: AzureCLI, openai_endpoint: str, chat: str, embedding: str) -
     return {"chat": "passed", "embedding": "passed", "embedding_dimensions": len(vector)}
 
 
+def smoke_target(project_id: str, project_endpoint: str, openai_endpoint: str, tenant_id: str,
+                 chat_name: str, chat_spec: dict, embedding_name: str, embedding_spec: dict) -> str:
+    """Snapshot the exact tested target, without retaining references to mutable specs."""
+    return json.dumps({
+        "project_id": project_id, "project_endpoint": project_endpoint,
+        "openai_endpoint": openai_endpoint, "tenant_id": tenant_id,
+        "chat": {"name": chat_name, "spec": chat_spec},
+        "embedding": {"name": embedding_name, "spec": embedding_spec},
+    }, sort_keys=True)
+
+
 def write_env(path: Path, values: dict[str, str]) -> None:
     """Replace only workshop output keys; leave unrelated lines intact."""
     if not values.keys() <= ENV_KEYS:

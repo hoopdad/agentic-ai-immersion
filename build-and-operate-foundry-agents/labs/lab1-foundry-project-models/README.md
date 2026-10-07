@@ -30,6 +30,9 @@ Each executable cell has its own one-sentence description and visible step ID.
 Do not run all cells before reviewing discovery and approving the model plan.
 If RBAC, networking, availability or quota fails, stop and consult your
 facilitator; no success artifact is published on a failed provisioning rerun.
+Provisioning and smoke-test reruns invalidate previous evidence and checkpoints
+before starting. Publishing requires fresh passed tests bound to the exact
+project, tenant, endpoints, deployment names and model/SKU/capacity specifications.
 
 The root `.env` update preserves unrelated values and writes no Azure access
 tokens, passwords or SAS credentials. Step 1.2 also exposes **optional explicit

@@ -381,6 +381,51 @@ class DeploymentTests(unittest.TestCase):
             (ROOT / "common/foundry_env.py").resolve(),
         )
 
+    def test_stretch7_build_and_deployment_use_explicit_optional_configuration(self):
+        environment = {
+            "PROJECT_RESOURCE_ID": "/project", "FOUNDRY_PROJECT_ENDPOINT": "https://project.example.test",
+            "AZURE_AI_MODEL_DEPLOYMENT_NAME": "model", "MARKETPLACE_RESOURCE_SUFFIX": "jd-4821",
+        }
+        for name, url in (("", ""), ("approved-toolbox", "https://toolbox.example.test/mcp")):
+            settings = {"TOOLBOX_NAME": name, "TOOLBOX_MCP_URL": url, "SKILL_NAMES": ""}
+            with self.subTest(toolbox=name), tempfile.TemporaryDirectory(dir=ROOT / "labs") as directory, \
+                    patch.dict(os.environ, {**environment, **settings}, clear=True):
+                module = load("stretch7_configuration_regression",
+                              ROOT / "labs/stretch7-invocations-toolbox-skills/stretch7_invocations.py")
+                with patch.object(module.foundry_env, "load_env", return_value=environment), \
+                        patch.object(module, "RECORD", Path(directory) / "invocations.json"), \
+                        patch.object(module.foundry_env, "save_artifact"):
+                    record = module.build(vendor=False)
+                    commands = module.deploy_commands(environment)
+                    local_skills = Path(directory) / "skills"
+                    for skill_name in ("hra-reimbursement-rules", "debit-card-faq"):
+                        skill = local_skills / skill_name / "SKILL.md"
+                        skill.parent.mkdir(parents=True)
+                        skill.touch()
+                    with patch.object(module, "SKILLS_SRC", local_skills):
+                        expanded = module.build(vendor=False)
+                        expanded_commands = module.deploy_commands(environment)
+                self.assertEqual(expanded["agents"]["responses_skills"]["skills"],
+                                 ["debit-card-faq", "hra-reimbursement-rules"])
+                self.assertIn("debit-card-faq,hra-reimbursement-rules", shlex.split(expanded_commands))
+                responses = record["agents"]["responses_skills"]
+                self.assertEqual(responses["skills"], ["hra-reimbursement-rules"])
+                self.assertEqual(responses["toolbox"], name or None)
+                self.assertEqual(responses["toolbox_mcp_url_set"], bool(url))
+                generated = [shlex.split(line) for line in commands.splitlines() if line.startswith("python ")]
+                self.assertEqual(len(generated), 2)
+                self.assertNotIn("SKILL_NAMES", generated[0])
+                published = {
+                    generated[1][index + 1]: generated[1][index + 2]
+                    for index, value in enumerate(generated[1]) if value == "--set"
+                }
+                self.assertEqual(published["SKILL_NAMES"], "hra-reimbursement-rules")
+                if name:
+                    self.assertEqual(published["TOOLBOX_NAME"], name)
+                    self.assertEqual(published["TOOLBOX_MCP_URL"], url)
+                else:
+                    self.assertFalse(any(value.startswith("TOOLBOX_") for value in generated[1]))
+
     def test_lab3_storage_uses_blob_or_files_not_redis(self):
         module = load(
             "migration_lab3_storage",
@@ -623,6 +668,106 @@ class DeploymentTests(unittest.TestCase):
                     self.assertFalse(any(
                         "PASS" in call.args[0] for call in logger.call_args_list
                     ))
+
+    def test_search_model_names_come_from_the_matching_verified_checkpoint(self):
+        module = load("search_checkpoint_models", ROOT / "labs/lab3-hosted-knowledge-sessions/knowledge_base.py")
+        environment = {
+            "PROJECT_RESOURCE_ID": "/account/projects/jd-4821",
+            "FOUNDRY_PROJECT_ENDPOINT": "https://project.example.test",
+            "AZURE_OPENAI_ENDPOINT": "https://models.example.test/",
+            "MARKETPLACE_RESOURCE_SUFFIX": "jd-4821",
+        }
+        chat_alias, embedding_alias = "marketplace-chat-jd-4821", "marketplace-embedding-jd-4821"
+        checkpoint = {
+            "provisioning_state": "Succeeded", "smoke_tests": {"chat": "passed", "embedding": "passed"},
+            "project_resource_id": environment["PROJECT_RESOURCE_ID"],
+            "project_endpoint": environment["FOUNDRY_PROJECT_ENDPOINT"],
+            "azure_openai_endpoint": environment["AZURE_OPENAI_ENDPOINT"],
+            "resource_suffix": environment["MARKETPLACE_RESOURCE_SUFFIX"],
+            "chat_deployment": {"name": chat_alias, "properties": {"model": {"format": "OpenAI", "name": "gpt-5.4-mini"}}},
+            "embedding_deployment": {
+                "name": embedding_alias, "properties": {"model": {"format": "OpenAI", "name": "text-embedding-3-large"}},
+            },
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "project.json"
+            path.write_text(json.dumps(checkpoint), encoding="utf-8")
+            with patch.object(module, "ENV", environment), patch.object(module, "MODEL", chat_alias), \
+                    patch.object(module, "EMBEDDING", embedding_alias), \
+                    patch.object(module.helpers, "artifact_path", return_value=path), \
+                    patch.object(module.helpers, "load_lab_module") as discovery:
+                vectorizer = module.index_definition("test-index").vector_search.vectorizers[0].parameters
+                knowledge = module.build_knowledge_base(MagicMock()).models[0].azure_open_ai_parameters
+                self.assertEqual(vectorizer.deployment_name, embedding_alias)
+                self.assertEqual(vectorizer.model_name, "text-embedding-3-large")
+                self.assertEqual(knowledge.deployment_name, chat_alias)
+                self.assertEqual(knowledge.model_name, "gpt-5.4-mini")
+                for key, value in (
+                    ("project_resource_id", "/other-project"),
+                    ("project_endpoint", "https://other.example.test"),
+                    ("azure_openai_endpoint", "https://other-models.example.test"),
+                    ("resource_suffix", "other-attendee"),
+                    ("chat_deployment", {**checkpoint["chat_deployment"], "name": "other-chat"}),
+                    ("embedding_deployment", {**checkpoint["embedding_deployment"], "name": "other-embedding"}),
+                    ("smoke_tests", {"chat": "passed", "embedding": "failed"}),
+                ):
+                    with self.subTest(stale_field=key):
+                        path.write_text(json.dumps({**checkpoint, key: value}), encoding="utf-8")
+                        with self.assertRaises(RuntimeError):
+                            module.deployed_model_name("embedding", embedding_alias)
+                discovery.assert_not_called()
+
+    def test_search_automation_discovers_model_metadata_without_provisioning(self):
+        module = load("search_discovered_models", ROOT / "labs/lab3-hosted-knowledge-sessions/knowledge_base.py")
+        setup = load("model_metadata_setup", ROOT / "labs/lab1-foundry-project-models/project_setup.py")
+        account_id = (
+            "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/workshop/"
+            "providers/Microsoft.CognitiveServices/accounts/workshop"
+        )
+        project_id = account_id + "/projects/learner"
+        project_endpoint = "https://workshop.services.ai.azure.com/api/projects/learner"
+        openai_endpoint = "https://workshop.openai.azure.com/"
+        environment = {
+            "PROJECT_RESOURCE_ID": project_id, "FOUNDRY_PROJECT_ENDPOINT": project_endpoint,
+            "AZURE_OPENAI_ENDPOINT": openai_endpoint,
+        }
+        aliases = {"marketplace-chat-jd-4821": "gpt-5.4-mini", "marketplace-embedding-jd-4821": "text-embedding-3-large"}
+        cli = MagicMock()
+
+        def metadata(method, resource_id):
+            self.assertEqual(method, "get")
+            if resource_id == account_id:
+                return {"id": account_id, "properties": {"endpoints": {"OpenAI": openai_endpoint}}}
+            if resource_id == project_id:
+                return {"id": project_id, "properties": {"endpoints": {"Foundry": project_endpoint}}}
+            alias = resource_id.rsplit("/", 1)[-1]
+            return {"id": resource_id, "name": alias, "properties": {
+                "provisioningState": "Succeeded", "model": {"format": "OpenAI", "name": aliases[alias]},
+            }}
+
+        cli.rest.side_effect = metadata
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(module, "ENV", environment), \
+                patch.object(module, "MODEL", "marketplace-chat-jd-4821"), \
+                patch.object(module, "EMBEDDING", "marketplace-embedding-jd-4821"), \
+                patch.object(module.helpers, "artifact_path", return_value=Path(directory) / "absent.json"), \
+                patch.object(module.helpers, "load_lab_module", return_value=setup), \
+                patch.object(setup, "AzureCLI", return_value=cli), \
+                patch.object(setup, "ensure_project") as create_project, \
+                patch.object(setup, "ensure_deployment") as create_deployment:
+            vectorizer = module.index_definition("test-index").vector_search.vectorizers[0].parameters
+            knowledge = module.build_knowledge_base(MagicMock()).models[0].azure_open_ai_parameters
+            self.assertEqual((vectorizer.deployment_name, vectorizer.model_name),
+                             ("marketplace-embedding-jd-4821", "text-embedding-3-large"))
+            self.assertEqual((knowledge.deployment_name, knowledge.model_name),
+                             ("marketplace-chat-jd-4821", "gpt-5.4-mini"))
+            for alias in aliases:
+                cli.rest.assert_any_call("get", account_id + "/deployments/" + alias)
+            with patch.object(module, "ENV", {**environment, "AZURE_OPENAI_ENDPOINT": "https://other.example.test"}):
+                with self.assertRaisesRegex(RuntimeError, "does not match"):
+                    module.deployed_model_name("chat", "marketplace-chat-jd-4821")
+            create_project.assert_not_called()
+            create_deployment.assert_not_called()
 
     def test_lab3_embedding_retries_at_the_service_requested_time(self):
         module = load(

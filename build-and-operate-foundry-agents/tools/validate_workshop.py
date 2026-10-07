@@ -127,12 +127,22 @@ def main() -> None:
     run("-m", "unittest", "discover", "-s", "tests", "-v")
     run("-m", "unittest", "discover", "-s", "labs/stretch6-prompt-agents-and-workflows",
         "-p", "test_stretch6_offline.py", "-v")
-    with tempfile.TemporaryDirectory(prefix="foundry-workshop-check-", dir=ROOT) as directory:
-        sandbox = Path(directory) / ROOT.name
+    with tempfile.TemporaryDirectory(prefix="foundry-workshop-check-") as directory:
+        sandbox_repo = Path(directory) / "repository"
+        sandbox_repo.mkdir()
+        shutil.copy2(REPO / "requirements.txt", sandbox_repo / "requirements.txt")
+        marker = sandbox_repo / ".devcontainer"
+        marker.mkdir()
+        shutil.copy2(REPO / ".devcontainer/devcontainer.json", marker / "devcontainer.json")
+        sandbox = sandbox_repo / ROOT.name
         shutil.copytree(ROOT, sandbox, ignore=shutil.ignore_patterns(
-            ".env", ".env.*", ".venv", "__pycache__", "artifacts", ".azure", Path(directory).name,
+            ".env", ".env.*", ".venv", "__pycache__", "artifacts", ".azure",
         ))
         environment = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
+        subprocess.run([
+            sys.executable, "-m", "unittest", "discover", "-s", "tests",
+            "-p", "test_py_to_ipynb.py", "-v",
+        ], cwd=sandbox, env=environment, check=True)
         for prepare in sorted((sandbox / "labs").glob("*/hosted*/prepare.py")):
             subprocess.run([sys.executable, str(prepare)], cwd=prepare.parent,
                            env=environment, check=True)

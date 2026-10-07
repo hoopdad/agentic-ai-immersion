@@ -274,7 +274,7 @@ class ProjectSetupTests(unittest.TestCase):
                 self.assertEqual(cell["outputs"], [])
         self.assertNotIn("if __name__", text)
 
-    def test_notebook_handoff_contract_end_to_end_offline(self) -> None:
+    def test_notebook_handoff_and_stale_smoke_regressions_offline(self) -> None:
         notebook = json.loads((LAB / "lab1_walkthrough.ipynb").read_text(encoding="utf-8"))
         cells = ["".join(c["source"]) for c in notebook["cells"] if c["cell_type"] == "code"]
         namespace: dict = {}
@@ -290,7 +290,7 @@ class ProjectSetupTests(unittest.TestCase):
                 "subscription_id": SUB, "tenant_id": TENANT, "subscription_name": "approved"}),
             patch.object(setup, "account_inventory", return_value=[]),
             patch.object(setup, "verify_account", return_value=ACCOUNT),
-            patch.object(setup, "ensure_project", return_value=project),
+            patch.object(setup, "ensure_project", return_value=project) as provision_project,
             patch.object(setup, "ensure_deployment", side_effect=lambda cli, account, name, spec: {"name": name}),
             patch.object(setup, "smoke_test", return_value=evidence),
             patch.object(setup, "write_env") as write_env,
@@ -319,7 +319,57 @@ class ProjectSetupTests(unittest.TestCase):
                              MARKETPLACE_BLOB_STORAGE_CONTAINER="", APPLICATIONINSIGHTS_CONNECTION_STRING="")
             exec(compile(cells[-1], "<notebook>", "exec"), namespace)
             self.assertEqual(set(write_env.call_args.args[1]), setup.PROJECT_ENV_KEYS | {"MARKETPLACE_TODAY"})
-        checkpoint = save_artifact.call_args.args[1]
+            checkpoint = json.loads(json.dumps(save_artifact.call_args.args[1]))
+            output_path = write_env.call_args.args[0]
+
+            # A failed smoke rerun for the same target invalidates prior success and its checkpoint.
+            write_env.reset_mock()
+            save_artifact.reset_mock()
+            namespace["ARTIFACT"].write_text("{}", encoding="utf-8")
+            with patch.object(setup, "smoke_test", side_effect=RuntimeError("offline smoke failure")):
+                with self.assertRaisesRegex(RuntimeError, "offline smoke failure"):
+                    exec(compile(cells[6], "<notebook>", "exec"), namespace)
+            self.assertEqual(namespace["SMOKE_TESTS"], {})
+            self.assertIsNone(namespace["SMOKE_TARGET"])
+            self.assertFalse(namespace["ARTIFACT"].exists())
+            with self.assertRaisesRegex(RuntimeError, "exact project"):
+                exec(compile(cells[7], "<notebook>", "exec"), namespace)
+            write_env.assert_not_called()
+            save_artifact.assert_not_called()
+
+            # After success, reprovision another target, fail its smoke, then attempt publishing.
+            exec(compile(cells[6], "<notebook>", "exec"), namespace)
+            exec(compile(cells[7], "<notebook>", "exec"), namespace)
+            namespace["ARTIFACT"].write_text("{}", encoding="utf-8")
+            provision_project.return_value = {
+                "id": PROJECT_ID.replace("jd-4821", "ab-4821"),
+                "properties": {"endpoints": {"AI Foundry API":
+                    "https://approved.services.ai.azure.com/api/projects/healthcare-marketplace-ab-4821"}},
+            }
+            namespace.update(SUFFIX="ab-4821", CHAT_NAME="marketplace-chat-ab-4821",
+                             EMBEDDING_NAME="marketplace-embedding-ab-4821")
+            write_env.reset_mock()
+            save_artifact.reset_mock()
+            exec(compile(cells[5], "<notebook>", "exec"), namespace)
+            self.assertEqual(namespace["SMOKE_TESTS"], {})
+            self.assertIsNone(namespace["SMOKE_TARGET"])
+            self.assertFalse(namespace["ARTIFACT"].exists())
+            with patch.object(setup, "smoke_test", side_effect=RuntimeError("new target smoke failure")):
+                with self.assertRaisesRegex(RuntimeError, "new target smoke failure"):
+                    exec(compile(cells[6], "<notebook>", "exec"), namespace)
+            with self.assertRaisesRegex(RuntimeError, "exact project"):
+                exec(compile(cells[7], "<notebook>", "exec"), namespace)
+            write_env.assert_not_called()
+            save_artifact.assert_not_called()
+
+            # Success cannot be reused after editing a deployment spec in place.
+            exec(compile(cells[6], "<notebook>", "exec"), namespace)
+            namespace["CHAT_SPEC"]["properties"]["model"]["version"] = "edited-version"
+            with self.assertRaisesRegex(RuntimeError, "exact project"):
+                exec(compile(cells[7], "<notebook>", "exec"), namespace)
+            write_env.assert_not_called()
+            save_artifact.assert_not_called()
+            self.assertFalse(namespace["ARTIFACT"].exists())
         self.assertEqual(set(checkpoint), {
             "schema_version", "verified_at", "subscription_id", "tenant_id", "account_resource_id",
             "project_resource_id", "project_endpoint", "azure_openai_endpoint", "resource_suffix",
@@ -332,7 +382,7 @@ class ProjectSetupTests(unittest.TestCase):
         self.assertEqual(set(approved_values), setup.ENV_KEYS)
         self.assertEqual(approved_values["MARKETPLACE_TODAY"], "2026-10-06")
         self.assertFalse(set(checkpoint) & setup.OPTIONAL_ENV_KEYS)
-        self.assertEqual(write_env.call_args.args[0], ROOT.parent / ".env")
+        self.assertEqual(output_path, ROOT.parent / ".env")
 
 
 if __name__ == "__main__":

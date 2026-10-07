@@ -66,12 +66,12 @@ contract, not a manual prerequisite to copy or populate first. Do not commit
 | Configuration | Meaning |
 |---|---|
 | Tenant, subscription, resource group and existing Foundry account | Approved management scope and authentication context |
-| Project name and unique attendee suffix | Learner project/resource ownership; retain the same suffix across labs |
+| Unique attendee suffix | Project/resource names derive from this value; retain the same suffix across labs |
 | Chat deployment and embedding deployment choices | Names, supported model versions and capacity used by agents and retrieval |
 | `FOUNDRY_PROJECT_ENDPOINT`, `PROJECT_RESOURCE_ID`, `AZURE_OPENAI_ENDPOINT` | Resolved endpoints and project ARM identity persisted for downstream notebooks |
 | `AZURE_AI_MODEL_DEPLOYMENT_NAME`, `EMBEDDING_MODEL_DEPLOYMENT_NAME` | Provisioned deployment names; retrieval assumes `text-embedding-3-large` with 3072 dimensions |
-| `AZURE_AI_SEARCH_ENDPOINT` | Later facilitator-provided Search input for Lab 3; not inferred by account discovery |
-| `APPLICATIONINSIGHTS_CONNECTION_STRING` | Later approved telemetry input for Lab 5, or resolved from the project connection |
+| `AZURE_AI_SEARCH_ENDPOINT` | Administrator-supplied Lab 1 input used by Lab 3; not inferred by account discovery |
+| `APPLICATIONINSIGHTS_CONNECTION_STRING` | Optional administrator-supplied Lab 1 input used by Lab 5, or resolved from the project connection |
 | `MARKETPLACE_RESOURCE_SUFFIX` | Attendee resource isolation persisted by Lab 1 |
 | `MARKETPLACE_TODAY` | Scenario date, defaulting to `2026-10-06`; change in notebook configuration only when an exercise needs a different date |
 | Optional Blob account URL and container | Existing shared message-history service for Lab 3, using Entra credentials |
@@ -100,8 +100,10 @@ variants expose the same downstream workshop configuration contract; keep their
 state and local tfvars separate. Review the selected variant's networking and
 hosted-agent limitations before deployment.
 
-Search, optional Blob and telemetry settings are later explicit facilitator
-inputs, not resources provisioned or reliably discovered by Lab 1.
+Search, optional Blob and telemetry settings are editable Lab 1 inputs supplied
+by the facilitator, not resources provisioned or reliably discovered by Lab 1.
+Blank optional inputs preserve existing values; rerun the setup inputs and
+publication cells after the facilitator supplies a missing value.
 Knowledge MCP endpoints and agent/version references are produced by the
 notebooks and passed through checkpoint artifacts. They are not values learners
 must invent. Optional Toolbox configuration belongs in Stretch 7's editable inputs.

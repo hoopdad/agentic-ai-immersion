@@ -90,6 +90,22 @@ if "__file__" not in globals():
         project.get("smoke_tests", {}).get(model) != "passed" for model in ("chat", "embedding")
     ):
         raise RuntimeError("Complete the Lab 1 project/model smoke tests before continuing.")
+    checkpoint_config = {
+        "PROJECT_RESOURCE_ID": project.get("project_resource_id"),
+        "FOUNDRY_PROJECT_ENDPOINT": project.get("project_endpoint"),
+        "MARKETPLACE_RESOURCE_SUFFIX": project.get("resource_suffix"),
+        "AZURE_AI_MODEL_DEPLOYMENT_NAME": project.get("chat_deployment", {}).get("name"),
+    }
+    mismatches = [
+        key for key, value in checkpoint_config.items()
+        if not value or value != ENV.get(key)
+    ]
+    if mismatches:
+        raise RuntimeError(
+            "Lab 1 checkpoint does not match the current configuration: "
+            + ", ".join(mismatches)
+            + ". Rerun Lab 1's verified handoff, then reload this notebook's configuration."
+        )
 
 # %% [markdown]
 # This cell defines the two participant scenarios used to check the concierge's boundaries.
