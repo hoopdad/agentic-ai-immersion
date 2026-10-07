@@ -10,7 +10,7 @@ stay focused on what they teach:
 * `run_turn(...)`              one participant turn against a platform prompt agent, including the client-side
                                function-call loop (Stretch 5 uses it; Lab 4 uses it for the deployed hosted agent)
 * `artifact_path(...)`         labs/artifacts/labN/<name>
-* `require_artifact(...)`      load a previous lab's artifact or exit with the catch_up.py hint
+* `require_artifact(...)`      load a previous lab's artifact or identify the prerequisite notebook
 * `load_lab_module(...)`       import a lab file from a hyphenated folder (used by catch_up.py and Lab 4)
 * `get_session_store(dir)`     common.session_store when present (Redis, Cosmos or file), else a local
                                file store with the same get/put/delete/list_ids surface (Lab 2 client side)
@@ -74,13 +74,13 @@ def artifact_path(lab: str, *parts: str) -> Path:
 
 
 def require_artifact(lab: str, name: str, through: int, caller: str) -> dict:
-    """Load a JSON artifact from an earlier lab or stop with the one command that fixes it."""
+    """Load a JSON artifact from an earlier lab or identify the prerequisite notebook."""
     path = artifact_path(lab, name)
     if not path.exists():
         raise SystemExit(
             f"[{caller}] Missing artifact {path.relative_to(LABS_DIR)}.\n"
-            f"[{caller}] Earlier labs create it. Fix with:\n"
-            f"[{caller}]     cd {LABS_DIR.name} && python catch_up.py --through {through}"
+            f"[{caller}] Run the earlier walkthrough notebooks through Lab {through} "
+            "in sequence, then rerun this cell."
         )
     return foundry_env.load_artifact(path)
 

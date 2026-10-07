@@ -156,7 +156,8 @@ jobs:
             --agent-name healthcare-marketplace-concierge-hosted --model-deployment "${{ vars.AZURE_AI_MODEL_DEPLOYMENT_NAME }}" \
             --protocol responses --deploy-mode code --runtime python_3_14 --entry-point main.py --dep-resolution remote_build
           azd env set MARKETPLACE_KB_MCP_URL "${{ vars.MARKETPLACE_KB_MCP_URL }}"
-          azd env set MARKETPLACE_REDIS_URL "${{ vars.MARKETPLACE_REDIS_URL }}"
+          azd env set MARKETPLACE_BLOB_STORAGE_URL "${{ vars.MARKETPLACE_BLOB_STORAGE_URL }}"
+          azd env set MARKETPLACE_BLOB_STORAGE_CONTAINER "${{ vars.MARKETPLACE_BLOB_STORAGE_CONTAINER || 'marketplace-history' }}"
           azd env set APPLICATIONINSIGHTS_CONNECTION_STRING "${{ vars.APPLICATIONINSIGHTS_CONNECTION_STRING }}"
           azd up --no-prompt
       - name: Record deployment

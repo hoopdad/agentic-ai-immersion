@@ -7,7 +7,7 @@
 - `observability-and-evaluations/`: tracing, evaluator and red-team notebooks.
 - `hosted-agents/`: small deployable examples for the Responses and Invocations protocols.
 - `AgentOps/`: standalone GitOps example with infrastructure and tests.
-- `build-and-operate-foundry-agents/`: cumulative Healthcare Marketplace workshop; four core labs and two stretch labs. Replaces the old hosted-agent lab track.
+- `build-and-operate-foundry-agents/`: cumulative Healthcare Marketplace workshop; five core labs and two stretch labs, run only through Jupyter walkthroughs.
 - `byouc/`: use-case specification templates.
 
 ## Boundaries and navigation
@@ -20,10 +20,11 @@
   `scripts/generate_prereq_datasheet_v2.py`.
 - Workshop entry point: `build-and-operate-foundry-agents/README.md` and `SETUP.md`.
 - Workshop customer collateral: `build-and-operate-foundry-agents/Datasheets/` contains editable HTML sources and rendered PDF/Word deliverables.
-- Workshop implementation: `common/` (data, environment and state), `data/` (synthetic fixtures), `labs/` (drivers and notebooks).
-- Lab 2 conversation history: Azure Blob/Azurite or files; shared `common/message_store.py` retains Redis support for other labs. Cloud Blob uses an existing account/container and managed identity.
+- Workshop implementation: `common/` (data, notebook configuration, environment and state), `data/` (synthetic fixtures), `labs/` (notebooks and adjacent authoring sources).
+- First lab: `labs/lab1-foundry-project-models/` creates a project in an approved existing Foundry account, deploys chat/embedding models, and saves the notebook configuration and `artifacts/lab1/project.json`.
+- Lab 3 conversation history: Azure Blob/Azurite or files; shared storage utilities retain optional backend implementations, but Redis is not a learner prerequisite or default.
 - Hosted model resilience: `common/model_resilience.py` provides visible, retry-header-aware Agent Framework
-  throttling retries and consistent failed Responses payload handling for Labs 1-3 and Stretch 6.
+  throttling retries and consistent failed Responses payload handling for Labs 2-4 and Stretch 7.
 - Workshop resource lifecycle: `common/resource_names.py` applies one attendee suffix to every created
   agent, evaluation, Search resource and project connection; `tools/cleanup_workshop.py` provides
   dry-run-first cleanup for one suffix or every workshop suffix without deleting shared infrastructure.
@@ -40,13 +41,13 @@
   Public firewall policy has mocked Terraform tests in `public-network/tests/`; offline variant contracts
   are tested in the workshop's `tests/test_infra_network_variants.py`.
 - Deployment: each lab's `hosted*/main.py` and minimal pinned requirements; `prepare.py` vendors shared files. Generated packages, credentials and runtime artifacts are not source.
-- Shell integration: `labs/deployment.py`; Bash is the learner shell, Python holds deployment validation/logic.
-- Notebooks: edit the adjacent `# %%` Python driver and regenerate with `tools/py_to_ipynb.py`; preserve exercise gates.
+- Deployment integration: `labs/deployment.py`; explicit notebook cells invoke deployment tooling, and Python holds validation/logic.
+- Notebooks: edit adjacent `# %%` authoring sources and regenerate with `tools/py_to_ipynb.py`; give each code cell a preceding one-sentence description and keep CLI-only entry points out of learner notebooks.
 - Lab teaching alignment: `labs/README.md`, each lab README, and Markdown cells in the six adjacent Python
   drivers connect outcomes to engineering decisions, acceptance evidence, ownership, and measurement limits.
   Generated notebooks mirror that wording; runtime instructions and executable cells remain unchanged.
 - Offline checks: the workshop's `tools/validate_workshop.py` and `tests/`, plus `.github/workflows/workshop-validate.yml`. Validation checks notebook cells, dependency pins, self-tests, regression tests and all five hosted packages in a temporary copy.
-- Cloud pipeline: Lab 4's nested workflow is an opt-in template, not an active deployment workflow.
+- Cloud pipeline: Lab 5's nested workflow is an opt-in template, not an active deployment workflow.
 - Shared RBAC setup: `scripts/setup-permissions.ps1` (PowerShell 7 in the dev container).
 
 ## Conventions
@@ -105,3 +106,10 @@ Pending structural changes considered: relocation of the previous Terraform root
 the parallel `infra/public-network/` root and mocked policy tests, the parent infrastructure selector/state
 migration guide and ignore rules, workshop navigation updates and `tests/test_infra_network_variants.py`.
 Provider versions and private resource addresses are unchanged; signed Windows checksums are added to locks.
+
+Baseline for notebook-first enhancements: `f6e5d4c092139995b4700bcfe7cf04dfc634ad26`.
+Pending structural changes considered: the new Foundry project/model setup lab and its offline tests,
+shared notebook configuration, the six existing lab directories/sources/notebooks shifted by one,
+and corresponding artifact, validation and pipeline references. Learners use the Jupyter notebooks;
+adjacent Python sources, catch-up helpers and command-line tools remain internal authoring/CI utilities.
+Lab 3's exercises no longer require `RUN_LAB2_*` environment switches.

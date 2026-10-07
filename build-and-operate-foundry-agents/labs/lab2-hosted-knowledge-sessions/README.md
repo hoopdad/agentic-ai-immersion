@@ -1,181 +1,98 @@
-# Lab 2: Hosted knowledge and durable sessions
+# Lab 3: Hosted knowledge and durable sessions
 
 | | |
 |---|---|
-| Goal | Add a Foundry IQ knowledge base and durable conversation history to `healthcare-marketplace-concierge-hosted`, prove local process-restart continuity, then deploy and record version 2. |
+| Goal | Add Foundry IQ knowledge and conversation history, prove local restart continuity, then deploy the updated concierge |
 | Time | 60 min: teach 10, demo 10, do 35, checkpoint 5 |
-| Starts from | `artifacts/lab1/hosted.json`; configured Azure AI Search and Foundry project |
-| Produces | `artifacts/lab2/knowledge.json`, `hosted.json`, `sessions/`, `transcripts.md`, `hosted_local.log` |
-| Runs on | The notebook/driver runs on the workstation; `hosted/main.py` runs locally and in Microsoft Foundry |
+| Starts from | `artifacts/lab2/hosted.json`; Lab 1 configuration and administrator-supplied Search access |
+| Notebook | `lab3_walkthrough.ipynb` |
+| Produces | `artifacts/lab3/knowledge.json`, `hosted.json`, `sessions/`, `transcripts.md`, `hosted_local.log` |
 
-## Required configuration
+Open this notebook with `/usr/local/bin/python` in the repository dev container.
+Run cells in order; use its editable inputs for optional Blob configuration.
+The root `.env` persists setup values downstream, but manual copying or terminal
+drivers are not learner prerequisites.
 
-Use the dev container's Python 3.14 interpreter. In the repository-root `.env`, set:
+## Configuration and identity
 
-- `FOUNDRY_PROJECT_ENDPOINT`
-- `AZURE_AI_MODEL_DEPLOYMENT_NAME`
-- `AZURE_AI_SEARCH_ENDPOINT`
-- `AZURE_OPENAI_ENDPOINT` or a compatible `FOUNDRY_PROJECT_ENDPOINT`
-- `EMBEDDING_MODEL_DEPLOYMENT_NAME` when it is not `text-embedding-3-large`
-- `PROJECT_RESOURCE_ID` for the project connection and `--deploy`
-- `MARKETPLACE_TODAY` for deterministic enrollment-window answers
-- Optional `MARKETPLACE_BLOB_STORAGE_URL` and existing `MARKETPLACE_BLOB_STORAGE_CONTAINER` for Azure Blob history
-- An Azure Blob URL before claiming deployed scale-out or version-roll continuity
+The notebook reads the project/model configuration established by Lab 1 and
+the administrator-supplied Search endpoint. Retrieval assumes the configured
+3072-dimensional embedding deployment. It creates indexes, knowledge sources,
+the knowledge base and its project connection using Entra credentials.
 
-The learner identity needs access to create Search indexes, knowledge sources, the knowledge base, and the
-project connection. The deployed agent identity needs Azure AI Search data access. Deployment requires Foundry
-Project Manager; invocation requires Foundry Agent Consumer or Foundry User.
+The learner needs Search creation/data-write access and project-connection
+write permission. The hosted agent needs Search Index Data Reader. Deployment
+requires Foundry Project Manager; invocation requires Agent Consumer or User.
 
-## Workstation setup
+Optional shared history uses an **existing** Blob account URL and separate
+container name. The URL is not an identity or credential. Local
+`DefaultAzureCredential` selects the developer; deployed access uses the
+dedicated agent identity with Storage Blob Data Contributor. The lab does not
+create cloud storage. Azurite is a local emulator option and is never deployed.
 
-From the workshop root:
+## Technical features and evidence
 
-```bash
-# Reopen the repository in its dev container; dependencies are preinstalled.
-python --version  # Python 3.14
-# Dependencies were installed by the repository dev-container bootstrap.
-```
-
-In VS Code, select `/usr/local/bin/python` as the notebook kernel.
-
-Start the notebook with its folder as the working directory:
-
-```bash
-cd ./labs/lab2-hosted-knowledge-sessions
-python -m jupyter lab ./lab2_walkthrough.ipynb
-```
-
-Run the equivalent driver from `labs`:
-
-```bash
-cd ./labs
-python ./lab2-hosted-knowledge-sessions/lab2_hosted_knowledge.py
-```
-
-## What the lab proves
-
-1. `knowledge_base.py` creates two Search indexes, two knowledge sources, one Foundry IQ knowledge base, and a
-   project managed-identity connection. Both ARM and MCP authentication use Entra bearer tokens. The reviewed
-   source documents are reusable intelligence: the same governed rules can serve later agents without rewriting
-   the knowledge in each prompt. Their review dates still need human maintenance; indexing does not enforce
-   freshness.
-2. `hosted/prepare.py` copies all imported `common/` and `data/` files beside `main.py`. `.agentignore` excludes
-   credentials, local state, notebooks, caches, and deployment tooling without excluding the vendored app.
-3. The local demo sends a stable Responses API `conversation` ID, kills the Python process after turn 2, restarts
-   it, and asserts that turn 3 remembers `atorvastatin`.
-4. Local files are a one-workstation teaching backend. They are not a deployed durability claim. Conversation
-   history preserves continuity for a session; it is not automatically reviewed organizational knowledge or
-   evidence that the agent learned a reusable improvement. Azure Blob Storage can keep message history available
-   across multiple Foundry replicas and version rolls.
-5. The deployment command generator requires `PROJECT_RESOURCE_ID`, prints an absolute quoted Bash block,
-   checks the command exit status after every external command, and never deploys by itself.
-
-## Run paths
-
-```bash
-# Build Azure knowledge resources, prepare the package, run the restart demo, print deployment commands
-python ./lab2_hosted_knowledge.py
-
-# Build only
-python ./lab2_hosted_knowledge.py --build-only
-
-# Reuse existing Lab 2 artifacts for the local restart demo
-python ./lab2_hosted_knowledge.py --demo-only
-
-# Print deployment Bash only
-python ./lab2_hosted_knowledge.py --deploy
-
-# After the Foundry version is active
-python ./lab2_hosted_knowledge.py --record-version '2'
-```
-
-To run `hosted/main.py` manually, use two terminals:
-
-```bash
-# Terminal 1, from this lab folder
-cd ./hosted
-python ./prepare.py
-python ./main.py
-```
-
-```bash
-# Terminal 2, also from hosted
-cd ./hosted
-python ./test_local.py --session 'lab2-manual'
-```
-
-## Learner acceptance gates
-
-The notebook preserves each **YOUR TURN** exercise and follows it with executable guarded code that always stops
-child processes. These acceptance gates distinguish shared-history continuity, deliberate history loss, and
-honest behavior when governed knowledge is unavailable. The same gates are available from the driver:
-
-```bash
-# Uses the configured Azurite or Azure Blob shared-history backend
-python ./lab2_hosted_knowledge.py --acceptance-gate scale-out
-
-# Intentionally changes the restarted process to an empty message store
-python ./lab2_hosted_knowledge.py --acceptance-gate broken-store
-
-# Requires the live Foundry IQ MCP endpoint
-python ./lab2_hosted_knowledge.py --acceptance-gate knowledge
-```
-
-Azure Blob Storage is opt-in and must already exist. For cloud use, set `MARKETPLACE_BLOB_STORAGE_URL` to the
-storage account's Blob endpoint (for example, `https://<storage-account>.blob.core.windows.net`, without a
-container path) and set the container separately in the root `.env`. This URL identifies the service endpoint;
-it does not identify or authenticate an identity. `DefaultAzureCredential` uses the signed-in developer identity
-locally. A deployed Foundry hosted agent uses its dedicated Microsoft Entra agent identity, not a user-assigned
-managed identity. Grant that agent identity **Storage Blob Data Contributor** on the container or account.
-
-For local Blob API testing, the dev container also runs Azurite. Set
-`MARKETPLACE_AZURITE_CONNECTION_STRING` in the root `.env` to the local emulator connection string below.
-The application creates the local emulator container if needed; it never creates a cloud account or container.
-
-```text
-DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
-```
-
-The Azurite connection string is local-only and is never passed to Foundry. In Azure, the configured Blob URL uses Entra credentials from `DefaultAzureCredential`; provision the container
-and role assignment separately.
-History expires logically after `MARKETPLACE_SESSION_TTL_SECONDS` (7 days by default) and is deleted when an
-expired session is accessed or listed. For physical cleanup of inactive blobs, configure a Storage lifecycle
-rule for this container's `sessions/` prefix.
-
-## Deploy and record the version
-
-Run `python ./lab2_hosted_knowledge.py --deploy` from the lab folder. Review and paste the printed block into an
-authenticated Bash terminal. The block changes to the absolute `hosted` path, prepares the package, configures
-`azd`, initializes the Responses-protocol agent, sets non-placeholder environment values, and runs `azd up`.
-
-If an Azure Blob URL is not configured, the generated block warns that deployed history is file-backed and
-does not claim continuity across replicas or version rolls.
-After the version is `active` in **Foundry > Agents > healthcare-marketplace-concierge-hosted > Versions**, record it:
-
-```bash
-python ../lab2_hosted_knowledge.py --record-version '<version>'
-python ./test_local.py --deployed --session 'lab2-deployed-smoke'
-```
-
-`--record-version` updates `artifacts/lab2/hosted.json`; it does not query or change Azure.
-
-## Troubleshooting
-
-| Symptom | Cause | Fix |
+| Feature | Implementation | Acceptance meaning |
 |---|---|---|
-| `PROJECT_RESOURCE_ID is not set` | The project connection or deployment block needs the full ARM resource ID | Set it in the workshop-root `.env`; placeholders are not accepted |
-| `FOUNDRY_PROJECT_ENDPOINT is not set` | The child process did not receive the workshop environment | Put `.env` at the workshop root and start through the driver, or set it in the terminal |
-| `ModuleNotFoundError: common` | The hosted package was not prepared | Run `python ./prepare.py` from `hosted`; run it again after shared-code changes |
-| Local restart assertion fails | The request used a different conversation ID, the message store changed, or startup failed | Read `artifacts/lab2/hosted_local.log` and the `history:` line |
-| Second replica forgets the first turn | The replicas do not use the same Azure Blob container or Azurite instance | Check the `history:` log, storage RBAC/network access, and backend settings; restart and rerun the scale-out gate |
-| `429 RateLimitReached` while creating embeddings | Other callers or this build exhausted the deployment's current RPM or TPM budget | Let the build honor Azure's `retry-after` header. It reports any request/token limit headers returned by the service and retries up to five times; use Foundry quota management if throttling persists |
-| 401/403 from the knowledge MCP endpoint | The local or hosted identity lacks Search data access | Assign the documented Search role and wait for propagation |
-| No `[KB-...]` citation | MCP URL missing, connection unavailable, or retrieval failed | Check `MARKETPLACE_KB_MCP_URL`, the project connection, and Search permissions |
-| `424 session_not_ready` | The deployed container is still starting or failed | Open the active version Logs, fix the startup error, deploy a new version |
+| Governed retrieval | `knowledge_base.py`: vector/semantic indexes, knowledge sources and Foundry IQ KB | Sources are indexed and reusable; review dates still need human maintenance |
+| Identity connection | Project managed-identity connection and `MCPStreamableHTTPTool` with Entra bearer authentication | Local and deployed principals must each reach the correct endpoint |
+| Product packaging | `hosted/prepare.py` vendors shared code/data; package review excludes credentials/caches | The tested product is the uploaded product |
+| Conversation history | `common.message_store` with Blob/Azurite or files | History is keyed by stable conversation identity, not process memory |
+| Local lifecycle | Notebook cell source `lab3_hosted_knowledge.py` starts/stops product subprocesses | Two turns, restart, third turn remembers `atorvastatin` |
+| Replica distinction | Shared Blob gate versus file fallback | Files prove local continuity only; shared storage must be configured before scale-out claims |
+
+Conversation history is not automatically reviewed organizational knowledge or
+evidence that the agent learned a reusable improvement. A citation alone does
+not prove correctness or source freshness.
+
+## Teach and demo
+
+1. Inspect bounded-context documents and the two indexes/sources, KB and project
+   connection created by the knowledge cells.
+2. Run the local conversation/restart cells. Read the `history:` log and show
+   the two different process IDs with the same conversation ID.
+3. Inspect a cited knowledge answer and compare its statement with the source rule.
+4. Explain where history lives and why container-local files are not a deployed
+   durability guarantee.
+5. Run explicit deployment cells and record the actual active version.
+
+## Do and learner acceptance gates
+
+Run every **YOUR TURN** cell and its executable gate; the notebook cleans up
+child processes even when a gate fails.
+
+- **Shared-history continuity:** use the configured Blob/Azurite backend across
+  two local replicas. Confirm both actually use the same history service.
+- **Broken store:** intentionally restart with an empty store and explain the
+  loss of remembered facts rather than treating it as a model failure.
+- **Knowledge unavailable:** inspect honest behavior without retrieval and
+  require governed citations when the live Foundry IQ endpoint is available.
+- **Deploy:** review target settings, prepare and validate the package, deploy
+  through the notebook, wait for `active`, record the version and invoke it.
+
+The notebook warns when deployment is file-backed. Do not claim replica or
+version-roll continuity in that configuration. Message history expires
+logically after the configured idle period (seven days by default); an
+administrator-managed Storage lifecycle rule can physically remove inactive
+history blobs under the container's `sessions/` prefix.
 
 ## Checkpoint
 
-Share the continuity `PASS`, the two process IDs, one grounded answer with a `[KB-...]` citation, and the `deployed`
-block from `artifacts/lab2/hosted.json`. Explain which state backend the continuity check exercised and which
-source rule supports the answer; a document ID alone does not establish correctness or freshness. Lab 3 consumes
-the Lab 2 artifact shape and agent name.
+Share the continuity PASS, two process IDs, one grounded answer with a `[KB-...]`
+citation and the `deployed` block of `artifacts/lab3/hosted.json`. State the
+backend exercised and the rule supporting the answer. Lab 4 consumes this
+checkpoint; Lab 5 evaluates this concierge.
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| Missing project ARM ID or endpoint | Rerun Lab 1's configuration persistence and restart this kernel |
+| Missing Lab 2 checkpoint | Reopen Lab 2 and rerun its producing cells |
+| Missing `common` or stale package | Rerun notebook package preparation after source edits |
+| Restart forgets facts | Inspect conversation ID, backend settings, startup errors and `artifacts/lab3/hosted_local.log` |
+| Second replica forgets the first turn | Confirm the same Blob container/Azurite service, permissions and network path |
+| Embedding 429 | Allow header-aware retries; inspect current quota with the administrator if throttling persists |
+| Knowledge 401/403 | Verify the calling identity's Search permissions and propagation |
+| Missing citation | Inspect `knowledge.json`, the MCP endpoint, project connection and retrieval logs |
+| `424 session_not_ready` | Read version logs, repair startup and redeploy through the notebook |

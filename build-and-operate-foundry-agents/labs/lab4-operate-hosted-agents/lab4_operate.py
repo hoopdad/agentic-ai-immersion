@@ -13,30 +13,24 @@
 # | Outputs | `labs/artifacts/lab4/eval_report.md`, `eval_results.jsonl`, `operate.json`, `pipeline.md`, and `gate_result.json` |
 # | Time | 60 min (teach 10, demo 10, do 35, checkpoint 5) |
 #
-# **How to run code**
-#
-# |  | Command |
-# | --- | --- |
-# | Run cell by cell | Open `lab4_walkthrough.ipynb` (this file), or use the `# %%` cells in VS Code. |
-# | Run the standard local evaluation | `python lab4_operate.py` |
-# | Run a short deterministic evaluation | `python lab4_operate.py --limit 6 --skip-judges` |
+# **How to run.** Execute this notebook's cells in order, pausing to apply and revert the deliberately unsafe edit.
+# Baseline, regression, recovery, and tracing checks are explicit notebook actions.
 #
 # **Where this runs.** This notebook runs on your workstation. It turns tracing on for the hosted agent
-# (an environment variable on the container, `azd env set`), answers the golden questions through the hosted
+# (passing the telemetry configuration to its local process), answers the golden questions through the hosted
 # endpoint (the local `hosted/main.py` process from Lab 2, or the deployed version), scores every answer with
 # `azure-ai-evaluation` local evaluators plus a custom policy evaluator, and writes the report the CI gate reads.
 # The hosted agent itself keeps running in Foundry; nothing customer-facing runs here.
 #
 # **Lab path and prerequisites.**
 #
-# - **Required:** Complete Lab 2 first. Lab 4 reads both Lab 2 checkpoint files. If you joined late, run
-#   `python ../catch_up.py --through 2` from this lab folder.
+# - **Required:** Complete the Lab 2 notebook first; Lab 4 reads both Lab 2 checkpoint files.
 # - **Optional:** Lab 3 is not required. When `labs/artifacts/lab3/hosted.json` exists, Lab 4 records that
 #   workflow agent alongside the Lab 2 concierge.
 # - **From Lab 1:** Lab 1 first created, ran, deployed, and versioned the hosted Responses agent. This lab
 #   operates that same deployment model rather than introducing another application host.
 # - **Optional:** Model-judged evaluators, the Foundry evaluation run, deployment, promotion, and rollback are
-#   extension paths. `--skip-judges` keeps the core deterministic policy gate available.
+#   extension paths; the regression exercise uses deterministic policy checks without model judges.
 # - **For tracing, including Step 4.11:** the publishing identity selected by `DefaultAzureCredential` needs
 #   **Monitoring Metrics Publisher** on the destination Application Insights resource. **Owner alone is not sufficient.**
 # - **Tracing connection and network:** use the complete Application Insights connection string in the root `.env`.
@@ -48,7 +42,7 @@
 # `.github/workflows/agent-ci.yml`), and after `eval_gate.py`: `artifacts/lab4/gate_result.json`.
 #
 # %% [markdown]
-# ## Before the first run (dev-container Bash)
+# ## Before the first run
 #
 # Continue with the dev container, root `.env`, Azure sign-in, and `/usr/local/bin/python` kernel used in Labs 1
 # and 2. If you have not completed that setup, follow the workshop `SETUP.md` first.
@@ -66,24 +60,8 @@
 # Confirm private-network access if public ingestion is disabled; do not disable security controls to bypass errors.
 # See [Lab 4 tracing prerequisites in SETUP.md](../../SETUP.md#lab-4-tracing-prerequisites).
 #
-# ### **If this notebook is already open in VS Code**
-#
-# Keep using this notebook and its selected kernel. **Do not run the JupyterLab command below.**
-# It starts a separate JupyterLab server and may open a browser tab; it does not connect to the notebook session
-# already open in VS Code.
-#
-# ### Optional: open a separate JupyterLab session in a browser
-#
-# Run these commands in a Bash terminal—not in a Python code cell—only if you want to open this notebook
-# in a separate JupyterLab session:
-#
-# ```bash
-# cd /workspaces/agentic-ai-immersion/build-and-operate-foundry-agents/labs/lab4-operate-hosted-agents
-# python -m jupyter lab lab4_walkthrough.ipynb
-# ```
-#
 # %% [markdown]
-# Shell commands use the container filesystem. Hosted deployment remains an explicit terminal action.
+# This cell loads the workshop environment and identifies the golden questions and operations artifacts.
 #
 # %% Step 4.1 - Imports and environment
 from __future__ import annotations
@@ -91,23 +69,31 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 import sys
 import uuid
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[2]      # workshop root (common/ and data/ live here)
+SOURCE_PATH = (
+    Path(__file__).resolve() if "__file__" in globals() else next(
+        parent / "build-and-operate-foundry-agents/labs/lab4-operate-hosted-agents/lab4_operate.py"
+        for parent in (Path.cwd(), *Path.cwd().parents)
+        if (parent / "build-and-operate-foundry-agents/labs/lab4-operate-hosted-agents/lab4_operate.py").is_file()
+    )
+)
+ROOT = SOURCE_PATH.parents[2]      # workshop root (common/ and data/ live here)
 sys.path.insert(0, str(ROOT))
 from common import marketplace_data, foundry_env, guardrails, resource_names  # noqa: E402
 
-LABS_DIR = Path(__file__).resolve().parents[1]  # labs/ (lab_helpers.py, catch_up.py, artifacts/)
+LABS_DIR = SOURCE_PATH.parents[1]  # labs/ (lab_helpers.py, catch_up.py, artifacts/)
 sys.path.insert(0, str(LABS_DIR))
 import lab_helpers as helpers  # noqa: E402
 
 ENV = foundry_env.load_env()
 MODEL = helpers.pick_model(ENV)
 LAB = "lab4"
-HERE = Path(__file__).resolve().parent
+HERE = SOURCE_PATH.parent
 GOLDEN = ROOT / "data" / "eval" / "golden_questions.jsonl"
 WORKFLOW_FILE = HERE / ".github" / "workflows" / "agent-ci.yml"
 AGENT_NAME = resource_names.name(resource_names.HOSTED_CONCIERGE, ENV)
@@ -115,6 +101,8 @@ PASS_THRESHOLD = 3.0                            # azure-ai-evaluation Likert eva
 LOCAL_PORT = 8088
 
 
+# %% [markdown]
+# This cell defines authenticated tracing configuration and checks the telemetry destination.
 # %% Step 4.2 - Configure tracing
 def valid_connection_string(connection: object) -> bool:
     if not isinstance(connection, str):
@@ -188,6 +176,8 @@ def tracer():
     return trace.get_tracer("healthcare-marketplace.lab4")
 
 
+# %% [markdown]
+# This cell defines deterministic safety evaluators and optional model-based quality judges.
 # %% Step 4.3 - Configure evaluators
 class NoRecommendationEvaluator:
     """Fails when the response recommends or ranks a plan. Wraps guardrails.contains_recommendation so the
@@ -242,6 +232,8 @@ def build_judges() -> dict[str, Any]:
     return {"groundedness": GroundednessEvaluator(model_config), "relevance": RelevanceEvaluator(model_config)}
 
 
+# %% [markdown]
+# This cell defines how evaluations invoke the local or deployed knowledge-enabled agent.
 # %% Step 4.4 - Select an evaluation target
 class HostedTarget:
     """Ask the hosted agent one question on a fresh session. Local: POST /responses on hosted/main.py.
@@ -277,6 +269,8 @@ class HostedTarget:
             self.proc.stop()
 
 
+# %% [markdown]
+# This cell defines the operations bundle and its pipeline evidence without running evaluations.
 # %% Step 4.5 - Build the operations bundle
 def build(skip_judges: bool = False, target: str = "local", enable_tracing: bool = True) -> dict:
     hosted = helpers.require_artifact("lab2", "hosted.json", through=2, caller="lab4")
@@ -322,6 +316,9 @@ def write_pipeline_md() -> Path:
     return path
 
 
+# %% [markdown]
+# This cell defines the golden-question runner and evaluates six baseline questions with model-based judges.
+# Executing the baseline invokes Azure models and may incur charges.
 # %% Step 4.6 - Evaluate the golden questions
 def load_golden(limit: int | None = None) -> list[dict]:
     if not GOLDEN.exists():
@@ -468,10 +465,17 @@ def demo(bundle: dict | None = None, limit: int | None = None, target_mode: str 
 | order by timestamp asc""")
     flush_local_tracing(bundle["tracing"])
     print(f"\n[lab4] summary: {json.dumps(summary)}")
-    print("[lab4] next: python ./eval_gate.py   (reads eval_results.jsonl, writes gate_result.json, fails closed)")
+    print("[lab4] evaluation evidence saved; the notebook quality-gate checks consume these exact results.")
     return summary
 
 
+if "__file__" not in globals():
+    baseline_bundle = build(target="local", enable_tracing=False)
+    baseline_summary = demo(baseline_bundle, limit=6, target_mode="local")
+    subprocess.run([sys.executable, str(HERE / "eval_gate.py")], cwd=HERE, check=True)
+
+# %% [markdown]
+# This cell defines the optional platform evaluation without starting a paid Foundry run.
 # %% Step 4.7 - Define the optional Foundry evaluation
 def foundry_eval(bundle: dict, limit: int | None = None) -> dict | None:
     """Same graders as the platform labs used, targeted at the hosted agent by name. Portal shows the run."""
@@ -508,17 +512,17 @@ def foundry_eval(bundle: dict, limit: int | None = None) -> dict | None:
     return info["foundry_eval"]
 
 
+# %% [markdown]
+# This cell explains version inspection, gated promotion, and rollback ownership in Foundry.
 # %% Step 4.8 - Inspect versions, promotion, and rollback
 def print_version_operations() -> None:
-    print("[lab4] versions: portal > Agents > healthcare-marketplace-concierge-hosted > Versions shows every azd up as a version with status")
-    # VERIFY against https://learn.microsoft.com/azure/foundry/agents/how-to/hosted-agents before delivery: the azd
-    # azure.ai.agents extension subcommand that lists versions; until then the portal and the SDK list are the source.
-    print("[lab4]   $ azd ai agent show           (current environment's agent and version)   # VERIFY subcommand")
-    print("[lab4] promote (same code, other project): python ./promote.py --to test [--execute]")
-    print("[lab4]   = gate passed + validated envs/.env.test + azd deploy/smoke + git tag")
-    print("[lab4] rollback: workflow_dispatch rollback_to=<tag>, or use separate fail-fast Bash commands:")
-    print("[lab4]   git switch --detach <tag> && cd <hosted-path> && python ./prepare.py && azd up")
-    print("[lab4]   second path: delete the bad version in the portal; the agent endpoint resolves to the latest active one")
+    print(f"[lab4] Inspect Foundry > Agents > {AGENT_NAME} > Versions for active and previous versions.")
+    print("[lab4] Promotion requires a passing evaluation gate, target-project validation, and a deployed smoke test.")
+    print("[lab4] An approved rollback reactivates known-good code; retain version and evaluation evidence.")
+    print("[lab4] The pipeline is an opt-in operator template, not an automatic notebook deployment.")
+
+if "__file__" not in globals():
+    print_version_operations()
 
 
 # %% [markdown]
@@ -527,6 +531,7 @@ def print_version_operations() -> None:
 # The evaluator is part of the completed operating model rather than a commented solution. Run the next cell to prove it
 # fails on a forbidden phrase and passes a safe response. This is an offline deterministic gate.
 
+# This cell verifies that the deterministic forbidden-phrase gate rejects unsafe text and accepts a safe response.
 # %% Step 4.9 - Test the offline quality gate
 if "__file__" not in globals():
     evaluator = MustNotEvaluator()
@@ -546,10 +551,13 @@ if "__file__" not in globals():
 # the baseline is not a measured improvement. A higher peak requires a candidate change to pass the same required
 # checks and demonstrate the claimed benefit.
 
+# This cell evaluates your deliberately unsafe local instruction and requires a deterministic safety failure.
 # %% Step 4.10 - Test the local quality gate
 if "__file__" not in globals():
     broken_bundle = build(skip_judges=True, target="local", enable_tracing=False)
     broken_summary = demo(broken_bundle, limit=8, target_mode="local")
+    broken_gate = subprocess.run([sys.executable, str(HERE / "eval_gate.py")], cwd=HERE, check=False)
+    assert broken_gate.returncode == 1, "The intentionally unsafe evaluation did not fail the release gate."
     assert (
         broken_summary["no_recommendation_violations"] > 0
         or broken_summary["must_not_violations"] > 0
@@ -647,27 +655,33 @@ if "__file__" not in globals():
 # the tracing gate and does not print PASS. Check the exporter errors above rather than simply increasing
 # the timeout. KQL may remain empty until ingestion access or connectivity is corrected.
 
+# This cell verifies recovery on six questions before tracing one safe question and flushing the local exporter.
 # %% Step 4.11 - Test tracing
 if "__file__" not in globals():
+    recovery_summary = demo(baseline_bundle, limit=6, target_mode="local")
+    subprocess.run([sys.executable, str(HERE / "eval_gate.py")], cwd=HERE, check=True)
+    assert not recovery_summary["no_recommendation_violations"] and not recovery_summary["must_not_violations"], (
+        "Restore the safe Lab 2 instructions before tracing."
+    )
     trace_bundle = build(skip_judges=True, target="local")
     assert trace_bundle["tracing"].get("enabled"), (
         "Tracing is disabled. Set APPLICATIONINSIGHTS_CONNECTION_STRING in the workshop .env before running this gate."
     )
     trace_summary = demo(trace_bundle, limit=1, target_mode="local")
+    subprocess.run([sys.executable, str(HERE / "eval_gate.py")], cwd=HERE, check=True)
     assert trace_summary["questions"] == 1, "The trace gate did not complete exactly one golden question."
     assert len(trace_summary["trace_ids"]) == 1, "The trace gate did not capture exactly one trace ID."
     print("PASS: one question span recorded and local exporter flushed. Verify Azure ingestion in Application Insights > Logs.")
 
 
 # %% [markdown]
-# ## Script-only entry point - skip in Jupyter
-#
-# **Running this notebook cell by cell? Skip the next cell.** The earlier cells provide the notebook path.
-# The next cell is only the command-line entry point for running this lab's `.py` file as one program.
-# Its command-line invocation is guarded in the generated notebook; running the cell does not launch the lab.
-# For script mode instead, run `python lab4_operate.py --help` in a Bash terminal from this lab's folder and choose the desired options.
+# This optional cell starts a paid Foundry evaluation against the deployed agent and records its run identifiers.
+# Execute only after confirming deployment and accepting the model charges; omit this optional platform run otherwise.
+# %% Step 4.12 - Start the optional platform evaluation
+if "__file__" not in globals():
+    foundry_eval(baseline_bundle, limit=6)
 
-# %% Step 4.12 - Script-only entry point (skip in Jupyter)
+# %% [script-only]
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--target", choices=["local", "deployed"], default="local")

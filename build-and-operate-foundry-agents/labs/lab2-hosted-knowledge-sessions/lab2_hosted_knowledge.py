@@ -13,18 +13,10 @@
 # | Outputs | `labs/artifacts/lab2/knowledge.json`, `hosted.json`, `sessions/`, `transcripts.md`, and `hosted_local.log` |
 # | Time | 60 min (teach 10, demo 10, do 35, checkpoint 5) |
 #
-# **How to run code**
+# **How to run.** Execute this notebook's cells in order; ordinary acceptance exercises run without toggles.
+# Deployment and live-endpoint checks are explicit notebook cells, not automatic import actions.
 #
-# |  | Command |
-# | --- | --- |
-# | Run cell by cell | Open `lab2_walkthrough.ipynb` (this file), or use the `# %%` cells in VS Code. |
-# | Run top to bottom | `python lab2_hosted_knowledge.py` |
-# | Build resources and package only | `python lab2_hosted_knowledge.py --build-only` |
-# | Reuse existing Lab 2 artifacts for the demo | `python lab2_hosted_knowledge.py --demo-only` |
-# | Print the azd commands | `python lab2_hosted_knowledge.py --deploy` |
-# | After `azd up`, store version 2 | `python lab2_hosted_knowledge.py --record-version 2` |
-#
-# **Where this runs.** The notebook and driver run on your workstation. They build Azure AI Search resources,
+# **Where this runs.** This notebook runs in your dev-container kernel and builds Azure AI Search resources,
 # vendor the flat hosted package, start `hosted/main.py`, and call `POST /responses`. Foundry runs the same
 # `hosted/main.py` in the deployed container.
 #
@@ -41,8 +33,7 @@
 #
 # **Lab path and prerequisites.**
 #
-# - **Required:** Complete Lab 1 first. This lab reads `labs/artifacts/lab1/hosted.json`. If you joined after
-#   Lab 1, run `python ../catch_up.py --through 1` from this lab folder.
+# - **Required:** Complete the Lab 1 notebook first; this lab reads `labs/artifacts/lab1/hosted.json`.
 # - **Optional:** Deploying version 2 and Azure Blob Storage are optional. Local history uses the configured
 #   Azurite emulator or files; deployed shared history requires an Azure Blob URL.
 # - **From Lab 1:** Keep the same dev-container setup, kernel, Foundry project, Responses protocol, agent name,
@@ -52,31 +43,15 @@
 # `artifacts/lab2/sessions/`, `artifacts/lab2/transcripts.md`, and `artifacts/lab2/hosted_local.log`.
 #
 # %% [markdown]
-# ## Before the first run (dev-container Bash)
+# ## Before the first run
 #
 # If you completed Lab 1 in this dev container, keep using its `/usr/local/bin/python` kernel and signed-in
-# terminal. Add the Lab 2 Search values and any optional history-store settings documented in this lab's `README.md`
+# session. Add the Lab 2 Search values and any optional history-store settings documented in this lab's `README.md`
 # to the root `.env`.
 # Otherwise, follow the workshop `SETUP.md` before continuing.
 #
-# ### **If this notebook is already open in VS Code**
-#
-# Keep using this notebook and its selected kernel. **Do not run the JupyterLab command below.**
-# It starts a separate JupyterLab server and may open a browser tab; it does not connect to the notebook session
-# already open in VS Code.
-#
-# ### Optional: open a separate JupyterLab session in a browser
-#
-# Run these commands in a Bash terminal—not in a Python code cell—only if you want to open this notebook
-# in a separate JupyterLab session:
-#
-# ```bash
-# cd /workspaces/agentic-ai-immersion/build-and-operate-foundry-agents/labs/lab2-hosted-knowledge-sessions
-# python -m jupyter lab lab2_walkthrough.ipynb
-# ```
-#
 # %% [markdown]
-# Shell commands use the container filesystem. Hosted deployment remains an explicit terminal action.
+# This cell loads the knowledge helpers, workshop environment, and session artifact paths.
 #
 # %% Step 2.1 - Imports and paths
 from __future__ import annotations
@@ -91,9 +66,16 @@ import time
 import uuid
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+SOURCE_PATH = (
+    Path(__file__).resolve() if "__file__" in globals() else next(
+        parent / "build-and-operate-foundry-agents/labs/lab2-hosted-knowledge-sessions/lab2_hosted_knowledge.py"
+        for parent in (Path.cwd(), *Path.cwd().parents)
+        if (parent / "build-and-operate-foundry-agents/labs/lab2-hosted-knowledge-sessions/lab2_hosted_knowledge.py").is_file()
+    )
+)
+ROOT = SOURCE_PATH.parents[2]
 LABS_DIR = ROOT / "labs"
-LAB_DIR = Path(__file__).resolve().parent
+LAB_DIR = SOURCE_PATH.parent
 for folder in (ROOT, LABS_DIR, LAB_DIR):
     if str(folder) not in sys.path:
         sys.path.insert(0, str(folder))
@@ -128,6 +110,9 @@ def log(message: str) -> None:
 
 
 
+# %% [markdown]
+# This cell builds Azure Search knowledge resources and the project connection, then prepares the hosted package.
+# Executing it writes attendee-scoped Azure resources and may incur Search and embedding charges.
 # %% Step 2.2 - Build knowledge resources and the hosted package
 def container_environment(knowledge: dict, env: dict | None = None) -> dict[str, str]:
     env = env or ENV
@@ -201,6 +186,8 @@ if "__file__" not in globals():
     hosted = build()
 
 
+# %% [markdown]
+# This cell defines validated deployment preparation and active-version recording without deploying anything.
 # %% Step 2.3 - Prepare the deployment command
 def deploy_commands(env: dict | None = None, hosted: dict | None = None) -> str:
     """Return a Bash deployment command without changing Azure or the local package."""
@@ -208,7 +195,7 @@ def deploy_commands(env: dict | None = None, hosted: dict | None = None) -> str:
     env = foundry_env.load_env() if env is None else env
     if hosted is None:
         if not HOSTED_RECORD.exists():
-            raise SystemExit(f"[{LAB}] Run --build-only before printing deployment commands.")
+            raise SystemExit(f"[{LAB}] Run the knowledge build cell before deployment.")
         hosted = json.loads(HOSTED_RECORD.read_text(encoding="utf-8"))
     deployment_env = dict(env)
     if hosted.get("model"):
@@ -225,7 +212,7 @@ def deploy_commands(env: dict | None = None, hosted: dict | None = None) -> str:
 
 def record_deployment(version: str, status: str = "active") -> dict:
     if not HOSTED_RECORD.exists():
-        raise SystemExit(f"[{LAB}] {HOSTED_RECORD.relative_to(LABS_DIR)} does not exist; run --build-only first")
+        raise SystemExit(f"[{LAB}] {HOSTED_RECORD.relative_to(LABS_DIR)} does not exist; run the knowledge build cell first")
     record = json.loads(HOSTED_RECORD.read_text(encoding="utf-8"))
     record["deployed"] = {"version": str(version), "status": status, "recorded_at": helpers.now_iso()}
     foundry_env.save_artifact(HOSTED_RECORD, record)
@@ -233,6 +220,8 @@ def record_deployment(version: str, status: str = "active") -> dict:
     return record
 
 
+# %% [markdown]
+# This cell defines fresh local hosted processes with isolated state and explicit shutdown.
 # %% Step 2.4 - Define a local hosted process
 def port_open(port: int, host: str = "127.0.0.1") -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
@@ -323,6 +312,8 @@ class HostedProcess:
         self._close_log()
 
 
+# %% [markdown]
+# This cell defines conversation-aware Responses requests and extracts session evidence.
 # %% Step 2.5 - Use the Responses conversation contract
 def output_text(payload: dict) -> str:
     if payload.get("output_text"):
@@ -380,6 +371,8 @@ def record_turn(store, session_id: str, participant_id: str, payload: dict, agen
     store.put(rec)
 
 
+# %% [markdown]
+# This cell runs a conversation across a server restart and records whether its history survives.
 # %% Step 2.6 - Demonstrate persisted history
 TURNS = [
     "{identity} I take atorvastatin 20mg and I am on the Contoso Advantage Choice HMO. Is there a Salt Lake County "
@@ -476,6 +469,9 @@ def write_transcript(result: dict) -> Path:
     return TRANSCRIPT_PATH
 
 
+if "__file__" not in globals():
+    demo(session_id=f"history-{uuid.uuid4().hex[:8]}")
+
 # %% [markdown]
 # ## YOUR TURN (5 min): prove two replicas share history
 #
@@ -484,6 +480,7 @@ def write_transcript(result: dict) -> Path:
 # the memory question to port 8089, asserts that the second replica remembers `atorvastatin`, and stops both
 # processes even when an assertion fails.
 
+# This cell tests cross-replica history when Blob or Azurite is configured, otherwise clearly reports no proof.
 # %% Step 2.7 - Prove two replicas share history
 def shared_history_env_overrides() -> dict[str, str | None]:
     blob_url = (
@@ -533,8 +530,13 @@ def scale_out_acceptance_gate(knowledge: dict | None = None) -> None:
         second.stop()
 
 
-if "__file__" not in globals() and os.environ.get("RUN_LAB2_SCALE_OUT_GATE") == "1":
-    scale_out_acceptance_gate()
+if "__file__" not in globals():
+    if any(os.environ.get(key) or ENV.get(key) for key in (
+        "MARKETPLACE_BLOB_STORAGE_URL", "MARKETPLACE_AZURITE_CONNECTION_STRING"
+    )):
+        scale_out_acceptance_gate()
+    else:
+        print("SKIPPED: shared Blob or Azurite is not configured; cross-replica continuity is NOT proven.")
 
 
 # %% [markdown]
@@ -544,6 +546,7 @@ if "__file__" not in globals() and os.environ.get("RUN_LAB2_SCALE_OUT_GATE") == 
 # ID. The assertion proves that the memory marker disappears. The gate uses isolated temporary folders under the
 # Lab 2 artifact directory and always stops both server processes.
 
+# This cell deliberately isolates the second process's file history and verifies that continuity is lost.
 # %% Step 2.8 - Test a broken shared store
 def broken_store_acceptance_gate(knowledge: dict | None = None) -> None:
     knowledge = knowledge or helpers.require_artifact(LAB, "knowledge.json", through=2, caller=LAB)
@@ -581,7 +584,7 @@ def broken_store_acceptance_gate(knowledge: dict | None = None) -> None:
         second.stop()
 
 
-if "__file__" not in globals() and os.environ.get("RUN_LAB2_BROKEN_STORE_GATE") == "1":
+if "__file__" not in globals():
     broken_store_acceptance_gate()
 
 
@@ -593,6 +596,7 @@ if "__file__" not in globals() and os.environ.get("RUN_LAB2_BROKEN_STORE_GATE") 
 # state that the rule text is not at hand rather than inventing a citation. Both outcomes count: use available
 # governed knowledge, and make its absence explicit instead of manufacturing certainty.
 
+# This cell compares answers with and without governed knowledge and checks the citation boundary.
 # %% Step 2.9 - Test grounded knowledge
 def knowledge_acceptance_gate(knowledge: dict | None = None) -> None:
     knowledge = knowledge or helpers.require_artifact(LAB, "knowledge.json", through=2, caller=LAB)
@@ -615,24 +619,33 @@ def knowledge_acceptance_gate(knowledge: dict | None = None) -> None:
         without_kb.stop()
 
 
-if "__file__" not in globals() and os.environ.get("RUN_LAB2_KNOWLEDGE_GATE") == "1":
+if "__file__" not in globals():
     knowledge_acceptance_gate()
 
 
-# %% Step 2.10 - Print the Bash deployment command
+# %% [markdown]
+# This cell deploys the knowledge-enabled agent to Azure and displays its version status, which may incur charges.
+# File-backed cloud history does not prove cross-replica persistence; configure Azure Blob for that guarantee.
+# %% Step 2.10 - Deploy the knowledge-enabled agent
 if "__file__" not in globals():
-    print(deploy_commands())
+    subprocess.run(["bash", "-lc", deploy_commands()], cwd=HOSTED_DIR, check=True)
+    subprocess.run(["azd", "ai", "agent", "show", AGENT_NAME], cwd=HOSTED_DIR, check=True)
 
 
 # %% [markdown]
-# ## Script-only entry point - skip in Jupyter
-#
-# **Running this notebook cell by cell? Skip the next cell.** The earlier cells provide the notebook path.
-# The next cell is only the command-line entry point for running this lab's `.py` file as one program.
-# Its command-line invocation is guarded in the generated notebook; running the cell does not launch the lab.
-# For script mode instead, run `python lab2_hosted_knowledge.py --help` in a Bash terminal from this lab's folder and choose the desired options.
+# This cell records the active version you inspected and verifies the deployed agent returns an answer.
+# Wait for active status and enter that version below before execution.
+# %% Step 2.11 - Verify the deployed knowledge agent
+if "__file__" not in globals():
+    DEPLOYED_VERSION = ""  # Set to the active version shown by the deployment cell.
+    assert DEPLOYED_VERSION, "Enter the active Foundry version in DEPLOYED_VERSION."
+    record_deployment(DEPLOYED_VERSION)
+    lab1 = helpers.load_lab_module("lab1-hosted-agent-basics/lab1_hosted_basics.py")
+    deployed_reply = lab1.call_deployed("What proof of payment do you accept for a premium claim?", store=False)
+    print(deployed_reply["text"])
+    assert "[KB-ACC-001]" in deployed_reply["text"], "The deployed answer did not cite the governed knowledge."
 
-# %% Step 2.11 - Script-only entry point (skip in Jupyter)
+# %% [script-only]
 def main(args: argparse.Namespace) -> None:
     if args.record_version:
         record_deployment(args.record_version, args.status)

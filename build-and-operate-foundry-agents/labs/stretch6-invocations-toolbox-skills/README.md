@@ -1,39 +1,17 @@
-# Stretch 6: Invocations protocol, Foundry Toolbox and Skills
+# Stretch 7: Invocations protocol, Foundry Toolbox and Skills
 
 | | |
 |---|---|
-| Goal | Host an Invocations reviewer with deterministic denied-claim facts and a bounded model-authored explanation, then add reusable bundled Skills and an optional Foundry Toolbox to a Responses agent. |
-| Time | 45-60 min; complete Invocations first |
-| Produces | `artifacts/stretch6/invocations.json`, `artifacts/stretch6/claim_reviews/CLM-*.json`, `artifacts/stretch6/skills_transcript.md` |
-| Cloud required | No for `--offline`; yes for model-backed local demos and deployment |
+| Goal | Keep denied-claim facts deterministic and model explanation bounded; add reusable Skills and optional Toolbox to a Responses product |
+| Time | 45–60 min; complete Invocations first |
+| Notebook | `stretch7_walkthrough.ipynb` |
+| Produces | `artifacts/stretch7/invocations.json`, `claim_reviews/CLM-*.json`, `skills_transcript.md` |
+| Cloud requirement | Deterministic notebook checks need no model; model-backed local demos and deployment require Azure |
 
-The workstation and Foundry run the same `main.py` files. Before either package is deployed, its `prepare.py`
-vendors and hashes every imported `common/`, `data/`, and (for Responses) `skills/` file. The package review fails
-on stale copies, missing runtime files, credentials, `.azure`, caches, or virtual environments.
-
-## Setup
-
-From the workshop root in dev-container Bash:
-
-```bash
-# Reopen the repository in its dev container; dependencies are preinstalled.
-python --version  # Python 3.14
-# Dependencies were installed by the repository dev-container bootstrap.
-```
-
-In VS Code, select `/usr/local/bin/python` as the notebook kernel. Launch the notebook from its own folder:
-
-```bash
-cd ./labs/stretch6-invocations-toolbox-skills
-python -m jupyter lab ./stretch6_walkthrough.ipynb
-```
-
-Or run the driver from `labs`:
-
-```bash
-cd ./labs
-python ./stretch6-invocations-toolbox-skills/stretch6_invocations.py --offline
-```
+Open this notebook with `/usr/local/bin/python` in the repository dev container.
+Run its deterministic, model-backed and deployment cells in order, using editable
+inputs for optional Toolbox. Internal `stretch7_invocations.py` is cell source,
+not a terminal learner route.
 
 ## Protocol contract
 
@@ -41,119 +19,98 @@ python ./stretch6-invocations-toolbox-skills/stretch6_invocations.py --offline
 |---|---|---|
 | Route | `POST /invocations` | `POST /responses` |
 | Body | `{"message": "{\"claim_ids\":[\"CLM-9003\"]}"}` | `{"input": "...", "stream": false}` |
-| Local response | Plain response text containing `ClaimReviewBatch` JSON | OpenAI Responses envelope |
-| State | One request with an SDK session context; no learner-managed chat history | Multi-turn response/session flow |
-| Best use | Batch jobs, pipelines, nightly reviews | Participant conversations and research |
+| Local response | Text containing `ClaimReviewBatch` JSON | OpenAI Responses envelope |
+| State | One structured request; no learner-managed chat history | Multi-turn response/session flow |
+| Best fit | Scheduled reviews, batch jobs, pipelines | Participant conversations and research |
 
-The Invocations route and local response behavior are taken from the installed
-`agent_framework_foundry_hosting.InvocationsHostServer` and `azure.ai.agentserver` code in this workshop
-environment. `MARKETPLACE_INVOCATIONS_PATH` exists only for an explicit reverse-proxy override and must be an
-absolute URL path.
+The notebook uses the pinned host's route/response contract. Facts come from
+`claims_review.py` over systems of record and KB-ACC-001; the model contributes
+only a plain-language explanation inside the bounded schema.
 
-## Run the deterministic path
+## Teach and deterministic evidence
 
-```bash
-cd ./labs
-python ./stretch6-invocations-toolbox-skills/stretch6_invocations.py --offline
-python ./stretch6-invocations-toolbox-skills/hosted-invocations/test_local.py --offline
-```
+Run the notebook's deterministic review cells. Every fact field must match the
+governed claim review, including CLM-9003's complete accepted-document list.
+Malformed/empty responses or safety failures fail acceptance. This validates
+the fact contract; it does not authorize payment, claim resubmission or coverage decisions.
 
-The smoke test fails unless every deterministic field matches `claims_review.py` exactly, CLM-9003 carries the
-complete KB-ACC-001 accepted-document list, and safety checks pass. This is acceptance of the review's fact
-contract, not authorization to pay, resubmit a claim, or make a coverage decision. It returns a nonzero exit code
-on malformed or empty response envelopes.
+Run model-backed local cells only after Lab 1's verified configuration is
+available. Inspect `artifacts/stretch7/hosted-invocations_local.log`; notebook
+lifecycle controls stop the child product on success or failure.
 
-For the model-backed local Invocations demo, configure the workshop `.env`, omit `--offline`, and inspect
-`artifacts/stretch6/hosted-invocations_local.log`. The driver always stops its child server.
+## Product packaging
 
-## Deterministic package preparation
+The notebook prepares and reviews both `hosted-invocations` and
+`hosted-responses-skills`. Shared code/data and bundled Skills are vendored and
+hashed. Stale copies, missing imports, credentials, deployment state and caches
+must not enter the upload. Generated vendored copies are not hand-editable
+source; rerun notebook preparation after product edits.
 
-Each hosted package has the same lifecycle:
-
-```bash
-cd ./labs/stretch6-invocations-toolbox-skills/hosted-invocations
-python ./prepare.py
-python ./prepare.py --check
-python ./prepare.py --clean
-```
-
-Use `hosted-responses-skills` instead of `hosted-invocations` for the second package. Vendored directories and
-`.vendored.json` are generated package inputs; regenerate them before deployment and do not hand-edit them.
-`.agentignore` excludes local state and deployment tooling without excluding `common/`, `data/`, or `skills/`.
+This packaging implementation is shared internal tooling, not an extra manual
+learner execution route. Foundry builds the same reviewed Python product
+tested by the notebook.
 
 ## YOUR TURN: nightly denials
 
-Change `BATCH` in `stretch6_invocations.py` to `nightly_denial_ids()`. Run the notebook cell immediately below
-the heading. `nightly_denials_acceptance_gate()` discovers every denied claim through
-`marketplace_data.get_hra_account(...)`, invokes exactly that set, validates deterministic facts, and cleans up its
-server in `finally`. In a scheduled environment this request shape fits a Foundry Routine (preview) or pipeline.
+Change the notebook's batch input to use `nightly_denial_ids()` and run the cell
+below the exercise. The acceptance gate discovers all denied claims through
+the fact tools, invokes exactly that set, checks deterministic fields and stops
+its server. This request shape fits a scheduled pipeline or optional preview Routine.
 
 ## Skills
 
-Run the bundled HRA skill demo:
+Run the bundled HRA Skill cells. Inspect startup skill names and the `read_skill`
+log containing the selected source document. Progressive disclosure exposes an
+index first and loads a governed procedure only when needed.
 
-```bash
-cd ./labs
-python ./stretch6-invocations-toolbox-skills/stretch6_invocations.py --skills-demo
-```
+The versioned procedure is reusable intelligence, distinct from the human skill
+of specifying/reviewing agent work. Provenance metadata does not automatically
+refresh rules or prove their continued accuracy.
 
-The startup log lists bundled skill names. `read_skill` logs the selected skill and governed source document. The
-versioned procedure is reusable intelligence; progressive disclosure exposes its index first and loads the
-relevant body when needed. This runtime Agent Skill is distinct from the human skill of specifying and reviewing
-agent work.
+### YOUR TURN: a second skill
 
-## YOUR TURN: a second skill
+In the exercise, author `skills/debit-card-faq/SKILL.md` from the reviewed
+`data/knowledge/debit-card-faq.md`, with `name: debit-card-faq` and
+`source_doc: KB-ACC-002`. Include declined, blocked and lost-card procedures and
+the full-card-number safety rule. This is a learner product exercise, not an
+additional file required to run the existing walkthrough.
 
-Create `skills/debit-card-faq/SKILL.md` from `data/knowledge/debit-card-faq.md`. Review the source and its review
-date as part of authoring; source/version metadata describes provenance, but does not automatically refresh the
-skill or prove that its rules remain current. Set frontmatter
-`name: debit-card-faq` and `source_doc: KB-ACC-002`; include declined, blocked, and lost-card procedures plus the
-full-card-number safety rule. Run the notebook gate below the heading.
-
-`second_skill_acceptance_gate()` validates the source, rebuilds the package, asks the pharmacy-decline question,
-requires a `[KB-ACC-002]` citation and a `read_skill name=debit-card-faq` log entry, and always stops its server.
+Run the notebook gate. It validates the source, rebuilds the package, asks the
+pharmacy-decline question and requires both a `[KB-ACC-002]` citation and a
+`read_skill name=debit-card-faq` log entry before cleanup.
 
 ## Optional Foundry Toolbox preview
 
-The Skills agent runs without Toolbox when both settings are absent. To enable it, set both:
+Enter both Toolbox name and HTTPS MCP endpoint in the notebook's optional
+configuration, or leave both absent. Partial configuration fails explicitly.
+Verify its token audience and dedicated agent-identity access with the
+administrator. Authentication/401/403 errors must not silently disable the tool.
 
-- `TOOLBOX_NAME`
-- `TOOLBOX_MCP_URL` as an `https://` MCP endpoint
+Only public information may go to web search, never participant data.
+The instruction boundary is not proof of complete runtime egress enforcement
+or production compliance. If the region/preview is unavailable, skip Toolbox
+without claiming it passed.
 
-`TOOLBOX_SCOPE` defaults to `https://ai.azure.com/.default`. Partial configuration fails at startup. Token
-acquisition failures explicitly identify local `az login` or hosted managed-identity/RBAC as the next check;
-401/403 responses remain errors rather than silently disabling Toolbox. Only public information may go to
-`web_search`; never send participant data to it. This is a tool and data-exposure boundary stated in the sample's
-instructions, not a demonstration of complete runtime egress enforcement or production compliance.
+## Deploy and inspect
 
-## Print deployment commands
+Use explicit notebook deployment actions for the two prepared packages and
+review their distinct protocols/target names. Wait for active versions, record
+real references and invoke each through the notebook. Remaining live checks
+include endpoint compatibility, identity access and optional Toolbox behavior;
+offline validation cannot establish these outcomes.
 
-Set `PROJECT_RESOURCE_ID` in the workshop `.env`, then:
+## Checkpoint and troubleshooting
 
-```bash
-cd ./labs
-python ./stretch6-invocations-toolbox-skills/stretch6_invocations.py --deploy
-```
-
-This is print-only. It emits separate absolute, quoted Bash blocks for Invocations and Responses. Each block
-runs preparation and package review, configures `azd`, initializes the correct protocol, checks the command exit status
-after every external command, and stops on failure. Review and paste each block in the intended authenticated
-terminal.
-
-## Remaining cloud checks
-
-After deployment, wait for both versions to become active and invoke each through the project. For Toolbox, verify
-the preview endpoint, token audience, managed-identity access, and `_ping_available` compatibility against the
-provisioned service. These checks cannot be completed by the offline lab validation.
-
-## Troubleshooting
+Share a schema-valid denied-claim review with its source facts, the selected
+Skill/source log and the two-protocol comparison. Clearly label any skipped
+cloud/preview checks.
 
 | Symptom | Fix |
 |---|---|
-| Invocations 404 | Confirm the installed host is running and use `/invocations`; set `MARKETPLACE_INVOCATIONS_PATH` only for a known proxy prefix. |
-| Response cannot be parsed | Print the HTTP body. The test accepts direct `ClaimReviewBatch` JSON and known text wrappers, but rejects unknown or empty envelopes. |
-| Package review says stale | Run `python ./prepare.py` again; do not edit vendored copies. |
-| Skills are `none` | Re-run the Responses package preparation and check `SKILL_NAMES`. |
-| Toolbox configuration error | Set both `TOOLBOX_NAME` and `TOOLBOX_MCP_URL`, or remove both. |
-| Toolbox authentication error or 401/403 | Verify `az login` locally, `TOOLBOX_SCOPE`, hosted managed identity, Toolbox RBAC, and propagation. |
-| Region/model preview error | Complete the Invocations half and skip Toolbox; Toolbox and Foundry Skills are preview features. |
+| Invocations 404 | Inspect product readiness and the notebook's `/invocations` route |
+| Unparseable response | Inspect HTTP body; reject unknown or empty envelopes |
+| Stale package | Rerun notebook preparation; do not edit vendored copies |
+| No Skills loaded | Inspect source Skill frontmatter and rerun Responses packaging |
+| Toolbox configuration error | Supply both optional inputs or remove both |
+| Toolbox authentication failure | Check signed-in identity locally, hosted agent identity, audience, RBAC and propagation |
+| Preview unavailable | Complete Invocations/Skills and explicitly skip Toolbox |

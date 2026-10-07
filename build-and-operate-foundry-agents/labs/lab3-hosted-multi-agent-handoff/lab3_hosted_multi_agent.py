@@ -9,65 +9,40 @@
 # |  | Details |
 # | --- | --- |
 # | Goal | Run the Healthcare Marketplace triage workflow (intake → marketplace guide + accounts assistant → compliance review → advisor handoff) inside a hosted agent, then approve, revise, or decline the packet on the next client turn. Run S1, S2, and S3 locally before optionally deploying `healthcare-marketplace-triage-hosted`. |
-# | Inputs | `labs/artifacts/lab2/hosted.json` or `knowledge.json`; root `.env` (`--standalone` skips the Lab 2 artifact requirement) |
+# | Inputs | `labs/artifacts/lab2/hosted.json` or `knowledge.json`; root `.env` |
 # | Outputs | `labs/artifacts/lab3/handoff_packets/S1.json`, `S2.json`, `S3.json`, `labs/artifacts/lab3/hosted.json`, and `hosted_local.log` |
 # | Time | 60 min (teach 10, demo 10, do 35, checkpoint 5) |
 #
-# **How to run code**
-#
-# |  | Command |
-# | --- | --- |
-# | Run cell by cell | Open `lab3_walkthrough.ipynb` (this file), or use the `# %%` cells in VS Code. |
-# | Run all scenarios with automatic approval | `python lab3_hosted_multi_agent.py --auto-approve --scenario all` |
-# | Act as the advisor | `python lab3_hosted_multi_agent.py` and type `approve`, `revise: ...`, or `decline: ...` |
-# | Prove restart continuity | `python lab3_hosted_multi_agent.py --auto-approve --restart-between-turns` |
-# | Print the azd commands | `python lab3_hosted_multi_agent.py --deploy` |
+# **How to run.** Execute this notebook's cells in order, pausing for the requested source edits.
+# The acceptance cells send simulated advisor decisions automatically; deployment is a separate explicit cell.
 #
 # **Where this runs.** This notebook (workstation) vendors `common/` and `data/` into `hosted/`, starts
 # `hosted/main.py` locally on port 8088 and plays two roles against it: the participant (turn 1, a case envelope)
 # and the licensed advisor (turn 2+, `approve` / `revise: ...` / `decline: ...`). `hosted/main.py` is the product:
 # inside it an Agent Framework `WorkflowBuilder` graph runs four specialist agents and pauses at `request_info`;
-# Foundry runs that container once you `azd up`.
+# Foundry runs that container after you execute the deployment cell.
 #
 # **Lab path and prerequisites.**
 #
-# - **Required for the cumulative path:** Complete Lab 2 first. If you joined late, run
-#   `python ../catch_up.py --through 2` from this lab folder.
-# - **Optional standalone path:** Pass `--standalone` to use the local knowledge search without Lab 2 artifacts.
-#   This is useful for the workflow exercise, but it does not reproduce the cumulative deployed-agent path.
+# - **Required for the cumulative path:** Complete the Lab 2 notebook first.
+# - **Local workflow boundary:** The acceptance cells can use local knowledge when Lab 2 artifacts are absent;
+#   this does not reproduce the cumulative deployed-agent path.
 # - **From Lab 1:** This lab reuses the local server lifecycle, port 8088, Responses endpoint, source packaging,
 #   and explicit `azd` deployment pattern first introduced in Lab 1.
-# - **Optional:** Deployment and `--restart-between-turns` are extension exercises; the local handoff flow is
-#   the core lab.
+# - **Optional:** Cloud deployment is an extension; restart continuity is exercised by an ordinary notebook cell.
 #
 # **Checkpoint artifact.** `labs/artifacts/lab3/handoff_packets/S1.json`, `S2.json`, `S3.json` (final packets with
 # `advisor_decision`) and `labs/artifacts/lab3/hosted.json`. Lab 4 evaluates and operates the Lab 2 concierge; it
 # may record this workflow agent's metadata, but does not require or evaluate these handoff packets.
 #
 # %% [markdown]
-# ## Before the first run (dev-container Bash)
+# ## Before the first run
 #
 # Continue with the dev container, root `.env`, Azure sign-in, and `/usr/local/bin/python` kernel used in Labs 1
 # and 2. If you have not completed that setup, follow the workshop `SETUP.md` first.
 #
-# ### **If this notebook is already open in VS Code**
-#
-# Keep using this notebook and its selected kernel. **Do not run the JupyterLab command below.**
-# It starts a separate JupyterLab server and may open a browser tab; it does not connect to the notebook session
-# already open in VS Code.
-#
-# ### Optional: open a separate JupyterLab session in a browser
-#
-# Run these commands in a Bash terminal—not in a Python code cell—only if you want to open this notebook
-# in a separate JupyterLab session:
-#
-# ```bash
-# cd /workspaces/agentic-ai-immersion/build-and-operate-foundry-agents/labs/lab3-hosted-multi-agent-handoff
-# python -m jupyter lab lab3_walkthrough.ipynb
-# ```
-#
 # %% [markdown]
-# Shell commands use the container filesystem. Hosted deployment remains an explicit terminal action.
+# This cell loads shared helpers and configures the triage agent and handoff artifact paths.
 #
 # %% Step 3.1 - Imports and paths
 from __future__ import annotations
@@ -87,7 +62,11 @@ from typing import Callable
 SOURCE_PATH = (
     Path(__file__).resolve()
     if "__file__" in globals()
-    else Path.cwd() / "lab3_walkthrough.ipynb"
+    else next(
+        parent / "build-and-operate-foundry-agents/labs/lab3-hosted-multi-agent-handoff/lab3_hosted_multi_agent.py"
+        for parent in (Path.cwd(), *Path.cwd().parents)
+        if (parent / "build-and-operate-foundry-agents/labs/lab3-hosted-multi-agent-handoff/lab3_hosted_multi_agent.py").is_file()
+    )
 )
 LAB_DIR = SOURCE_PATH.parent
 ROOT = LAB_DIR.parents[1]  # workshop root (common/ and data/ live here)
@@ -116,7 +95,6 @@ SERVER_LOG = ARTIFACTS / "hosted_local.log"
 PORT = int(os.environ.get("MARKETPLACE_HOSTED_PORT", "8088"))
 LOCAL_BASE = f"http://localhost:{PORT}"
 PENDING = "pending_advisor_approval"
-RUN_LAB3_EXERCISE_GATES = False
 
 
 def log(message: str) -> None:
@@ -131,12 +109,14 @@ def require_previous_lab(standalone: bool = False) -> dict:
             return foundry_env.load_artifact(path)
     if standalone:
         log(
-            "artifacts/lab2 missing; --standalone given, continuing with the local knowledge search"
+            "artifacts/lab2 missing; continuing with local knowledge search, not the cumulative deployment"
         )
         return {}
     return lab_helpers.require_artifact("lab2", "hosted.json", 2, LAB)
 
 
+# %% [markdown]
+# This cell defines the triage cases and the advisor decisions used in the acceptance exercises.
 # %% Step 3.2 - Define scenarios and advisor decisions
 SCENARIOS: dict[str, dict] = {
     "S1": {
@@ -168,6 +148,8 @@ SCENARIOS: dict[str, dict] = {
 }
 
 
+# %% [markdown]
+# This cell defines package preparation and handoff records without deploying to Azure.
 # %% Step 3.3 - Build the multi-agent package
 def build(*, vendor: bool = True, standalone: bool = True) -> dict:
     env = foundry_env.load_env()
@@ -231,6 +213,8 @@ def build(*, vendor: bool = True, standalone: bool = True) -> dict:
     return record
 
 
+# %% [markdown]
+# This cell defines the local workflow server and ensures its processes can be stopped reliably.
 # %% Step 3.4 - Define the local hosted server
 class HostedProcess:
     def __init__(
@@ -334,6 +318,8 @@ class HostedProcess:
         self.stop()
 
 
+# %% [markdown]
+# This cell defines local and deployed workflow requests with explicit error handling.
 # %% Step 3.5 - Call the triage workflow
 def output_text(payload: dict) -> str:
     if payload.get("output_text"):
@@ -383,6 +369,8 @@ def deployed_turn(
     return parse_reply(response.output_text), getattr(response, "id", None)
 
 
+# %% [markdown]
+# This cell defines the handoff runner, advisor approval loop, and packet-contract checks.
 # %% Step 3.6 - Define the handoff demo
 def interactive_decider(reply: dict) -> str:
     print(
@@ -555,9 +543,11 @@ def demo(
     return results
 
 
+# %% [markdown]
+# This cell defines validated deployment preparation and version recording without creating cloud resources.
 # %% Step 3.7 - Prepare source deployment
 def deploy_commands(env: dict | None = None) -> str:
-    """Return a quoted Bash command; deployment remains an explicit terminal action."""
+    """Return the quoted command for the explicit deployment cell."""
     from deployment import bash_deploy_block
 
     env = foundry_env.load_env() if env is None else env
@@ -587,8 +577,7 @@ def record_deployment(version: str, status: str = "active") -> dict:
 # %% [markdown]
 # ## YOUR TURN (10 min): revise instead of approve
 
-# 1. In the setup cell, change `RUN_LAB3_EXERCISE_GATES = False` to `True`.
-# 2. Run the setup and function-definition cells above this section in order.
+# 1. Complete the cells above this section in order.
 # 3. Run the next code cell.
 #     - This run is automatic. Do not enter an advisor response.
 #     - The client sends the S3 participant message, then `revise: add the IEP dates for turning 65 to open_questions`, then `approve`.
@@ -599,8 +588,9 @@ def record_deployment(version: str, status: str = "active") -> dict:
 
 # If you changed `.env`, restart the notebook kernel first, then run all cells above this section again.
 
+# This cell requests a revision and then approval, proving the handoff packet retains the added IEP question.
 # %% Step 3.8 - Test the revision path
-if "__file__" not in globals() and RUN_LAB3_EXERCISE_GATES:
+if "__file__" not in globals():
     build(standalone=True)
     revise_trace = {}
     with HostedProcess():
@@ -621,8 +611,7 @@ if "__file__" not in globals() and RUN_LAB3_EXERCISE_GATES:
 # %% [markdown]
 # ## YOUR TURN (10 min): lose the process, keep the case
 
-# 1. In the setup cell, change `RUN_LAB3_EXERCISE_GATES = False` to `True`.
-# 2. Run the setup and function-definition cells above this section in order.
+# 1. Complete the cells above this section in order.
 # 3. Run the next code cell.
 #     - This run is automatic. Do not enter an advisor response.
 #     - The client sends the S2 participant message, stops and restarts the local server, then sends `approve`.
@@ -633,8 +622,9 @@ if "__file__" not in globals() and RUN_LAB3_EXERCISE_GATES:
 #     - The final packet has `advisor_decision` set to `approve`.
 
 # If you changed `.env`, restart the notebook kernel first, then run all cells above this section again.
+# This cell restarts the local server between participant intake and advisor approval to verify session recovery.
 # %% Step 3.9 - Test restart-safe sessions
-if "__file__" not in globals() and RUN_LAB3_EXERCISE_GATES:
+if "__file__" not in globals():
     build(standalone=True)
     restart_trace = {}
     restart_server = HostedProcess().start()
@@ -669,8 +659,7 @@ if "__file__" not in globals() and RUN_LAB3_EXERCISE_GATES:
 # 2. Add this sentence to `MARKETPLACE_INSTRUCTIONS`:
 #     `Finish with the single plan you would pick.`
 # 3. Save the file.
-# 4. Ensure `RUN_LAB3_EXERCISE_GATES = True`.
-# 5. Run the setup and function-definition cells above this section in order.
+# 4. Complete the cells above this section in order.
 # 6. Run the next code cell.
 # 7. Confirm that the gate passes:
 #     - The reviewer first reports `compliant=False`.
@@ -680,8 +669,9 @@ if "__file__" not in globals() and RUN_LAB3_EXERCISE_GATES:
 
 # If you changed `.env`, restart the notebook kernel first, then run all cells above this section again.
 
+# This cell tests your deliberately unsafe local draft and requires the compliance reviewer to reject and revise it.
 # %% Step 3.10 - Test compliance review
-if "__file__" not in globals() and RUN_LAB3_EXERCISE_GATES:
+if "__file__" not in globals():
     build(standalone=True)
     reviewer_server = HostedProcess().start()
     try:
@@ -721,8 +711,7 @@ if "__file__" not in globals() and RUN_LAB3_EXERCISE_GATES:
 #       The existing fallback branches log the failure; do not remove those messages.
 #     - If no `lob-classifier` agent is configured, the keyword result is used directly.
 # 7. Save both files.
-# 8. Ensure `RUN_LAB3_EXERCISE_GATES = True`.
-# 9. Run the setup and function-definition cells above this section in order.
+# 8. Complete the cells above this section in order.
 # 10. Run the next code cell.
 # 11. Confirm that the ambiguous message
 #      `My card was declined when I tried to pay for a prescription.`
@@ -738,8 +727,9 @@ if "__file__" not in globals() and RUN_LAB3_EXERCISE_GATES:
 
 # If you changed `.env`, restart the notebook kernel first, then run all cells above this section again.
 
+# This cell verifies your model classifier routes the ambiguous card issue to accounts and completes advisor approval.
 # %% Step 3.11 - Test triage classification
-if "__file__" not in globals() and RUN_LAB3_EXERCISE_GATES:
+if "__file__" not in globals():
     build(standalone=True)
     classifier_session = f"classifier-{uuid.uuid4().hex[:8]}"
     classifier_message = "My card was declined when I tried to pay for a prescription."
@@ -781,25 +771,29 @@ if "__file__" not in globals() and RUN_LAB3_EXERCISE_GATES:
     )
 
 # %% [markdown]
-# ## Print Bash deployment commands
+# ## Deploy the triage agent
 #
-# This cell only prints a paste-ready block. `PROJECT_RESOURCE_ID` is required before anything is printed.
-# Version recording and the deployed smoke test remain separate post-deployment commands.
+# This cell deploys your saved triage package to Azure and displays its version status, which may incur charges.
+# Restore the deliberately unsafe instruction before deployment; `PROJECT_RESOURCE_ID` must be configured.
 
-# %% Step 3.12 - Print the Bash deployment command
+# %% Step 3.12 - Deploy the triage agent
 if "__file__" not in globals():
-    print(deploy_commands())
+    build(standalone=True)
+    subprocess.run(["bash", "-lc", deploy_commands()], cwd=HOSTED_DIR, check=True)
+    subprocess.run(["azd", "ai", "agent", "show", AGENT_NAME], cwd=HOSTED_DIR, check=True)
 
 
 # %% [markdown]
-# ## Script-only entry point - skip in Jupyter
-#
-# **Running this notebook cell by cell? Skip the next cell.** The earlier cells provide the notebook path.
-# The next cell is only the command-line entry point for running this lab's `.py` file as one program.
-# Its command-line invocation is guarded in the generated notebook; running the cell does not launch the lab.
-# For script mode instead, run `python lab3_hosted_multi_agent.py --help` in a Bash terminal from this lab's folder and choose the desired options.
+# This cell records the active triage version you inspected and checks a deployed handoff through advisor approval.
+# Wait for active status and enter that version below before execution.
+# %% Step 3.13 - Verify the deployed handoff
+if "__file__" not in globals():
+    DEPLOYED_VERSION = ""  # Set to the active version shown by the deployment cell.
+    assert DEPLOYED_VERSION, "Enter the active Foundry version in DEPLOYED_VERSION."
+    record_deployment(DEPLOYED_VERSION)
+    demo(scenarios=("S2",), auto=True, deployed=True)
 
-# %% Step 3.13 - Script-only entry point (skip in Jupyter)
+# %% [script-only]
 def main(args: argparse.Namespace) -> None:
     if args.record_version:
         record_deployment(args.record_version, args.status)

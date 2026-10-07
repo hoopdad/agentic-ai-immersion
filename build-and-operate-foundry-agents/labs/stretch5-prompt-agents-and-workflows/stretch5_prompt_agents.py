@@ -13,15 +13,8 @@
 # | Outputs | `labs/artifacts/stretch5/agents.json`, `workflow.yaml`, and `handoff_packets/S1.json` |
 # | Time | 60 min (teach 10, demo 10, do 35, checkpoint 5); build takes about 1 minute and S1 takes 1–2 minutes |
 #
-# **How to run code**
-#
-# |  | Command |
-# | --- | --- |
-# | Run cell by cell | Open `stretch5_walkthrough.ipynb` (this file), or use the `# %%` cells in VS Code. |
-# | Build and run S1 | `python stretch5_prompt_agents.py` |
-# | Build platform resources only | `python stretch5_prompt_agents.py --build-only` |
-# | Reuse existing resources for the demo | `python stretch5_prompt_agents.py --demo-only` |
-# | Also run a concierge turn | `python stretch5_prompt_agents.py --concierge-turn` |
+# **How to run.** Execute this notebook's cells in order, pausing for the requested portal and source edits.
+# Publishing and hosted redeployment are explicit Azure actions with charges explained before their cells.
 #
 # **Where this runs.** This notebook runs on your workstation. Everything it creates runs inside the Foundry
 # project: prompt agents (`PromptAgentDefinition`) and the workflow agent (`WorkflowAgentDefinition`, preview).
@@ -31,8 +24,7 @@
 # **Lab path and prerequisites.**
 #
 # - **Optional stretch:** This lab is not required for Lab 6 or for completing the four core labs.
-# - **Required if you choose this stretch:** Complete Lab 2 first. If you joined late, run
-#   `python ../catch_up.py --through 2` from this lab folder.
+# - **Required if you choose this stretch:** Complete the Lab 2 notebook first.
 # - **From Lab 1:** Lab 1 introduced a code-hosted Responses agent and explicit source deployment. Stretch 5
 #   contrasts that model with platform-managed prompt and workflow agents; it does not build another container.
 # - **Optional integration:** Editing and redeploying the Lab 2 hosted agent with `hosted_tool_snippet.py` is an
@@ -42,29 +34,13 @@
 # the S1 handoff packet path) and `artifacts/stretch5/handoff_packets/S1.json`.
 #
 # %% [markdown]
-# ## Before the first run (dev-container Bash)
+# ## Before the first run
 #
 # Continue with the dev container, root `.env`, Azure sign-in, and `/usr/local/bin/python` kernel used in the core
 # labs. If you have not completed that setup, follow the workshop `SETUP.md` first.
 #
-# ### **If this notebook is already open in VS Code**
-#
-# Keep using this notebook and its selected kernel. **Do not run the JupyterLab command below.**
-# It starts a separate JupyterLab server and may open a browser tab; it does not connect to the notebook session
-# already open in VS Code.
-#
-# ### Optional: open a separate JupyterLab session in a browser
-#
-# Run these commands in a Bash terminal—not in a Python code cell—only if you want to open this notebook
-# in a separate JupyterLab session:
-#
-# ```bash
-# cd /workspaces/agentic-ai-immersion/build-and-operate-foundry-agents/labs/stretch5-prompt-agents-and-workflows
-# python -m jupyter lab stretch5_walkthrough.ipynb
-# ```
-#
 # %% [markdown]
-# Shell commands use the container filesystem. Hosted deployment remains an explicit terminal action.
+# This cell loads shared helpers and configures the prompt-agent names and workflow template.
 #
 # %% Step S5.1 - Imports and environment
 from __future__ import annotations
@@ -73,11 +49,18 @@ import argparse
 import ast
 import json
 import re
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
 
-SOURCE_PATH = Path(globals().get("__file__", Path.cwd() / "stretch5_walkthrough.ipynb")).resolve()
+SOURCE_PATH = (
+    Path(__file__).resolve() if "__file__" in globals() else next(
+        parent / "build-and-operate-foundry-agents/labs/stretch5-prompt-agents-and-workflows/stretch5_prompt_agents.py"
+        for parent in (Path.cwd(), *Path.cwd().parents)
+        if (parent / "build-and-operate-foundry-agents/labs/stretch5-prompt-agents-and-workflows/stretch5_prompt_agents.py").is_file()
+    )
+)
 ROOT = SOURCE_PATH.parents[2]                   # workshop root (common/ and data/ live here)
 sys.path.insert(0, str(ROOT))
 from common import foundry_env, guardrails, marketplace_data, resource_names
@@ -128,6 +111,8 @@ PACKET_FIELDS = ["case_id", "participant_id", "lob", "summary", "participant_goa
 PACKET_LIST_FIELDS = ("participant_goals", "facts_gathered", "options_discussed", "open_questions", "compliance_flags")
 EXPECTED_S1_ACTIONS = ("triage", "marketplace", "compliance", "handoff")
 
+# %% [markdown]
+# This cell defines bounded instructions and the concierge's client-side function tools.
 # %% Step S5.2 - Define agent instructions
 # a workflow runs on the platform with nobody there to answer a client-side function_call: the caller pre-fetches
 # the facts into the TRIAGE CASE header and the agents work from those plus the knowledge base (server-side MCP).
@@ -249,6 +234,8 @@ def render_workflow() -> str:
     return text
 
 
+# %% [markdown]
+# This cell defines publishing of attendee-scoped prompt agents and the platform workflow without publishing them yet.
 # %% Step S5.3 - Define prompt-agent and workflow publishing
 def build(project=None, overrides: dict[str, str] | None = None) -> dict:
     resource_names.suffix(ENV, required=True)
@@ -292,6 +279,8 @@ def create_prompt_version(project, name: str, instructions: str, knowledge: dict
     )
 
 
+# %% [markdown]
+# This cell defines the governed case header and authoritative routing facts passed to the workflow.
 # %% Step S5.4 - Build the case header
 def gather_facts(participant_id: str, claim_ids: list[str] | None = None, include_accounts: bool = False) -> dict:
     participant = dict(marketplace_data.get_participant(participant_id))
@@ -330,6 +319,8 @@ def case_header(scenario: dict) -> tuple[str, str]:
     return case_id, header
 
 
+# %% [markdown]
+# This cell defines workflow streaming, packet extraction, and ordered-action validation.
 # %% Step S5.5 - Stream a workflow case
 def run_case(openai_client, workflow_name: str, header: str) -> dict:
     conversation = openai_client.conversations.create()
@@ -450,6 +441,8 @@ def run_concierge_turn(openai_client, user_text: str) -> tuple[str, list[dict]]:
         openai_client.conversations.delete(conversation_id=conversation.id)
 
 
+# %% [markdown]
+# This cell defines the S1 baseline runner and saves a handoff packet only after its acceptance checks pass.
 # %% Step S5.6 - Define the workflow demo
 S1 = {"id": "S1", "title": "AEP shopper", "participant_id": "P-1001", "routing_hint": "marketplace",
       "message": "I am on the Contoso Advantage Choice HMO. Is there a plan with a lower cost for my atorvastatin where I could keep "
@@ -497,6 +490,7 @@ def demo(info: dict | None = None, concierge_turn: bool = False) -> dict:
 # Run the next cell before the exercises. `build()` publishes new versions of the concierge, four specialists,
 # and the workflow agent to Foundry, then `demo()` runs S1 through that published workflow. After it completes,
 # **Agents > healthcare-marketplace-concierge** exists in the portal for the first YOUR TURN.
+# This cell publishes attendee-scoped agent versions and runs the S1 baseline, incurring Azure model charges.
 # %% Step S5.7 - Publish agents and run the baseline
 if "__file__" not in globals():
     _info = build()
@@ -509,6 +503,7 @@ if "__file__" not in globals():
 # to the instructions, and save the new version. Run the next cell. It calls the latest version by name, verifies
 # that P-1001 is greeted as Evelyn without recommendation or PII leakage, deletes the test conversation, and
 # restores the canonical concierge instructions in `finally`.
+# This cell checks your portal greeting change and restores the canonical concierge version afterward.
 # %% Step S5.8 - Inspect portal instructions
 if "__file__" not in globals():
     _project = foundry_env.get_project_client()
@@ -533,6 +528,7 @@ if "__file__" not in globals():
 # `accounts`, runs the existing workflow, and verifies that the wrong branch ran. No agent versions are created or
 # changed. Every temporary conversation is deleted by `run_case`. A completed workflow on the wrong branch is a
 # failed business outcome, even when its output is well formed.
+# This cell sends an intentionally wrong routing hint and checks the resulting branch and unresolved questions.
 # %% Step S5.9 - Test a broken router
 if "__file__" not in globals():
     _client = foundry_env.get_openai_client()
@@ -560,22 +556,11 @@ if "__file__" not in globals():
 # `FUNCTION_TOOLS.append(run_triage_workflow)` after the list is defined is also valid. Do not create another
 # hosted package for this stretch.
 #
-# After the acceptance cell passes, open a Bash terminal at the workshop root and redeploy from Lab 2's hosted
-# directory, not Lab 3. This is the directory containing the `azure.yaml` for the hosted agent you edited:
-#
-# ```bash
-# cd labs/lab2-hosted-knowledge-sessions/hosted
-# azd env set MARKETPLACE_WORKFLOW_AGENT_NAME healthcare-marketplace-triage-workflow
-# azd up
-# ```
-#
-# `azd env set` stores the workflow name in the active azd environment used by `azd up`. Alternatively, vendor
-# `artifacts/stretch5/agents.json` next to `main.py` before running `azd up`.
-#
-# Before redeploying Lab 2, run the next cell from this notebook. It exercises the exact delegation function,
+# Before redeploying Lab 2, run the next cell. It exercises the exact delegation function,
 # verifies the Lab 2 source has the function and tool registration, validates the returned packet, and relies on
 # the tool's `finally` block to delete its temporary conversation. Success prints a clear `PASSED` message and
 # confirms that Lab 2 is ready to deploy.
+# This cell verifies the saved Lab 2 delegation tool and validates its workflow handoff packet.
 # %% Step S5.10 - Test hosted delegation
 if "__file__" not in globals():
     import hosted_tool_snippet as _hosted_tool
@@ -605,14 +590,24 @@ if "__file__" not in globals():
     )
 
 # %% [markdown]
-# ## Script-only entry point - skip in Jupyter
-#
-# **Running this notebook cell by cell? Skip the next cell.** The earlier cells provide the notebook path.
-# The next cell is only the command-line entry point for running this lab's `.py` file as one program.
-# Its command-line invocation is guarded in the generated notebook; running the cell does not launch the lab.
-# For script mode instead, run `python stretch5_prompt_agents.py --help` in a Bash terminal from this lab's folder and choose the desired options.
+# This cell redeploys the edited Lab 2 package with your attendee-scoped workflow reference and may incur charges.
+# Execute only after the delegation acceptance check passes; this creates a hosted Azure version.
+# %% Step S5.11 - Deploy hosted delegation
+if "__file__" not in globals():
+    from deployment import bash_deploy_block
 
-# %% Step S5.11 - Script-only entry point (skip in Jupyter)
+    _lab2 = helpers.load_lab_module("lab2-hosted-knowledge-sessions/lab2_hosted_knowledge.py")
+    _prepare = helpers.load_lab_module("lab2-hosted-knowledge-sessions/hosted/prepare.py")
+    _prepare.vendor()
+    _hosted = helpers.require_artifact("lab2", "hosted.json", through=2, caller=LAB)
+    _settings = {**_hosted.get("env_for_container", {}), "MARKETPLACE_WORKFLOW_AGENT_NAME": WORKFLOW}
+    _command = bash_deploy_block(
+        _lab2.HOSTED_DIR, _lab2.AGENT_NAME, "responses", ENV, _settings, check_package=True
+    )
+    subprocess.run(["bash", "-lc", _command], cwd=_lab2.HOSTED_DIR, check=True)
+    subprocess.run(["azd", "ai", "agent", "show", _lab2.AGENT_NAME], cwd=_lab2.HOSTED_DIR, check=True)
+
+# %% [script-only]
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--build-only", action="store_true")

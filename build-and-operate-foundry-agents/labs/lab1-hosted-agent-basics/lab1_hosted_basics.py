@@ -9,54 +9,30 @@
 # |  | Details |
 # | --- | --- |
 # | Goal | Build, run, and call the smallest complete hosted agent: Agent Framework `Agent` + `FoundryChatClient` + three `@tool` functions over the systems of record + the shared compliance block, served by `ResponsesHostServer`. Run it locally on port 8088, chat S1 and S2 through POST `/responses`, then deploy the same folder from source with `azd ai agent init` + `azd up` and invoke the version. |
-# | Inputs | Root `.env` (`FOUNDRY_PROJECT_ENDPOINT`, `AZURE_AI_MODEL_DEPLOYMENT_NAME`, `PROJECT_RESOURCE_ID` for `--deploy`); `common/` and `data/` (vendored into `hosted/` by `build()`) |
+# | Inputs | Root `.env` (`FOUNDRY_PROJECT_ENDPOINT`, `AZURE_AI_MODEL_DEPLOYMENT_NAME`, `PROJECT_RESOURCE_ID` for deployment); `common/` and `data/` (vendored into `hosted/` by `build()`) |
 # | Outputs | `labs/artifacts/lab1/hosted.json` (agent name, protocol, model, endpoints, deployed version), `labs/artifacts/lab1/transcripts.md` (S1 and S2, PII-redacted), and `hosted_local.log` |
 # | Time | 60 min (teach 10, demo 10, do 35, checkpoint 5) |
 #
-# **How to run code**
-#
-# |  | Command |
-# | --- | --- |
-# | Run cell by cell | Open `lab1_walkthrough.ipynb` (this file), or use the `# %%` cells in VS Code. |
-# | Run top to bottom | `python lab1_hosted_basics.py` |
-# | Skip the local demo or use another endpoint | `python lab1_hosted_basics.py --skip-demo` or `python lab1_hosted_basics.py --base http://localhost:8088` |
-# | Call the deployed agent | `python lab1_hosted_basics.py --deployed` |
-# | Print the azd commands | `python lab1_hosted_basics.py --deploy` |
-# | After `azd up`, store the version | `python lab1_hosted_basics.py --record-version 2` |
+# **How to run.** Execute this notebook's cells in order, pausing at each YOUR TURN to save the requested edit.
+# Deployment and live-endpoint checks are explicit notebook cells, not automatic import actions.
 #
 # **Where this runs.** This notebook is the learner's cockpit: it runs on your workstation (dev container or
-# venv), vendors `common/` and `data/` into `hosted/`, starts `hosted/main.py` as a local process on port 8088,
-# calls `POST /responses`, and prints the azd commands that deploy the very same folder to Microsoft Foundry.
+# kernel), vendors `common/` and `data/` into `hosted/`, starts `hosted/main.py` as a local process on port 8088,
+# calls `POST /responses`, and deploys the same folder to Microsoft Foundry when you execute the deployment cell.
 # `hosted/main.py` is the product: Foundry builds a container from the ZIP azd uploads, runs it, scales it and
 # gives it an identity. Nothing customer-facing runs in this notebook.
 #
 # **Checkpoint artifact.** `labs/artifacts/lab1/hosted.json` (agent `healthcare-marketplace-concierge-hosted`, protocol, model,
 # deployed version once you ran `azd up`) and `labs/artifacts/lab1/transcripts.md`. Lab 2 starts from hosted.json.
 #
-# ## Before the first run (dev-container Bash)
+# ## Before the first run
 #
 # Follow the workshop SETUP.md first: reopen the repository in its dev container, configure the root .env,
 # and sign in inside the container. Python 3.14 and the pinned workstation packages are already installed.
 # Select `/usr/local/bin/python` as the notebook kernel.
 #
-# ### **If this notebook is already open in VS Code**
-#
-# Keep using this notebook and its selected kernel. **Do not run the JupyterLab command below.**
-# It starts a separate JupyterLab server and may open a browser tab; it does not connect to the notebook session
-# already open in VS Code.
-#
-# ### Optional: open a separate JupyterLab session in a browser
-#
-# Run these commands in a Bash terminal—not in a Python code cell—only if you want to open this notebook
-# in a separate JupyterLab session:
-#
-# ```bash
-# cd /workspaces/agentic-ai-immersion/build-and-operate-foundry-agents/labs/lab1-hosted-agent-basics
-# python -m jupyter lab lab1_walkthrough.ipynb
-# ```
-#
 # %% [markdown]
-# Shell commands use the container filesystem. Hosted deployment remains an explicit terminal action.
+# This cell loads the workshop environment, shared helpers, and artifact paths.
 #
 # %% Step 1.1 - Imports and paths
 from __future__ import annotations
@@ -71,9 +47,16 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]      # workshop root (common/ and data/ live here)
+SOURCE_PATH = (
+    Path(__file__).resolve() if "__file__" in globals() else next(
+        parent / "build-and-operate-foundry-agents/labs/lab1-hosted-agent-basics/lab1_hosted_basics.py"
+        for parent in (Path.cwd(), *Path.cwd().parents)
+        if (parent / "build-and-operate-foundry-agents/labs/lab1-hosted-agent-basics/lab1_hosted_basics.py").is_file()
+    )
+)
+ROOT = SOURCE_PATH.parents[2]      # workshop root (common/ and data/ live here)
 LABS_DIR = ROOT / "labs"
-LAB_DIR = Path(__file__).resolve().parent
+LAB_DIR = SOURCE_PATH.parent
 for folder in (ROOT, LABS_DIR):
     if str(folder) not in sys.path:
         sys.path.insert(0, str(folder))
@@ -97,6 +80,8 @@ def log(message: str) -> None:
     print(f"[{LAB}] {message}", flush=True)
 
 
+# %% [markdown]
+# This cell defines the two participant scenarios used to check the concierge's boundaries.
 # %% Step 1.2 - Define the workshop scenarios
 SCENARIOS: dict[str, dict] = {
     "S1": {"participant_id": "P-1001", "title": "AEP shopper (Evelyn Marsh)",
@@ -112,6 +97,8 @@ def first_turn(scenario: dict) -> str:
     return f"{lab_helpers.identity_line(scenario['participant_id'])} {scenario['turns'][0]}"
 
 
+# %% [markdown]
+# This cell defines local package preparation and deployment records without creating Azure resources.
 # %% Step 1.3 - Build the hosted package
 def build(*, vendor: bool = True) -> dict:
     """Prepare the flat deployable folder and record what Lab 2 needs. Never calls Azure."""
@@ -143,6 +130,8 @@ def build(*, vendor: bool = True) -> dict:
     return record
 
 
+# %% [markdown]
+# This cell defines the managed local server and its startup and shutdown checks.
 # %% Step 1.4 - Define the local hosted server
 class HostedProcess:
     """Start and stop hosted/main.py. Logs go to artifacts/lab1/hosted_local.log so the room can read them."""
@@ -181,6 +170,8 @@ class HostedProcess:
             log(f"stopped hosted/main.py (pid {self.process.pid})")
 
 
+# %% [markdown]
+# This cell defines local and deployed Responses requests with explicit failure reporting.
 # %% Step 1.5 - Call the Responses protocol
 def output_text(payload: dict) -> str:
     """output_text when the server includes it, else the text parts of the output message items."""
@@ -229,6 +220,9 @@ def call_deployed(text: str, *, previous_response_id: str | None = None, store: 
     return {"text": response.output_text, "id": getattr(response, "id", None), "raw": None}
 
 
+# %% [markdown]
+# This cell runs both baseline scenarios through a fresh local server and saves redacted transcripts.
+# The local server calls Azure models and may incur charges.
 # %% Step 1.6 - Define the local demo
 def run_scenario(key: str, scenario: dict, send) -> list[dict]:
     log(f"=== {key} {scenario['title']} ({scenario['participant_id']}) ===")
@@ -259,8 +253,7 @@ def write_transcripts(results: dict[str, list[dict]], target: str) -> Path:
 
 
 def demo(base: str | None = None, *, deployed: bool = False, scenarios: tuple[str, ...] = ("S1", "S2")) -> Path:
-    """Chat S1 and S2. Default: start hosted/main.py, talk to it, stop it. --base: talk to a server you started.
-    --deployed: talk to the version Foundry runs."""
+    """Chat S1 and S2 locally or with the deployed version, then save redacted transcripts."""
     server: HostedProcess | None = None
     if deployed:
         send, target = call_deployed, "deployed version through the Foundry project"
@@ -277,9 +270,15 @@ def demo(base: str | None = None, *, deployed: bool = False, scenarios: tuple[st
     return write_transcripts(results, target)
 
 
+if "__file__" not in globals():
+    build()
+    demo()
+
+# %% [markdown]
+# This cell defines deployment preparation and version recording without deploying anything.
 # %% Step 1.7 - Prepare source deployment
 def deploy_commands(env: dict | None = None) -> str:
-    """Return a quoted Bash command; deployment remains an explicit terminal action."""
+    """Return the quoted command for the explicit deployment cell."""
     from deployment import bash_deploy_block
     env = foundry_env.load_env() if env is None else env
     settings = {key: os.environ[key] for key in (
@@ -309,6 +308,7 @@ def record_deployment(version: str, status: str = "active") -> dict:
 # A passing run prints an answer containing **Northwind** and **$3,600**. If it fails, inspect
 # `labs/artifacts/lab1/hosted_local.log`.
 
+# This cell rebuilds the package and verifies your sponsor tool against a fresh local server.
 # %% Step 1.8 - Test the first local exercise
 if "__file__" not in globals():
     build()
@@ -332,15 +332,13 @@ if "__file__" not in globals():
 #    enrollment window** when it offers a licensed benefit advisor.
 # 2. Save the file, then run the next cell. It vendors the change, starts a fresh local server, runs S1, writes
 #    the transcript, and verifies that the recommendation-refusal turn names **AEP**.
-# 3. After the local assertion passes, run the **Print Bash deployment command** cell below.
-#    Copy the single command into the dev-container Bash terminal. The script checks the azd version and Foundry
-#    data-plane access before it creates files, then changes to the correct folder and stops on failure.
-# 4. Wait for the new version to become **active** in Foundry, then run
-#    `record_deployment("<version>")` in a new notebook cell, replacing `<version>` with the active version number.
+# 3. After the local assertion passes, execute the deployment cell below; it creates a paid hosted version.
+# 4. Wait for the version to become **active** in Foundry, then enter its version in the deployed-test cell.
 #
 # Foundry creates a new version only when the uploaded ZIP or definition changes. Keep the old version: Lab 4
 # uses version history for audit and rollback.
 
+# This cell rebuilds your instruction change and verifies that the refusal turn names AEP.
 # %% Step 1.9 - Test the second local exercise
 if "__file__" not in globals():
     build()
@@ -353,25 +351,23 @@ if "__file__" not in globals():
     finally:
         server.stop()
 
-# %% Step 1.10 - Print the Bash deployment command
+# %% [markdown]
+# This cell deploys your saved package to Azure through the validated deployment helper and may incur charges.
+# Execute it only when ready to create a hosted version; deployment is never performed when importing this source.
+# %% Step 1.10 - Deploy the hosted agent
 if "__file__" not in globals():
-    print(deploy_commands())
+    subprocess.run(["bash", "-lc", deploy_commands()], cwd=HOSTED_DIR, check=True)
+    subprocess.run(["azd", "ai", "agent", "show", AGENT_NAME], cwd=HOSTED_DIR, check=True)
 
 # %% [markdown]
 # ## YOUR TURN (5 min): call the deployed endpoint
 #
-# Complete the deployment and `record_deployment("<version>")` steps above before running the next cell. The call
+# Complete deployment above and set `DEPLOYED_VERSION` below to the active version before running the next cell.
+# The call
 # uses the agent-specific Responses endpoint and verifies that the active hosted version returns
 # a non-empty answer. This single-turn connectivity check uses `store=False`: it does not need a
 # persisted response or `previous_response_id`. It verifies inference and tools, not Foundry response
 # storage. The multi-turn demo keeps storage enabled so its response chain continues to work.
-#
-# Check status from the initialized deployment folder, not the repository root:
-#
-# ```bash
-# cd /workspaces/agentic-ai-immersion/build-and-operate-foundry-agents/labs/lab1-hosted-agent-basics/hosted
-# azd ai agent show healthcare-marketplace-concierge-hosted
-# ```
 #
 # An active version can still fail during a request. Model 429s can cause server-side retry delays;
 # Foundry response-storage failures can return 500 after the model has already answered.
@@ -382,22 +378,18 @@ if "__file__" not in globals():
 # **424 session_not_ready**, the container is still starting or failed at startup; open the active version's
 # logstream in Foundry, fix the startup error, and deploy a new version.
 
+# This cell records the active version you inspected and checks its live Responses endpoint.
 # %% Step 1.11 - Test the deployed version
 if "__file__" not in globals():
+    DEPLOYED_VERSION = ""  # Set to the active version shown by the deployment cell.
+    assert DEPLOYED_VERSION, "Enter the active Foundry version in DEPLOYED_VERSION."
+    record_deployment(DEPLOYED_VERSION)
     result = call_deployed("Hi, this is P-1005, ZIP 84010. What is my enrollment window?", store=False)
     print(result["text"])
     assert result["text"].strip(), "The deployed agent returned an empty answer."
 
 
-# %% [markdown]
-# ## Script-only entry point - skip in Jupyter
-#
-# **Running this notebook cell by cell? Skip the next cell.** The earlier cells provide the notebook path.
-# The next cell is only the command-line entry point for running this lab's `.py` file as one program.
-# Its command-line invocation is guarded in the generated notebook; running the cell does not launch the lab.
-# For script mode instead, run `python lab1_hosted_basics.py --help` in a Bash terminal from this lab's folder and choose the desired options.
-
-# %% Step 1.12 - Script-only entry point (skip in Jupyter)
+# %% [script-only]
 def main(args: argparse.Namespace) -> None:
     if args.record_version:
         record_deployment(args.record_version, args.status)

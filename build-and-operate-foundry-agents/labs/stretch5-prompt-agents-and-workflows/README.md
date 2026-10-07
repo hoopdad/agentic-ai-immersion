@@ -1,131 +1,113 @@
-# Stretch 5: Prompt agents and a declarative workflow, called from the hosted agent
+# Stretch 6: Prompt agents and a declarative workflow
 
 | | |
 |---|---|
-| Goal | Build the platform-managed side of the story: `healthcare-marketplace-concierge` and four specialist prompt agents with FunctionTools and the knowledge MCP tool, the YAML triage workflow agent (preview), run S1 through it, then give the hosted agent a `run_triage_workflow` tool that delegates to it. |
-| Time | 60 min: teach 10, demo 10, do 35, checkpoint 5 (stretch: fast finishers or follow-up) |
-| Starts from | artifacts/lab2/knowledge.json (or `python catch_up.py --through 2`) |
-| Produces | artifacts/stretch5/agents.json, artifacts/stretch5/workflow.yaml, artifacts/stretch5/handoff_packets/S1.json |
-| Learn path modules | 1 Develop AI agents with Microsoft Foundry and Visual Studio Code; 2 Integrate custom tools into your agent; 6 Build agent-driven workflows using Microsoft Foundry |
+| Goal | Build platform-managed concierge/specialist prompt agents and a declarative triage workflow, then delegate to it from the hosted concierge |
+| Time | 60 min: teach 10, demo 10, do 35, checkpoint 5 |
+| Starts from | `artifacts/lab3/knowledge.json` and Lab 1 configuration |
+| Notebook | `stretch6_walkthrough.ipynb` |
+| Produces | `artifacts/stretch6/agents.json`, `workflow.yaml`, `handoff_packets/S1.json` |
 
-**Where this runs:** workstation notebook (`stretch5_walkthrough.ipynb` / `stretch5_prompt_agents.py`) creates and calls agents that run inside the Foundry project. No container here. `hosted_tool_snippet.py` is code for the Lab 2 container.
-
-## Setup and run contract
-
-Use the dev container's preinstalled Python 3.14 interpreter. From a fresh dev-container Bash terminal at the workshop root:
-
-```bash
-# Reopen the repository in its dev container; dependencies are preinstalled.
-python --version  # Python 3.14
-# Dependencies were installed by the repository dev-container bootstrap.
-cd ./labs/stretch5-prompt-agents-and-workflows
-python -m jupyter lab ./stretch5_walkthrough.ipynb
-```
-
-Select `python` as the VS Code notebook kernel. The notebook must start with this lab folder as its working directory. To run the equivalent driver from a separate terminal:
-
-```bash
-cd ./labs
-python ./stretch5-prompt-agents-and-workflows/stretch5_prompt_agents.py
-```
-
-The driver exits nonzero and does not save `handoff_packets/S1.json` when the workflow reports an error, the S1 action path is not `triage -> marketplace -> compliance -> handoff`, the accounts branch runs, or the packet violates its exact field, stable-value, type, PII, recommendation, or timestamp contract.
+Open this notebook with the repository dev-container `/usr/local/bin/python`
+kernel and run cells in order. It creates and invokes platform-managed agents.
+`hosted_tool_snippet.py` is product integration code for Lab 3's container;
+`stretch6_prompt_agents.py` is internal notebook source, not a learner driver.
 
 ## What you'll learn
-- Create versioned prompt agents server-side with `PromptAgentDefinition`, `FunctionTool` schemas from `marketplace_data.TOOL_SCHEMAS`, and the knowledge base as an `MCPTool` through the project connection.
-- Run the client-side function-call loop once and explain why a workflow cannot run client tools (facts are pre-fetched into the case).
-- Deploy a declarative multi-agent workflow (`WorkflowAgentDefinition`, YAML, preview) and read its `workflow_action` stream.
-- Decide, per agent, when a platform-managed prompt agent fits (business-owned instructions, portal governance, no container deployment) and when hosted code fits (custom Python, session state, your own dependencies). This is an ownership and lifecycle choice, not a maturity ladder or evidence that one option is cheaper.
-- Connect the two: one `@tool` on the hosted agent that calls the workflow agent with `agent_reference`.
+
+- Create versioned `PromptAgentDefinition` agents with shared function schemas
+  and knowledge through a project-connected `MCPTool`.
+- Run the notebook's client-side function-call loop and explain why a platform
+  workflow needs facts fetched by its caller.
+- Inspect a preview `WorkflowAgentDefinition`, YAML routing and streamed actions.
+- Choose platform-managed versus hosted by ownership/lifecycle, not an assumed
+  maturity ladder or cost advantage.
+- Register one hosted tool that calls the platform workflow.
 
 ## Technical features taught
 
-| Feature | Foundry / SDK object | Where in the code | Why it matters for Healthcare Marketplace |
-|---|---|---|---|
-| Versioned prompt agents | `project.agents.create_version`, `PromptAgentDefinition(model, instructions, tools)` | `stretch5_prompt_agents.py` build() | Instruction changes are versions: auditable, revertible in the portal, no container roll |
-| Function tools from shared schemas | `FunctionTool(name, description, parameters, strict)` via `lab_helpers.function_tools` | `SPECS`, build() | One schema source for platform agents and the hosted @tool functions |
-| Knowledge over MCP on a platform agent | `MCPTool(server_label, server_url, require_approval="never", project_connection_id)` | knowledge_tool() | Same governed knowledge base as the hosted agent, reached through the project connection |
-| Client-side function-call loop | `responses.create` + `FunctionCallOutput` (in `lab_helpers.run_turn`) | demo(--concierge-turn) | Shows who runs the Python: the client, not the platform |
-| Declarative workflow agent (preview) | `WorkflowAgentDefinition(workflow=yaml)`, `InvokeAzureAgent`, `ConditionGroup` | `marketplace_triage_workflow.yaml`, render_workflow(), build() | Triage -> specialists -> compliance -> packet as a governed graph the portal draws |
-| Streaming workflow actions | `responses.create(stream=True)` -> `workflow_action` items | run_case() | The action trail is the audit log of who touched the case |
-| Hosted agent delegating to the platform | `@tool run_triage_workflow` -> `responses.create(..., extra_body=agent_reference)` | `hosted_tool_snippet.py` | Code agent owns the conversation; platform workflow owns the regulated hand-off |
+| Feature | Implementation | Ownership lesson |
+|---|---|---|
+| Versioned prompt definitions | `project.agents.create_version`, `PromptAgentDefinition` | Instructions can change without rebuilding a container |
+| Shared function tools | `marketplace_data.TOOL_SCHEMAS`, `FunctionTool` | One fact schema for hosted and platform agents |
+| Governed MCP knowledge | `MCPTool` with project connection | The same reviewed KB serves both implementations |
+| Client tool execution | Notebook Responses function-call loop | The client runs Python; the platform cannot run arbitrary client tools |
+| Declarative workflow | YAML `InvokeAzureAgent`, `ConditionGroup` | Routing and responsible agents are inspectable |
+| Streaming actions | `workflow_action` events | Execution trail must be checked against the intended route |
+| Hosted delegation | `@tool run_triage_workflow` and `agent_reference` | Hosted code owns the conversation; platform workflow owns its delegated path |
 
 ## Teach (10 min)
-- Two kinds of agents in one project. A **prompt agent** is data: model, instructions, tools; Foundry runs it, versions it, shows it in the portal. A **hosted agent** is code: your container, your dependencies, your session store. Both are invoked the same way (`agent_reference`), both are eval targets, both show traces.
-- When a prompt agent fits: the behaviour is owned by the business (compliance reviewer wording, handoff packet fields), changes must be auditable without redeploying a container, and the tools are server-side (knowledge base over MCP) or simple. When hosted fits: custom Python around the model (session store, redaction middleware, in-process workflows), libraries the platform does not ship, or protocols like Invocations (Stretch 6).
-- Workflows on the platform cannot answer a client-side `function_call`: nobody is there to run your Python. So the caller pre-fetches the facts from systems of record into a `TRIAGE CASE` header and the specialists work from that plus the knowledge base. The hosted agent is the natural caller: it already has the tools and the session.
-- The YAML: `OnConversationStart`, `InvokeAzureAgent` per step, `ConditionGroup` on the triage route, `EndConversation`. Every `InvokeAzureAgent` names an agent that already exists; the workflow is one more versioned agent. The declarative definition makes routing and ownership inspectable and reusable; it does not by itself establish lower reasoning cost or correct task execution.
-- Governance argument for the organization: compliance-reviewer and advisor-handoff instructions are regulated text. Keep them where compliance can read and change them (portal), not in a container image.
-- Preview means: keep the YAML small, verify the Power Fx helpers against the docs before the day.
 
-```
- hosted container (Lab 2)                          Foundry project (platform-managed, this stretch)
- +-------------------------------+   agent_ref   +----------------------------------------------------+
- | healthcare-marketplace-concierge-hosted          |-------------->| healthcare-marketplace-triage-workflow (WorkflowAgentDefinition)      |
- |  @tool run_triage_workflow    |  responses    |  triage -> [marketplace-guide] [accounts-assistant] |
- |  session store, message store |  .create      |         -> compliance-reviewer -> advisor-handoff  |
- +-------------------------------+               |  each a PromptAgentDefinition version               |
-                                                 |  marketplace/accounts: MCPTool healthcare-marketplace-kb (Lab 2 KB)    |
- workstation notebook: build(), S1 run, portal   +----------------------------------------------------+
-```
+A prompt agent is a versioned definition; a hosted agent is your Python product.
+Business-owned regulated wording may fit platform management, while custom
+state, middleware, dependencies or Invocations fit hosted code. Both need
+acceptance evidence.
+
+A workflow cannot satisfy a client-side function call without a caller.
+The notebook/hosted tool pre-fetches a `TRIAGE CASE` fact envelope, then specialists
+use it with knowledge. The definition makes ownership reusable and visible,
+but does not itself establish correct execution or lower reasoning cost.
+
+Workflow YAML is preview: keep it small and verify the selected service surface
+before the session. Regulated instructions still require a human owner and review.
 
 ## Demo (10 min)
-1. `python stretch5_prompt_agents.py --concierge-turn`. Point at six `created prompt agent ... vN` lines and `created workflow agent healthcare-marketplace-triage-workflow`.
-2. The concierge turn: `tool get_participant(...)`, `tool get_enrollment_window(...)` printed by the client loop, then the answer. Say: "the platform asked us to run Python; a workflow cannot do that."
-3. S1: `workflow_action` lines in order (triage, marketplace, compliance, handoff), messages, `saved artifacts/stretch5/handoff_packets/S1.json (lob=marketplace, flags=0)`. Any workflow, ordering, packet, or safety failure exits nonzero.
-4. Portal: Agents > healthcare-marketplace-triage-workflow shows the graph; open the conversation to see the actions. Agents > compliance-reviewer > edit instructions in the portal: a new definition version, no container redeployment.
-5. Open `hosted_tool_snippet.py`: one function, one Responses call, `agent_reference`. That is the whole integration.
+
+1. Run notebook agent/workflow creation cells and inspect recorded versions.
+2. Run the concierge tool-loop cell: distinguish platform requests from locally
+   executed fact tools.
+3. Run S1 and inspect the required `triage -> marketplace -> compliance -> handoff`
+   action trail; the accounts branch must not run.
+4. Inspect the saved packet and the graph in Foundry. A version change in the
+   portal does not require rebuilding the hosted container.
+5. Read the hosted integration snippet and identify its single delegated call.
 
 ## Do (35 min)
-1. `python stretch5_prompt_agents.py --build-only`. Checkpoint: `saved artifacts/stretch5/agents.json` with six agents and the workflow version.
-2. `python stretch5_prompt_agents.py --demo-only --concierge-turn`. Checkpoint: the concierge answer names the AEP dates and `no_recommendation=OK`; S1 produces `handoff_packets/S1.json` with `lob=marketplace` and `problems=none`.
-3. Open `S1.json`: check `options_discussed` has no preference, `facts_gathered` sources are tool names or KB ids, `recommended_next_step_for_advisor` is a process step.
-4. YOUR TURN (5 min): change an instruction in the portal (healthcare-marketplace-concierge: "Always greet the participant by first name"), then run the acceptance cell immediately below that heading. It calls the latest version, asserts the Evelyn greeting and safety checks, deletes the conversation, and restores the canonical concierge instructions in `finally`.
-5. YOUR TURN (5 min): run the broken-router acceptance cell. It creates a temporary `ROUTE: accounts` triage version, proves the wrong branch ran and left marketplace questions open, deletes the conversation, and restores the canonical triage instructions in `finally`.
-6. YOUR TURN (10 min): wire the hosted agent. Paste the block from `hosted_tool_snippet.py` into Lab 2 `hosted/main.py`, add `run_triage_workflow` to the existing `FUNCTION_TOOLS` list, and add the instruction line. Calling `FUNCTION_TOOLS.append(run_triage_workflow)` after the list is defined is also valid. Do not create a separate hosted package for this stretch. Run the hosted-delegation acceptance cell before redeploying Lab 2; it verifies the function and tool registration in Lab 2 source, requires `status=completed`, validates the packet, and the tool deletes its temporary conversation in `finally`. Success ends with `[stretch5] PASSED hosted delegation` and `Lab 2 is ready to deploy`. After it passes, open a Bash terminal at the workshop root and run:
 
-   ```bash
-   cd labs/lab2-hosted-knowledge-sessions/hosted
-   azd env set MARKETPLACE_WORKFLOW_AGENT_NAME healthcare-marketplace-triage-workflow
-   azd up
-   ```
+1. Build agents/workflow through notebook cells and inspect `agents.json`.
+2. Run concierge and S1 cells; require enrollment facts, no recommendation, the
+   correct branch and a valid safe packet.
+3. Inspect facts/sources, neutral options and advisor process steps. Workflow
+   errors, action-order errors or invalid packets must not be presented as success.
+4. **YOUR TURN: portal instruction edit.** Run the greeting gate for Evelyn;
+   it checks safety and restores canonical instructions during cleanup.
+5. **YOUR TURN: broken router.** Run the temporary accounts-route gate, explain
+   unanswered marketplace questions and confirm canonical routing is restored.
+6. **YOUR TURN: hosted delegation.** Integrate `hosted_tool_snippet.py` in Lab 3
+   `hosted/main.py`, register `run_triage_workflow` in `FUNCTION_TOOLS` and add its
+   instruction. Run the notebook gate before redeploying Lab 3 through its notebook.
+   Require completed status and packet validation; temporary conversations are cleaned up.
+7. After redeployment, ask as P-1005 for an ACA plan recommendation and inspect
+   the advisor handoff. Use the Lab 3 concierge, not Lab 4's triage product.
 
-   Use Lab 2, not Lab 3. Run both `azd` commands from this directory because it contains the `azure.yaml` for the hosted agent you edited. `azd env set` saves the workflow name in the active azd environment used by `azd up`. Alternatively, vendor `artifacts/stretch5/agents.json` next to `main.py` before running `azd up`. After redeployment, ask as P-1005 "Which ACA plan should I pick?" then accept the advisor.
-7. Optional (5 min): `python hosted_tool_snippet.py --call` runs the tool from the workstation against the workflow, no container needed.
+Configure the workflow reference through the notebook inputs/product integration.
+Do not create a separate hosted package or copy generated credentials/state into
+the package to make delegation work.
 
 ## Checkpoint (5 min)
-Paste the `workflow_action` trail for S1 and the `lob=` line. The action trail records execution; the route and packet checks determine whether that execution met the intended outcome. `artifacts/stretch5/agents.json` must exist for the hosted tool to find the workflow name.
 
-## Offline validation
-
-No Azure access is required for the focused tests:
-
-```bash
-cd ./labs/stretch5-prompt-agents-and-workflows
-python -m unittest ./test_stretch5_offline.py
-```
-
-The suite covers rendered workflow structure, packet extraction and validation, workflow-reference loading, explicit unavailable hosted behavior, and mocked workflow-action ordering.
-
-## If you're behind
-`python catch_up.py --through 5` builds the agents and the workflow (no S1 run). Skip steps 5 and 7; do step 6.
-
-## Stretch (only if you're done early)
-Add a revise loop to the YAML: a `ConditionGroup` after `compliance` that, when the review says `verdict: revise`, replaces the drafts with `revised_reply` before `handoff`. Rebuild, rerun S1 with a specialist instruction that violates rule 1 on purpose.
+Share S1's action trail and LOB result. Execution events alone are not outcome
+acceptance: route, packet and safety checks determine success.
+`artifacts/stretch6/agents.json` records the workflow reference used by delegation.
 
 ## Troubleshooting
-| Symptom | Cause | Fix |
-|---|---|---|
-| `create_version` 401/403 | user lacks Azure AI User on the project, or wrong tenant | role assignment (5 to 15 min); `az login --tenant $TENANT_ID` |
-| `knowledge.json has no mcp_endpoint or connection` | Lab 2 ran with `--skip-connection` | rerun Lab 2 without it, or `python catch_up.py --through 2` |
-| Workflow create fails on YAML | Power Fx helper or field name changed in the preview | compare with the base repo workflow sample; VERIFY link in the YAML header |
-| `unanswered function_call` in errors | a specialist called a client tool inside the workflow | facts missing from the case header: extend gather_facts(); or remove the tool from the specialist |
-| Packet has `problems` | model returned prose or an extra field | rerun; tighten the HANDOFF instructions; the strict schema is enforced by validate_packet() |
-| Hosted tool returns `not available` | `agents.json` not vendored and `MARKETPLACE_WORKFLOW_AGENT_NAME` unset | set the env var on the server or copy `agents.json` next to `main.py` |
-| Hosted tool returns `status: failed` | workflow invocation, packet validation, or conversation cleanup failed | inspect `error`, `packet_problems`, and `cleanup_error`; do not present the result as a successful handoff |
-| Model or region errors | deployment not in the project region | match `AZURE_AI_MODEL_DEPLOYMENT_NAME` to the portal |
 
-## References
-- Learn: [Develop AI agents with Microsoft Foundry and Visual Studio Code](https://learn.microsoft.com/en-us/training/paths/develop-ai-agents-azure/), [Integrate custom tools into your agent](https://learn.microsoft.com/en-us/training/paths/develop-ai-agents-azure/), [Build agent-driven workflows using Microsoft Foundry](https://learn.microsoft.com/en-us/training/paths/develop-ai-agents-azure/)
-- Base repo notebooks reused: `azure-ai-agents/*prompt-agent*`, `azure-ai-agents/*workflow*` (WorkflowAgentDefinition sample)
-- Workflows how-to: https://learn.microsoft.com/azure/foundry/agents/how-to/workflows (preview; VERIFY Power Fx helpers)
+| Symptom | Fix |
+|---|---|
+| Creation 401/403 | Check notebook authentication, tenant/project permissions and propagation |
+| Missing KB endpoint/connection | Return to Lab 3's knowledge/connection cells and verify its checkpoint |
+| YAML creation failure | Inspect the preview field/Power Fx helper against the selected service version |
+| Unanswered function call | Ensure the caller supplies case facts rather than assigning client tools to a workflow specialist |
+| Packet problems | Inspect strict field/types/source/safety validation; tighten instructions and rerun |
+| Hosted delegation unavailable | Supply the recorded workflow name/reference through notebook configuration and rebuild the product |
+| Delegation failed | Inspect invocation, packet and cleanup errors; do not relabel failure as a handoff |
+
+## Follow-up and author validation
+
+Explore a bounded YAML revise branch after compliance and rerun S1 with a
+deliberately unsafe specialist instruction. Internal offline regression tests
+cover workflow rendering, packet validation and action order; they are not a
+second learner execution path or live Azure proof.
+
+- [Azure agent learning path](https://learn.microsoft.com/en-us/training/paths/develop-ai-agents-azure/)
+- [Foundry workflows](https://learn.microsoft.com/azure/foundry/agents/how-to/workflows)

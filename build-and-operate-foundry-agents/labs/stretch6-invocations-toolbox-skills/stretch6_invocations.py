@@ -13,60 +13,35 @@
 # | Outputs | `labs/artifacts/stretch6/invocations.json`, `claim_reviews/*.json`, and `*_local.log` |
 # | Time | 45–60 min (stretch) |
 #
-# **How to run code**
-#
-# |  | Command |
-# | --- | --- |
-# | Run cell by cell | Open `stretch6_walkthrough.ipynb` (this file), or use the `# %%` cells in VS Code. |
-# | Run the Invocations agent locally | `python stretch6_invocations.py` |
-# | Create deterministic packets without a model | `python stretch6_invocations.py --offline` |
-# | Run the optional Responses + Skills demo | `python stretch6_invocations.py --skills-demo` |
-# | Print azd commands for both agents | `python stretch6_invocations.py --deploy` |
+# **How to run.** Execute this notebook's cells in order, pausing to create the requested governed skill.
+# The offline batch, model-backed acceptance exercises, and Azure deployment are separate notebook actions.
 #
 # **Where this runs.** This notebook (workstation) vendors `common/`, `data/` and `skills/` into the two hosted
 # folders, starts each `main.py` locally on port 8088 and calls it: the Invocations agent with a JSON batch of claim
 # ids, the Responses agent with a participant question that makes it read the bundled skill. Both folders deploy to
-# Foundry with `azd` (`--protocol invocations` and `--protocol responses`); Foundry Toolbox and Skills are preview.
+# Foundry through the deployment cell; Foundry Toolbox and Skills are preview.
 #
 # **Lab path and prerequisites.**
 #
 # - **Optional stretch:** This lab is independent of Stretch 5 and is not required for the four core labs.
-# - **No prior artifact is required:** The Invocations exercise and `--offline` path run without Lab 1 output.
-# - **Recommended before the comparison:** Complete Lab 1, or run `python ../catch_up.py --through 1`, so its
-#   Responses agent is available as the concrete comparison.
+# - **No prior artifact is required:** The Invocations exercise and offline baseline run without Lab 1 output.
+# - **Recommended before the comparison:** Complete the Lab 1 notebook so its Responses agent is the concrete comparison.
 # - **From Lab 1:** Reuse the dev-container setup, local port, source packaging, and explicit `azd` deployment
 #   workflow. Lab 1 introduced the Responses protocol; this lab highlights where Invocations differs.
-# - **Optional:** `--skills-demo`, Foundry Toolbox configuration, and deployment are extension paths. Toolbox and
+# - **Optional:** Foundry Toolbox configuration and deployment are extension paths. Toolbox and
 #   Skills are preview features.
 #
 # **Checkpoint artifact.** `labs/artifacts/stretch6/invocations.json` (agent names, protocol comparison, one batch
 # result) and `labs/artifacts/stretch6/claim_reviews/CLM-*.json`.
 #
 # %% [markdown]
-# ## Before the first run (dev-container Bash)
+# ## Before the first run
 #
 # Continue with the dev container, root `.env`, Azure sign-in, and `/usr/local/bin/python` kernel used in Lab 1.
-# If you have not completed that setup, follow the workshop `SETUP.md` first. The `--offline` path does not call
-# Azure, but it still uses the repository's dev-container environment.
-#
-# ### **If this notebook is already open in VS Code**
-#
-# Keep using this notebook and its selected kernel. **Do not run the JupyterLab command below.**
-# It starts a separate JupyterLab server and may open a browser tab; it does not connect to the notebook session
-# already open in VS Code.
-#
-# ### Optional: open a separate JupyterLab session in a browser
-#
-# Run these commands in a Bash terminal—not in a Python code cell—only if you want to open this notebook
-# in a separate JupyterLab session:
-#
-# ```bash
-# cd /workspaces/agentic-ai-immersion/build-and-operate-foundry-agents/labs/stretch6-invocations-toolbox-skills
-# python -m jupyter lab stretch6_walkthrough.ipynb
-# ```
+# If you have not completed that setup, follow the workshop `SETUP.md` first.
 #
 # %% [markdown]
-# Shell commands use the container filesystem. Hosted deployment remains an explicit terminal action.
+# This cell loads deterministic claim-review helpers and configures both hosted protocols and their artifacts.
 #
 # %% Step S6.1 - Imports and paths
 from __future__ import annotations
@@ -80,9 +55,16 @@ import sys
 import time
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]      # workshop root (common/ and data/ live here)
+SOURCE_PATH = (
+    Path(__file__).resolve() if "__file__" in globals() else next(
+        parent / "build-and-operate-foundry-agents/labs/stretch6-invocations-toolbox-skills/stretch6_invocations.py"
+        for parent in (Path.cwd(), *Path.cwd().parents)
+        if (parent / "build-and-operate-foundry-agents/labs/stretch6-invocations-toolbox-skills/stretch6_invocations.py").is_file()
+    )
+)
+ROOT = SOURCE_PATH.parents[2]      # workshop root (common/ and data/ live here)
 LABS_DIR = ROOT / "labs"
-LAB_DIR = Path(__file__).resolve().parent
+LAB_DIR = SOURCE_PATH.parent
 for folder in reversed((ROOT, LABS_DIR, LAB_DIR / "hosted-invocations")):
     if str(folder) not in sys.path:
         sys.path.insert(0, str(folder))
@@ -130,6 +112,8 @@ def log(message: str) -> None:
     print(f"[{LAB}] {message}", flush=True)
 
 
+# %% [markdown]
+# This cell displays the protocol comparison so you can choose between structured batch requests and conversations.
 # %% Step S6.2 - Compare hosted protocols
 PROTOCOLS = [
     {"dimension": "Interaction", "invocations": "one structured request -> one structured response", "responses": "multi-turn conversation"},
@@ -142,7 +126,12 @@ PROTOCOLS = [
     {"dimension": "Healthcare Marketplace example", "invocations": "denied-claims-review over the day's denials", "responses": "healthcare-marketplace-concierge-hosted, healthcare-marketplace-triage-hosted"},
 ]
 
+if "__file__" not in globals():
+    for row in PROTOCOLS:
+        print(f"{row['dimension']}: Invocations = {row['invocations']}; Responses = {row['responses']}")
 
+# %% [markdown]
+# This cell vendors both local hosted packages and records their runtime contracts without deploying to Azure.
 # %% Step S6.3 - Build both hosted packages
 def build(*, vendor: bool = True) -> dict:
     env = foundry_env.load_env()
@@ -178,6 +167,11 @@ def build(*, vendor: bool = True) -> dict:
     return record
 
 
+if "__file__" not in globals():
+    build()
+
+# %% [markdown]
+# This cell defines the managed local server used for Invocations and Skills acceptance requests.
 # %% Step S6.4 - Define the local hosted server
 class HostedProcess:
     def __init__(self, hosted_dir: Path, port: int = PORT, extra_env: dict | None = None):
@@ -217,6 +211,8 @@ class HostedProcess:
             self.log_handle.close()
 
 
+# %% [markdown]
+# This cell defines structured Invocations requests and checks that deterministic claim facts remain unchanged.
 # %% Step S6.5 - Call the Invocations protocol
 def call_invocations(base: str, claim_ids: list[str]) -> tuple[list[dict], str]:
     """POST the batch to the installed SDK's documented POST /invocations route."""
@@ -264,6 +260,8 @@ def save_reviews(reviews: list[dict], source: str) -> None:
     log(f"wrote {len(reviews)} packets to {REVIEWS_DIR.relative_to(LABS_DIR)}/ ({source})")
 
 
+# %% [markdown]
+# This cell runs the deterministic offline batch baseline and saves its review evidence without model calls.
 # %% Step S6.6 - Define the Invocations demo
 def demo(base: str | None = None, *, offline: bool = False, claim_ids: list[str] = BATCH) -> dict:
     if offline:
@@ -294,6 +292,12 @@ def demo(base: str | None = None, *, offline: bool = False, claim_ids: list[str]
     return record["sample_run"]
 
 
+if "__file__" not in globals():
+    demo(offline=True)
+
+# %% [markdown]
+# This cell runs the first governed Skills example and defines the nightly-denials and second-skill acceptance checks.
+# The local Skills server calls Azure models and may incur charges.
 # %% Step S6.7 - Define the Skills demos and acceptance gates
 def skills_demo(base: str | None = None) -> str:
     lab1 = lab_helpers.load_lab_module("lab1-hosted-agent-basics/lab1_hosted_basics.py")   # reuse post_responses()
@@ -368,6 +372,11 @@ def second_skill_acceptance_gate(base: str | None = None) -> str:
     return text
 
 
+if "__file__" not in globals():
+    skills_demo()
+
+# %% [markdown]
+# This cell defines deployment preparation for both hosted protocols without creating Azure versions.
 # %% Step S6.8 - Prepare both deployments
 def deploy_commands(env: dict | None = None) -> str:
     from deployment import bash_deploy_block
@@ -381,21 +390,29 @@ def deploy_commands(env: dict | None = None) -> str:
     return "\n\n".join(blocks)
 
 # %% [markdown]
-# ## Print-only deployment
+# ## Deploy both protocols
 #
-# Set `PROJECT_RESOURCE_ID` in the workshop `.env`, then run the next cell. It prints both paste-ready Bash
-# deployment blocks in the notebook; it does not execute `azd`, vendor the packages, or deploy either agent.
+# This cell deploys both hosted packages to Azure and displays their version status, which may incur charges.
+# Set `PROJECT_RESOURCE_ID` first and execute only when ready to create both hosted versions.
 
-# %% Step S6.9 - Print the Bash deployment commands
+# %% Step S6.9 - Deploy both hosted protocols
 if "__file__" not in globals():
-    print(deploy_commands())
+    subprocess.run(["bash", "-lc", deploy_commands()], cwd=LAB_DIR, check=True)
+    for folder, agent in ((INVOCATIONS_DIR, INVOCATIONS_AGENT), (SKILLS_HOST_DIR, SKILLS_AGENT)):
+        subprocess.run(["azd", "ai", "agent", "show", agent], cwd=folder, check=True)
 
+# %% [markdown]
+# This cell invokes the complete nightly denial batch and verifies every deterministic review field.
+# It calls Azure models through a local server and may incur charges; the server always stops after the check.
 # %% Step S6.10 - Process nightly denials
 # Run this cell to process the data-derived nightly denial batch. The gate invokes the exact batch, checks
 # every deterministic field, and stops its child server even when an assertion fails.
 if "__file__" not in globals():
     nightly_denials_acceptance_gate(offline=False)
 
+# %% [markdown]
+# This cell validates your governed debit-card skill, rebuilds its package, and proves the model read that skill.
+# Create `skills/debit-card-faq/SKILL.md` from `data/knowledge/debit-card-faq.md` before execution.
 # %% Step S6.11 - Add a second skill
 # Write skills/debit-card-faq/SKILL.md from data/knowledge/debit-card-faq.md, then run this cell. The gate checks
 # the governed source metadata, rebuilds, invokes the skill question, proves read_skill ran, and cleans up.
@@ -403,15 +420,7 @@ if "__file__" not in globals():
     second_skill_acceptance_gate()
 
 
-# %% [markdown]
-# ## Script-only entry point - skip in Jupyter
-#
-# **Running this notebook cell by cell? Skip the next cell.** The earlier cells provide the notebook path.
-# The next cell is only the command-line entry point for running this lab's `.py` file as one program.
-# Its command-line invocation is guarded in the generated notebook; running the cell does not launch the lab.
-# For script mode instead, run `python stretch6_invocations.py --help` in a Bash terminal from this lab's folder and choose the desired options.
-
-# %% Step S6.12 - Script-only entry point (skip in Jupyter)
+# %% [script-only]
 def main(args: argparse.Namespace) -> None:
     if args.deploy:
         print(f"\n[{LAB}] deploy from source (two agents, two protocols):\n{deploy_commands()}")
