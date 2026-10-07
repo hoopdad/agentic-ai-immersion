@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -34,6 +35,12 @@ class NotebookEnvironmentTests(unittest.TestCase):
         source = (ROOT / "tools/preflight.py").read_text(encoding="utf-8")
         self.assertNotIn('"redis"', source)
         self.assertNotIn("MARKETPLACE_REDIS_URL", source)
+
+    def test_notebook_session_store_ignores_legacy_redis_setting(self) -> None:
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.dict(os.environ, {"MARKETPLACE_REDIS_URL": "redis://unavailable:6379/0"}):
+            store = lab_helpers.get_session_store(Path(directory))
+        self.assertIsInstance(store, lab_helpers._session_store.FileSessionStore)
 
     def test_pipeline_uses_blob_history_settings(self) -> None:
         paths = list((ROOT / "labs").glob("lab*-operate-hosted-agents/.github/workflows/agent-ci.yml"))

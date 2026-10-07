@@ -26,7 +26,7 @@ learner run path.
 
 | # | Notebook | Outcome | Evidence passed onward |
 |---|---|---|---|
-| 1 | `labs/lab1-foundry-project-models/lab1_walkthrough.ipynb` | Create a project in an existing admin-supplied Foundry account, provision chat and embedding deployments, verify access, persist downstream settings | Project/model configuration in the repository-root `.env` |
+| 1 | `labs/lab1-foundry-project-models/lab1_walkthrough.ipynb` | Create a project in an existing admin-supplied Foundry account, provision chat and embedding deployments, verify access, persist downstream settings | `artifacts/lab1/project.json` and project/model configuration in the repository-root `.env` |
 | 2 | `labs/lab2-hosted-agent-basics/lab2_walkthrough.ipynb` | Build a typed-tool concierge with shared compliance instructions; test locally, deploy and inspect an immutable version | `artifacts/lab2/hosted.json`, transcripts |
 | 3 | `labs/lab3-hosted-knowledge-sessions/lab3_walkthrough.ipynb` | Build governed Foundry IQ knowledge and prove conversation continuity after a local restart; distinguish files from shared Blob history | `artifacts/lab3/knowledge.json`, `hosted.json`, sessions |
 | 4 | `labs/lab4-hosted-multi-agent-handoff/lab4_walkthrough.ipynb` | Fan out to specialists, bound compliance reflection, and pause for advisor approval across HTTP turns | `artifacts/lab4/handoff_packets/`, `hosted.json` |
@@ -75,8 +75,8 @@ Keep one unique attendee resource suffix throughout the sequence.
 
 If a prerequisite artifact is missing, reopen its producing notebook and rerun
 the required checkpoint cells. Do not fabricate artifacts or treat their
-existence alone as a passing outcome. Use the notebook cleanup guidance after
-reviewing exactly which attendee resources it will remove; shared resources
+existence alone as a passing outcome. Follow the notebook cleanup guidance with
+the facilitator after reviewing attendee-owned resource names; shared resources
 remain under administrator ownership.
 
 Administrators provisioning a complete environment choose an independent

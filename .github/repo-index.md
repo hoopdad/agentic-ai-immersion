@@ -20,7 +20,7 @@
   `scripts/generate_prereq_datasheet_v2.py`.
 - Workshop entry point: `build-and-operate-foundry-agents/README.md` and `SETUP.md`.
 - Workshop customer collateral: `build-and-operate-foundry-agents/Datasheets/` contains editable HTML sources and rendered PDF/Word deliverables.
-- Workshop implementation: `common/` (data, notebook configuration, environment and state), `data/` (synthetic fixtures), `labs/` (notebooks and adjacent authoring sources).
+- Workshop implementation: `common/` (data, environment and state), `data/` (synthetic fixtures), `labs/` (notebooks and adjacent authoring sources).
 - First lab: `labs/lab1-foundry-project-models/` creates a project in an approved existing Foundry account, deploys chat/embedding models, and saves the notebook configuration and `artifacts/lab1/project.json`.
 - Lab 3 conversation history: Azure Blob/Azurite or files; shared storage utilities retain optional backend implementations, but Redis is not a learner prerequisite or default.
 - Hosted model resilience: `common/model_resilience.py` provides visible, retry-header-aware Agent Framework
@@ -78,9 +78,9 @@ Added `build-and-operate-foundry-agents/common/model_resilience.py` for shared h
 handling and Responses failure reporting; updated affected drivers, hosted entry points, and generated notebooks.
 Added the two-page Build and Operate Foundry Agents workshop datasheet, Word version, and editable HTML source under
 `build-and-operate-foundry-agents/Datasheets/`.
-Lab 3 handler-registration and human-approval regression tests are in
-`build-and-operate-foundry-agents/tests/test_lab3_workflow.py` (real workflow, offline packet writer and
-streaming AgentExecutor graph). Lab 3 designates only the advisor coordinator as the final-output executor;
+Lab 4 handler-registration and human-approval regression tests are in
+`build-and-operate-foundry-agents/tests/test_lab4_workflow.py` (real workflow, offline packet writer and
+streaming AgentExecutor graph). Lab 4 designates only the advisor coordinator as the final-output executor;
 specialist streaming updates are intermediate outputs.
 Baseline for this addition: `e34129302cdfbff4ed1a41defa5c9b930641a5da`; pending structural change considered:
 the new Lab 3 regression test file.
@@ -108,8 +108,10 @@ migration guide and ignore rules, workshop navigation updates and `tests/test_in
 Provider versions and private resource addresses are unchanged; signed Windows checksums are added to locks.
 
 Baseline for notebook-first enhancements: `f6e5d4c092139995b4700bcfe7cf04dfc634ad26`.
-Pending structural changes considered: the new Foundry project/model setup lab and its offline tests,
-shared notebook configuration, the six existing lab directories/sources/notebooks shifted by one,
+Pending structural changes considered: the new Foundry project/model setup lab with its local
+`project_setup.py` helper and offline tests, the six existing lab directories/sources/notebooks shifted by one,
 and corresponding artifact, validation and pipeline references. Learners use the Jupyter notebooks;
 adjacent Python sources, catch-up helpers and command-line tools remain internal authoring/CI utilities.
 Lab 3's exercises no longer require `RUN_LAB2_*` environment switches.
+Converter tests are in `tests/test_py_to_ipynb.py`; provisioning and notebook environment
+regressions are in `tests/test_project_setup.py` and `tests/test_notebook_environment.py`.

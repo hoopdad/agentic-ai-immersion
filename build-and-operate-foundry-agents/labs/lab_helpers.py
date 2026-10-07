@@ -1,4 +1,4 @@
-"""Shared helpers for the Foundry Agents lab sequence (Hosted Agents first, Prompt Agents in Stretch 5).
+"""Shared helpers for the Foundry Agents lab sequence (project setup first, Prompt Agents in Stretch 6).
 
 Every lab driver script (the notebook side) imports this module after the standard `common` import block.
 Hosted `main.py` files do not import it: they ship in a container with only `common/` and `data/` vendored.
@@ -8,12 +8,12 @@ stay focused on what they teach:
 * `agent_reference(name)`      the extra_body payload that routes a Responses call to a server-side agent
 * `function_tools(names)`      FunctionTool objects built from marketplace_data.TOOL_SCHEMAS (filtered by name)
 * `run_turn(...)`              one participant turn against a platform prompt agent, including the client-side
-                               function-call loop (Stretch 5 uses it; Lab 4 uses it for the deployed hosted agent)
+                               function-call loop (Stretch 6 uses it; Lab 5 uses it for the deployed hosted agent)
 * `artifact_path(...)`         labs/artifacts/labN/<name>
 * `require_artifact(...)`      load a previous lab's artifact or identify the prerequisite notebook
-* `load_lab_module(...)`       import a lab file from a hyphenated folder (used by catch_up.py and Lab 4)
-* `get_session_store(dir)`     common.session_store when present (Redis, Cosmos or file), else a local
-                               file store with the same get/put/delete/list_ids surface (Lab 2 client side)
+* `load_lab_module(...)`       import a lab file from a hyphenated folder (used by catch_up.py and Lab 5)
+* `get_session_store(dir)`     common.session_store's file backend, else a local
+                               file store with the same get/put/delete/list_ids surface (Lab 3 client side)
 
 No endpoints, ids or keys live here. Everything comes from `.env` through common.foundry_env.
 """
@@ -86,7 +86,7 @@ def require_artifact(lab: str, name: str, through: int, caller: str) -> dict:
 
 
 def load_lab_module(relative_file: str):
-    """Import a lab script by path (folders like lab2-hosted-knowledge-sessions are not importable by name)."""
+    """Import a lab script by path (folders like lab3-hosted-knowledge-sessions are not importable by name)."""
     path = LABS_DIR / relative_file
     if not path.exists():
         raise FileNotFoundError(path)
@@ -98,7 +98,7 @@ def load_lab_module(relative_file: str):
 
 
 # ----------------------------------------------------------------------------
-# Session store (Lab 2 persists the session -> conversation map on the client side; the hosted main.py has its own)
+# Session store (Lab 3 persists the session -> conversation map on the client side; the hosted main.py has its own)
 # ----------------------------------------------------------------------------
 @dataclass
 class _FallbackSessionRecord:
@@ -153,19 +153,11 @@ except ImportError:                                      # module missing: the f
 
 
 def get_session_store(default_dir: Path, log_prefix: str = "[session]"):
-    """Pick the configured store (MARKETPLACE_REDIS_URL -> Redis, MARKETPLACE_COSMOS_ENDPOINT -> Cosmos, else file).
-
-    Falls back to the local file store when common.session_store is missing or when the configured
-    backend cannot be reached (redis package not installed, Redis not running). The labs must keep
-    running on a laptop with nothing but Python and az login.
-    """
+    """Use notebook-local session files regardless of legacy shared-store environment settings."""
     if _session_store is not None:
-        try:
-            store = _session_store.get_session_store(Path(default_dir))
-            print(f"{log_prefix} session store: {type(store).__name__}")
-            return store
-        except Exception as exc:                             # noqa: BLE001
-            print(f"{log_prefix} session store {type(exc).__name__}: {exc}; using the local file store")
+        store = _session_store.FileSessionStore(Path(default_dir))
+        print(f"{log_prefix} session store: {type(store).__name__}")
+        return store
     else:
         print(f"{log_prefix} common.session_store not found; using the local file store")
     return _FallbackFileSessionStore(Path(default_dir))
@@ -218,7 +210,7 @@ def dispatch_tool(name: str, arguments: str | dict) -> dict | list:
 
 
 # ----------------------------------------------------------------------------
-# The conversation turn against a platform agent (Stretch 5 teaches the loop; Lab 4 uses it for deployed targets)
+# The conversation turn against a platform agent (Stretch 6 teaches the loop; Lab 5 uses it for deployed targets)
 # ----------------------------------------------------------------------------
 def run_turn(openai_client, agent_name: str, conversation_id: str, user_text: str,
              max_rounds: int = 6, log_prefix: str = "[agent]") -> tuple[str, list[dict]]:

@@ -6,6 +6,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import shlex
 import subprocess
 import sys
@@ -17,8 +18,9 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "labs"))
 sys.path.insert(0, str(ROOT / "tools"))
 import deployment  # noqa: E402
+import validate_workshop  # noqa: E402
 from common import model_resilience, resource_names  # noqa: E402
-from py_to_ipynb import build_notebook, validate_step_ids  # noqa: E402
+from py_to_ipynb import build_notebook, validate_cell_descriptions, validate_step_ids  # noqa: E402
 
 
 def load(name: str, path: Path):
@@ -105,16 +107,41 @@ class GuardrailTests(unittest.TestCase):
 
 
 class DeploymentTests(unittest.TestCase):
-    def test_stretch6_vendoring_removes_generated_python_artifacts(self):
+    def test_artifact_chain_requires_correct_predecessor_and_checkpoint(self):
+        valid = ast.parse('helpers.require_artifact("lab3", "hosted.json", through=3, caller="lab4")')
+        validate_workshop.validate_artifact_chain(valid, "lab4")
+        for source in (
+            'helpers.require_artifact("lab3", "hosted.json", through=2, caller="lab4")',
+            'helpers.require_artifact("lab2", "hosted.json", through=2, caller="lab4")',
+        ):
+            with self.subTest(source=source), self.assertRaises(ValueError):
+                validate_workshop.validate_artifact_chain(ast.parse(source), "lab4")
+
+    def test_internal_catch_up_skips_project_provisioning(self):
+        module = load("catch_up_regression", ROOT / "labs/catch_up.py")
+        self.assertEqual(set(module.STEPS), set(range(2, 8)))
+        for number, (relative, _) in module.STEPS.items():
+            self.assertTrue((ROOT / "labs" / relative).is_file(), f"missing Lab {number} driver")
+        knowledge = MagicMock()
+        with patch.object(module.helpers, "load_lab_module", return_value=knowledge):
+            self.assertTrue(module.run_step(3, skip_connection=True))
+        knowledge.build.assert_called_once_with(skip_connection=True)
+        operate = MagicMock()
+        with patch.object(module.helpers, "load_lab_module", return_value=operate):
+            self.assertTrue(module.run_step(5))
+        operate.build.assert_called_once_with(skip_judges=True)
+        operate.demo.assert_called_once_with(operate.build.return_value, limit=6)
+
+    def test_stretch7_vendoring_removes_generated_python_artifacts(self):
         prepare_paths = (
-            ROOT / "labs/stretch6-invocations-toolbox-skills/hosted-invocations/prepare.py",
-            ROOT / "labs/stretch6-invocations-toolbox-skills/hosted-responses-skills/prepare.py",
+            ROOT / "labs/stretch7-invocations-toolbox-skills/hosted-invocations/prepare.py",
+            ROOT / "labs/stretch7-invocations-toolbox-skills/hosted-responses-skills/prepare.py",
         )
         for index, prepare_path in enumerate(prepare_paths):
             with self.subTest(package=prepare_path.parent.name), tempfile.TemporaryDirectory() as tmp:
                 package = Path(tmp) / "package"
                 package.mkdir()
-                module = load(f"stretch6_prepare_{index}", prepare_path)
+                module = load(f"stretch7_prepare_{index}", prepare_path)
                 sources = {}
                 for name in module.SOURCES:
                     source = Path(tmp) / f"{name}-source"
@@ -135,16 +162,16 @@ class DeploymentTests(unittest.TestCase):
                 self.assertFalse(bytecode.exists())
                 self.assertFalse(cache.exists())
 
-    def test_stretch6_vendoring_retains_ignored_azd_environment_state(self):
+    def test_stretch7_vendoring_retains_ignored_azd_environment_state(self):
         prepare_paths = (
-            ROOT / "labs/stretch6-invocations-toolbox-skills/hosted-invocations/prepare.py",
-            ROOT / "labs/stretch6-invocations-toolbox-skills/hosted-responses-skills/prepare.py",
+            ROOT / "labs/stretch7-invocations-toolbox-skills/hosted-invocations/prepare.py",
+            ROOT / "labs/stretch7-invocations-toolbox-skills/hosted-responses-skills/prepare.py",
         )
         for index, prepare_path in enumerate(prepare_paths):
             with self.subTest(package=prepare_path.parent.name), tempfile.TemporaryDirectory() as tmp:
                 package = Path(tmp) / "package"
                 package.mkdir()
-                module = load(f"stretch6_prepare_state_{index}", prepare_path)
+                module = load(f"stretch7_prepare_state_{index}", prepare_path)
                 sources = {}
                 for name in module.SOURCES:
                     source = Path(tmp) / f"{name}-source"
@@ -170,8 +197,8 @@ class DeploymentTests(unittest.TestCase):
                     with self.assertRaisesRegex(SystemExit, r"forbidden package files: \.env"):
                         module.review()
 
-    def test_lab1_smoke_can_disable_storage_without_changing_multiturn_default(self):
-        module = load("lab1_storage_regression", ROOT / "labs/lab1-hosted-agent-basics/lab1_hosted_basics.py")
+    def test_lab2_smoke_can_disable_storage_without_changing_multiturn_default(self):
+        module = load("lab2_storage_regression", ROOT / "labs/lab2-hosted-agent-basics/lab2_hosted_basics.py")
         project = MagicMock()
         client = project.get_openai_client.return_value.with_options.return_value.__enter__.return_value
         client.responses.create.return_value.output_text = "ready"
@@ -184,8 +211,8 @@ class DeploymentTests(unittest.TestCase):
             module.call_deployed("next", previous_response_id="response-1")
             client.responses.create.assert_called_with(input="next", store=True, previous_response_id="response-1")
 
-    def test_lab1_hosted_requirements_do_not_request_all_integrations(self):
-        path = ROOT / "labs/lab1-hosted-agent-basics/hosted/requirements.txt"
+    def test_lab2_hosted_requirements_do_not_request_all_integrations(self):
+        path = ROOT / "labs/lab2-hosted-agent-basics/hosted/requirements.txt"
         requirements = {
             line.strip() for line in path.read_text().splitlines()
             if line.strip() and not line.startswith("#")
@@ -244,6 +271,24 @@ class DeploymentTests(unittest.TestCase):
                     deployment.deploy(args)
                 self.assertEqual(run.call_count, 1)
 
+    def test_deployment_submits_azd_up_without_interactive_prompts(self):
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            for filename in ("prepare.py", "main.py", "requirements.txt"):
+                (folder / filename).touch()
+            args = argparse.Namespace(folder=folder, settings=[], project_id="/project",
+                                      project_endpoint="https://example.test", model="model",
+                                      agent_name="agent-jd-4821", resource_suffix="jd-4821",
+                                      protocol="responses", check_package=False)
+            with patch.object(deployment, "check_toolchain"), patch.object(deployment, "check_endpoint"), \
+                    patch.object(deployment, "configure_service_environment"), \
+                    patch.object(deployment.subprocess, "run") as run:
+                deployment.deploy(args)
+            submitted = [call for call in run.call_args_list if call.args[0][:2] == ("azd", "up")]
+            self.assertEqual(len(submitted), 1)
+            self.assertEqual(submitted[0].args[0], ("azd", "up", "--no-prompt"))
+            self.assertTrue(submitted[0].kwargs["check"])
+
     def test_generated_agent_service_references_container_settings(self):
         with tempfile.TemporaryDirectory() as tmp:
             manifest = Path(tmp) / "azure.yaml"
@@ -286,10 +331,10 @@ class DeploymentTests(unittest.TestCase):
         env = {"PROJECT_RESOURCE_ID": "/project", "FOUNDRY_PROJECT_ENDPOINT": "https://example.test",
                "AZURE_AI_MODEL_DEPLOYMENT_NAME": "model", "MARKETPLACE_RESOURCE_SUFFIX": "jd-4821"}
         cases = [
-            ("lab1-hosted-agent-basics/lab1_hosted_basics.py", {}),
-            ("lab2-hosted-knowledge-sessions/lab2_hosted_knowledge.py", {"hosted": {"model": "model"}}),
-            ("lab3-hosted-multi-agent-handoff/lab3_hosted_multi_agent.py", {}),
-            ("stretch6-invocations-toolbox-skills/stretch6_invocations.py", {}),
+            ("lab2-hosted-agent-basics/lab2_hosted_basics.py", {}),
+            ("lab3-hosted-knowledge-sessions/lab3_hosted_knowledge.py", {"hosted": {"model": "model"}}),
+            ("lab4-hosted-multi-agent-handoff/lab4_hosted_multi_agent.py", {}),
+            ("stretch7-invocations-toolbox-skills/stretch7_invocations.py", {}),
         ]
         with patch.dict(os.environ, {"MARKETPLACE_RESOURCE_SUFFIX": "jd-4821"}, clear=True):
             for index, (filename, kwargs) in enumerate(cases):
@@ -304,8 +349,8 @@ class DeploymentTests(unittest.TestCase):
                     for command in commands:
                         self.assertIn("--project-endpoint", command)
 
-    def test_stretch6_driver_help_runs_as_a_script(self):
-        script = ROOT / "labs/stretch6-invocations-toolbox-skills/stretch6_invocations.py"
+    def test_stretch7_driver_help_runs_as_a_script(self):
+        script = ROOT / "labs/stretch7-invocations-toolbox-skills/stretch7_invocations.py"
         result = subprocess.run(
             [sys.executable, str(script), "--help"],
             cwd=ROOT,
@@ -316,11 +361,11 @@ class DeploymentTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("--deploy", result.stdout)
 
-    def test_stretch6_driver_loads_workshop_environment_module(self):
-        script = ROOT / "labs/stretch6-invocations-toolbox-skills/stretch6_invocations.py"
+    def test_stretch7_driver_loads_workshop_environment_module(self):
+        script = ROOT / "labs/stretch7-invocations-toolbox-skills/stretch7_invocations.py"
         command = (
             "import runpy; "
-            f"module = runpy.run_path({str(script)!r}, run_name='stretch6_test'); "
+            f"module = runpy.run_path({str(script)!r}, run_name='stretch7_test'); "
             "print(module['foundry_env'].__file__)"
         )
         result = subprocess.run(
@@ -336,10 +381,10 @@ class DeploymentTests(unittest.TestCase):
             (ROOT / "common/foundry_env.py").resolve(),
         )
 
-    def test_lab2_storage_uses_blob_or_files_not_redis(self):
+    def test_lab3_storage_uses_blob_or_files_not_redis(self):
         module = load(
-            "migration_lab2_storage",
-            ROOT / "labs/lab2-hosted-knowledge-sessions/lab2_hosted_knowledge.py",
+            "migration_lab3_storage",
+            ROOT / "labs/lab3-hosted-knowledge-sessions/lab3_hosted_knowledge.py",
         )
         container_env = module.container_environment(
             {"mcp_endpoint": "https://example.test/mcp"},
@@ -373,8 +418,8 @@ class DeploymentTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "Azure Blob Storage or Azurite"):
                 module.shared_history_env_overrides()
 
-    def test_lab3_uses_file_session_store_and_does_not_deploy_redis(self):
-        main_path = ROOT / "labs/lab3-hosted-multi-agent-handoff/hosted/main.py"
+    def test_lab4_uses_file_session_store_and_does_not_deploy_redis(self):
+        main_path = ROOT / "labs/lab4-hosted-multi-agent-handoff/hosted/main.py"
         tree = ast.parse(main_path.read_text(encoding="utf-8"))
         service = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "TriageService")
         initializer = next(node for node in service.body if isinstance(node, ast.FunctionDef) and node.name == "__init__")
@@ -390,8 +435,8 @@ class DeploymentTests(unittest.TestCase):
             "MARKETPLACE_RESOURCE_SUFFIX": "jd-4821",
         }):
             driver = load(
-                "migration_lab3_file_session_driver",
-                ROOT / "labs/lab3-hosted-multi-agent-handoff/lab3_hosted_multi_agent.py",
+                "migration_lab4_file_session_driver",
+                ROOT / "labs/lab4-hosted-multi-agent-handoff/lab4_hosted_multi_agent.py",
             )
             with patch.object(deployment, "bash_deploy_block", return_value="deploy") as deploy:
                 driver.deploy_commands(env={"PROJECT_RESOURCE_ID": "/project"})
@@ -410,54 +455,56 @@ class DeploymentTests(unittest.TestCase):
 
     def test_every_walkthrough_code_block_has_consecutive_step_id(self):
         cases = {
-            "lab1-hosted-agent-basics/lab1_hosted_basics.py": "1",
-            "lab2-hosted-knowledge-sessions/lab2_hosted_knowledge.py": "2",
-            "lab3-hosted-multi-agent-handoff/lab3_hosted_multi_agent.py": "3",
-            "lab4-operate-hosted-agents/lab4_operate.py": "4",
-            "stretch5-prompt-agents-and-workflows/stretch5_prompt_agents.py": "S5",
-            "stretch6-invocations-toolbox-skills/stretch6_invocations.py": "S6",
+            "lab1-foundry-project-models/lab1_project_models.py": "1",
+            "lab2-hosted-agent-basics/lab2_hosted_basics.py": "2",
+            "lab3-hosted-knowledge-sessions/lab3_hosted_knowledge.py": "3",
+            "lab4-hosted-multi-agent-handoff/lab4_hosted_multi_agent.py": "4",
+            "lab5-operate-hosted-agents/lab5_operate.py": "5",
+            "stretch6-prompt-agents-and-workflows/stretch6_prompt_agents.py": "S6",
+            "stretch7-invocations-toolbox-skills/stretch7_invocations.py": "S7",
         }
         for relative, prefix in cases.items():
             with self.subTest(driver=relative):
                 text = (ROOT / "labs" / relative).read_text(encoding="utf-8")
                 self.assertEqual(validate_step_ids(build_notebook(text), prefix), [])
 
-    def test_lab1_formatted_header_is_generated_from_driver(self):
-        path = ROOT / "labs/lab1-hosted-agent-basics/lab1_hosted_basics.py"
+    def test_lab2_formatted_header_is_generated_from_driver(self):
+        path = ROOT / "labs/lab2-hosted-agent-basics/lab2_hosted_basics.py"
         notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
         first_cell = notebook["cells"][0]
         header = "".join(first_cell["source"])
         self.assertEqual(first_cell["cell_type"], "markdown")
-        self.assertTrue(header.startswith("# Lab 1: Hosted agent basics\n"))
+        self.assertTrue(header.startswith("# Lab 2: Hosted agent basics\n"))
         self.assertIn("| Goal |", header)
-        self.assertIn("**How to run code**", header)
+        self.assertIn("**How to run.**", header)
+        self.assertIn("Execute this notebook's cells in order", header)
         self.assertIn("## Before the first run", header)
         self.assertEqual(notebook["cells"][1]["cell_type"], "markdown")
-        self.assertIn("Shell commands use the container filesystem", "".join(notebook["cells"][1]["source"]))
+        self.assertIn("This cell loads the workshop environment", "".join(notebook["cells"][1]["source"]))
 
     def test_walkthrough_headers_include_table_sourced_technology_focus(self):
         cases = {
-            "lab1-hosted-agent-basics/lab1_hosted_basics.py": (
+            "lab2-hosted-agent-basics/lab2_hosted_basics.py": (
                 "Hosted version; Responses",
                 "`Agent`; `FoundryChatClient`; `@tool`",
             ),
-            "lab2-hosted-knowledge-sessions/lab2_hosted_knowledge.py": (
+            "lab3-hosted-knowledge-sessions/lab3_hosted_knowledge.py": (
                 "Foundry IQ; Search; MCP",
                 "`MCPStreamableHTTPTool`; history",
             ),
-            "lab3-hosted-multi-agent-handoff/lab3_hosted_multi_agent.py": (
+            "lab4-hosted-multi-agent-handoff/lab4_hosted_multi_agent.py": (
                 "Hosted triage; HTTP turns",
                 "`WorkflowBuilder`; `request_info`",
             ),
-            "lab4-operate-hosted-agents/lab4_operate.py": (
+            "lab5-operate-hosted-agents/lab5_operate.py": (
                 "Tracing; evaluation; versions",
                 "Evaluate the Framework-built agent",
             ),
-            "stretch5-prompt-agents-and-workflows/stretch5_prompt_agents.py": (
+            "stretch6-prompt-agents-and-workflows/stretch6_prompt_agents.py": (
                 "`PromptAgentDefinition`; YAML workflow",
                 "Hosted `@tool` bridge, not a new graph",
             ),
-            "stretch6-invocations-toolbox-skills/stretch6_invocations.py": (
+            "stretch7-invocations-toolbox-skills/stretch7_invocations.py": (
                 "Invocations; optional Toolbox",
                 "`InvocationsHostServer`; `@tool`; schema",
             ),
@@ -473,14 +520,15 @@ class DeploymentTests(unittest.TestCase):
                 )
                 self.assertIn(expected, header)
 
-    def test_walkthrough_final_runners_are_optional_and_guarded_in_notebooks(self):
+    def test_walkthrough_cells_have_descriptions_and_omit_cli_and_raw_shell_cells(self):
         cases = (
-            ("lab1-hosted-agent-basics/lab1_hosted_basics.py", "lab1_walkthrough.ipynb"),
-            ("lab2-hosted-knowledge-sessions/lab2_hosted_knowledge.py", "lab2_walkthrough.ipynb"),
-            ("lab3-hosted-multi-agent-handoff/lab3_hosted_multi_agent.py", "lab3_walkthrough.ipynb"),
-            ("lab4-operate-hosted-agents/lab4_operate.py", "lab4_walkthrough.ipynb"),
-            ("stretch5-prompt-agents-and-workflows/stretch5_prompt_agents.py", "stretch5_walkthrough.ipynb"),
-            ("stretch6-invocations-toolbox-skills/stretch6_invocations.py", "stretch6_walkthrough.ipynb"),
+            ("lab1-foundry-project-models/lab1_project_models.py", "lab1_walkthrough.ipynb"),
+            ("lab2-hosted-agent-basics/lab2_hosted_basics.py", "lab2_walkthrough.ipynb"),
+            ("lab3-hosted-knowledge-sessions/lab3_hosted_knowledge.py", "lab3_walkthrough.ipynb"),
+            ("lab4-hosted-multi-agent-handoff/lab4_hosted_multi_agent.py", "lab4_walkthrough.ipynb"),
+            ("lab5-operate-hosted-agents/lab5_operate.py", "lab5_walkthrough.ipynb"),
+            ("stretch6-prompt-agents-and-workflows/stretch6_prompt_agents.py", "stretch6_walkthrough.ipynb"),
+            ("stretch7-invocations-toolbox-skills/stretch7_invocations.py", "stretch7_walkthrough.ipynb"),
         )
         for relative, notebook_name in cases:
             with self.subTest(driver=relative):
@@ -490,48 +538,50 @@ class DeploymentTests(unittest.TestCase):
                     json.loads(path.with_name(notebook_name).read_text(encoding="utf-8"))["cells"],
                     notebook["cells"],
                 )
-                index = max(
-                    i for i, cell in enumerate(notebook["cells"])
-                    if cell["cell_type"] == "code"
-                )
-                runner = notebook["cells"][index]
-                self.assertIn("Script-only entry point (skip in Jupyter)", runner["source"][0])
-                instructions = notebook["cells"][index - 1]
-                self.assertEqual(instructions["cell_type"], "markdown")
-                text = "".join(instructions["source"])
-                self.assertIn("Skip the next cell", text)
-                self.assertIn(f"python {path.name} --help", text)
-                closing_note = "".join(notebook["cells"][-1]["source"])
-                self.assertIn("skip the script-only entry-point cell above", closing_note)
-                self.assertIn("do not need to call `main()`, `build()`, or `demo()` again", closing_note)
-                namespace = {"__name__": "__main__", "argparse": argparse}
-                with patch.object(argparse, "ArgumentParser", side_effect=AssertionError("Notebook ran the CLI parser")):
-                    exec("".join(runner["source"]), namespace)
-                self.assertNotIn("parser", namespace)
+                self.assertEqual(validate_cell_descriptions(notebook), [])
+                for index, cell in enumerate(notebook["cells"]):
+                    source = "".join(cell["source"])
+                    self.assertNotEqual(cell["cell_type"], "raw", "Shell tasks must be executable Python cells.")
+                    if cell["cell_type"] == "markdown":
+                        for forbidden in ("script mode", "script-only", "JupyterLab", "Bash terminal", "# %%", "```bash"):
+                            self.assertNotIn(forbidden, source)
+                        continue
+                    self.assertEqual(cell["cell_type"], "code")
+                    self.assertIsNone(cell["execution_count"])
+                    self.assertEqual(cell["outputs"], [])
+                    ast.parse(source)
+                    self.assertNotIn("argparse.ArgumentParser", source)
+                    self.assertNotIn('if __name__ == "__main__"', source)
+                    description = "".join(notebook["cells"][index - 1]["source"])
+                    sentences = re.findall(r"(?m)^This (?:optional )?cell [^\n]+$", description)
+                    self.assertEqual(len(sentences), 1, "Each code cell needs one explicit description sentence.")
+                    sentence = re.sub(r"`[^`]*`", "", sentences[0])
+                    self.assertTrue(sentence.endswith("."), "The description must be a complete sentence.")
+                    self.assertEqual(len(re.findall(r"[.!?](?:\s|$)", sentence)), 1)
 
-    def test_lab2_build_is_executable_from_the_notebook(self):
-        path = ROOT / "labs/lab2-hosted-knowledge-sessions/lab2_hosted_knowledge.py"
+    def test_lab3_build_is_executable_from_the_notebook(self):
+        path = ROOT / "labs/lab3-hosted-knowledge-sessions/lab3_hosted_knowledge.py"
         notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
         build_cell = next(
             "".join(cell["source"])
             for cell in notebook["cells"]
             if cell["cell_type"] == "code"
-            and cell["source"][0].startswith("# Step 2.2 -")
+            and cell["source"][0].startswith("# Step 3.2 -")
         )
         self.assertIn('if "__file__" not in globals():\n    hosted = build()', build_cell)
 
-    def test_lab3_classifier_gate_reports_results_without_false_success(self):
-        path = ROOT / "labs/lab3-hosted-multi-agent-handoff/lab3_hosted_multi_agent.py"
+    def test_lab4_classifier_gate_reports_results_without_false_success(self):
+        path = ROOT / "labs/lab4-hosted-multi-agent-handoff/lab4_hosted_multi_agent.py"
         notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
         self.assertEqual(
-            json.loads(path.with_name("lab3_walkthrough.ipynb").read_text(encoding="utf-8")),
+            json.loads(path.with_name("lab4_walkthrough.ipynb").read_text(encoding="utf-8")),
             notebook,
         )
         gate = next(
             "".join(cell["source"])
             for cell in notebook["cells"]
             if cell["cell_type"] == "code"
-            and cell["source"][0].startswith("# Step 3.11 -")
+            and cell["source"][0].startswith("# Step 4.11 -")
         )
         for lob, status in (("accounts", "approved"), ("both", "approved"), ("accounts", "declined")):
             with self.subTest(lob=lob, status=status):
@@ -543,7 +593,7 @@ class DeploymentTests(unittest.TestCase):
                     ({"status": status}, "response-2"),
                 ])
                 namespace = {
-                    "RUN_LAB3_EXERCISE_GATES": True,
+                    "RUN_LAB4_EXERCISE_GATES": True,
                     "build": MagicMock(),
                     "uuid": uuid,
                     "HostedProcess": MagicMock(),
@@ -562,7 +612,7 @@ class DeploymentTests(unittest.TestCase):
                     self.assertIn("advisor> approve (automatic)", messages[2])
                     self.assertEqual(
                         messages[3],
-                        "PASS Step 3.11: routed to accounts; advisor approval completed (status=approved).",
+                        "PASS Step 4.11: routed to accounts; advisor approval completed (status=approved).",
                     )
                     advisor_turn = json.loads(send.call_args.args[1])
                     self.assertEqual(advisor_turn["advisor"], "approve")
@@ -574,10 +624,10 @@ class DeploymentTests(unittest.TestCase):
                         "PASS" in call.args[0] for call in logger.call_args_list
                     ))
 
-    def test_lab2_embedding_retries_at_the_service_requested_time(self):
+    def test_lab3_embedding_retries_at_the_service_requested_time(self):
         module = load(
-            "migration_lab2_embedding_retry",
-            ROOT / "labs/lab2-hosted-knowledge-sessions/knowledge_base.py",
+            "migration_lab3_embedding_retry",
+            ROOT / "labs/lab3-hosted-knowledge-sessions/knowledge_base.py",
         )
         response = MagicMock()
         response.headers = {"x-ratelimit-limit-requests": "6"}
@@ -628,11 +678,11 @@ class DeploymentTests(unittest.TestCase):
 
     def test_all_hosted_model_clients_install_rate_limit_retry(self):
         paths = (
-            "labs/lab1-hosted-agent-basics/hosted/main.py",
-            "labs/lab2-hosted-knowledge-sessions/hosted/main.py",
-            "labs/lab3-hosted-multi-agent-handoff/hosted/main.py",
-            "labs/stretch6-invocations-toolbox-skills/hosted-responses-skills/main.py",
-            "labs/stretch6-invocations-toolbox-skills/hosted-invocations/main.py",
+            "labs/lab2-hosted-agent-basics/hosted/main.py",
+            "labs/lab3-hosted-knowledge-sessions/hosted/main.py",
+            "labs/lab4-hosted-multi-agent-handoff/hosted/main.py",
+            "labs/stretch7-invocations-toolbox-skills/hosted-responses-skills/main.py",
+            "labs/stretch7-invocations-toolbox-skills/hosted-invocations/main.py",
         )
         for relative_path in paths:
             with self.subTest(path=relative_path):
@@ -644,22 +694,22 @@ class DeploymentTests(unittest.TestCase):
 
     def test_local_responses_clients_surface_failed_payloads(self):
         paths = (
-            "labs/lab1-hosted-agent-basics/lab1_hosted_basics.py",
-            "labs/lab1-hosted-agent-basics/hosted/test_local.py",
-            "labs/lab2-hosted-knowledge-sessions/lab2_hosted_knowledge.py",
-            "labs/lab2-hosted-knowledge-sessions/hosted/test_local.py",
-            "labs/lab3-hosted-multi-agent-handoff/lab3_hosted_multi_agent.py",
-            "labs/lab3-hosted-multi-agent-handoff/hosted/test_local.py",
+            "labs/lab2-hosted-agent-basics/lab2_hosted_basics.py",
+            "labs/lab2-hosted-agent-basics/hosted/test_local.py",
+            "labs/lab3-hosted-knowledge-sessions/lab3_hosted_knowledge.py",
+            "labs/lab3-hosted-knowledge-sessions/hosted/test_local.py",
+            "labs/lab4-hosted-multi-agent-handoff/lab4_hosted_multi_agent.py",
+            "labs/lab4-hosted-multi-agent-handoff/hosted/test_local.py",
         )
         for relative_path in paths:
             with self.subTest(path=relative_path):
                 source = (ROOT / relative_path).read_text(encoding="utf-8")
                 self.assertIn("model_resilience.ensure_response_succeeded(payload,", source)
 
-    def test_lab2_ask_surfaces_failed_response_details(self):
+    def test_lab3_ask_surfaces_failed_response_details(self):
         module = load(
-            "migration_lab2_failed_response",
-            ROOT / "labs/lab2-hosted-knowledge-sessions/lab2_hosted_knowledge.py",
+            "migration_lab3_failed_response",
+            ROOT / "labs/lab3-hosted-knowledge-sessions/lab3_hosted_knowledge.py",
         )
         response = MagicMock()
         response.json.return_value = {
@@ -686,12 +736,12 @@ class DeploymentTests(unittest.TestCase):
         self.assertEqual(cleanup.project_name("/accounts/demo/projects/workshop"), "workshop")
 
 
-class Lab4TracingTests(unittest.TestCase):
+class Lab5TracingTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.module = load(
-            "lab4_tracing_regression",
-            ROOT / "labs/lab4-operate-hosted-agents/lab4_operate.py",
+            "lab5_tracing_regression",
+            ROOT / "labs/lab5-operate-hosted-agents/lab5_operate.py",
         )
 
     def test_malformed_project_connection_string_disables_optional_tracing(self):
@@ -718,7 +768,7 @@ class Lab4TracingTests(unittest.TestCase):
             configure.assert_called_once()
 
     def test_hosted_tracing_uses_entra_authentication(self) -> None:
-        path = ROOT / "labs/lab2-hosted-knowledge-sessions/hosted/main.py"
+        path = ROOT / "labs/lab3-hosted-knowledge-sessions/hosted/main.py"
         tree = ast.parse(path.read_text(encoding="utf-8"))
         function = next(node for node in tree.body if isinstance(node, ast.FunctionDef)
                         and node.name == "configure_tracing")
@@ -737,11 +787,11 @@ class Lab4TracingTests(unittest.TestCase):
             instrument.assert_called_once_with()
 
     def test_trace_gate_prints_kql_for_the_current_trace_id(self) -> None:
-        path = ROOT / "labs/lab4-operate-hosted-agents/lab4_operate.py"
+        path = ROOT / "labs/lab5-operate-hosted-agents/lab5_operate.py"
         notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
         gate = next(
             "".join(cell["source"]) for cell in notebook["cells"]
-            if cell["cell_type"] == "code" and cell["source"][0].startswith("# Step 4.11 -")
+            if cell["cell_type"] == "code" and cell["source"][0].startswith("# Step 5.11 -")
         )
         trace_id = "1234567890abcdef1234567890abcdef"
         bundle = {"tracing": {"enabled": True}, "hosted": {}, "knowledge": {}, "custom": {}, "judges": {}}
@@ -788,13 +838,13 @@ class Lab4TracingTests(unittest.TestCase):
         self.assertNotIn("next: python ./eval_gate.py", output)
 
     def test_local_quality_gate_build_can_skip_tracing(self):
-        missing_lab3 = ROOT / "labs/artifacts/lab3/missing-hosted.json"
+        missing_lab4 = ROOT / "labs/artifacts/lab4/missing-hosted.json"
         artifacts = [
             {"agent_name": "concierge", "version_label": "test", "local_url": "http://localhost:8088"},
             {"index_name": "plans"},
         ]
         with patch.object(self.module.helpers, "require_artifact", side_effect=artifacts), \
-                patch.object(self.module.helpers, "artifact_path", return_value=missing_lab3), \
+                patch.object(self.module.helpers, "artifact_path", return_value=missing_lab4), \
                 patch.object(self.module.foundry_env, "save_artifact"), \
                 patch.object(self.module, "write_pipeline_md"), \
                 patch.object(self.module, "tracing_config", side_effect=AssertionError("tracing should be skipped")):
@@ -883,8 +933,8 @@ class Lab4TracingTests(unittest.TestCase):
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
-        lab2 = self.module.helpers.load_lab_module(
-            "lab2-hosted-knowledge-sessions/lab2_hosted_knowledge.py"
+        lab3 = self.module.helpers.load_lab_module(
+            "lab3-hosted-knowledge-sessions/lab3_hosted_knowledge.py"
         )
         provider = TracerProvider()
         self.addCleanup(provider.shutdown)
@@ -892,7 +942,7 @@ class Lab4TracingTests(unittest.TestCase):
         response.json.return_value = {"output_text": "safe answer"}
         with provider.get_tracer("offline").start_as_current_span("marketplace.golden_question") as span, \
                 patch("httpx.post", return_value=response) as post:
-            lab2.ask(8088, "hello", "eval-offline")
+            lab3.ask(8088, "hello", "eval-offline")
         headers = post.call_args.kwargs["headers"]
         context = TraceContextTextMapPropagator().extract(headers)
         parent = trace.get_current_span(context).get_span_context()
@@ -904,28 +954,28 @@ class Lab4TracingTests(unittest.TestCase):
         })
 
 
-class Lab4HostedTargetTests(unittest.TestCase):
+class Lab5HostedTargetTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.module = load(
-            "lab4_hosted_target_regression",
-            ROOT / "labs/lab4-operate-hosted-agents/lab4_operate.py",
+            "lab5_hosted_target_regression",
+            ROOT / "labs/lab5-operate-hosted-agents/lab5_operate.py",
         )
-        cls.lab2 = cls.module.helpers.load_lab_module(
-            "lab2-hosted-knowledge-sessions/lab2_hosted_knowledge.py"
+        cls.lab3 = cls.module.helpers.load_lab_module(
+            "lab3-hosted-knowledge-sessions/lab3_hosted_knowledge.py"
         )
 
-    def test_local_target_uses_lab2_process_api_and_forwards_tracing(self) -> None:
+    def test_local_target_uses_lab3_process_api_and_forwards_tracing(self) -> None:
         knowledge = {"mcp_endpoint": "https://example.test/mcp"}
         for connection in (None, "InstrumentationKey=example"):
             with self.subTest(connection=connection):
                 tracing = {"enabled": connection is not None, "connection_string": connection}
-                with patch.object(self.module.helpers, "load_lab_module", return_value=self.lab2), \
-                        patch.object(self.lab2, "port_open", return_value=False), \
-                        patch.object(self.lab2.HostedProcess, "start", autospec=True,
+                with patch.object(self.module.helpers, "load_lab_module", return_value=self.lab3), \
+                        patch.object(self.lab3, "port_open", return_value=False), \
+                        patch.object(self.lab3.HostedProcess, "start", autospec=True,
                                      side_effect=lambda server: server) as start, \
-                        patch.object(self.lab2.HostedProcess, "stop", autospec=True) as stop, \
-                        patch.object(self.lab2, "ask", return_value=("safe answer", {})) as ask, \
+                        patch.object(self.lab3.HostedProcess, "stop", autospec=True) as stop, \
+                        patch.object(self.lab3, "ask", return_value=("safe answer", {})) as ask, \
                         patch.dict(os.environ, {"APPLICATIONINSIGHTS_CONNECTION_STRING": "inherited"}):
                     target = self.module.HostedTarget("local", {}, knowledge, tracing)
                     start.assert_called_once_with(target.proc)
@@ -942,10 +992,10 @@ class Lab4HostedTargetTests(unittest.TestCase):
                     stop.assert_called_once_with(target.proc)
 
     def test_local_target_does_not_stop_an_existing_server(self) -> None:
-        with patch.object(self.module.helpers, "load_lab_module", return_value=self.lab2), \
-                patch.object(self.lab2, "port_open", return_value=True), \
-                patch.object(self.lab2.HostedProcess, "start", autospec=True) as start, \
-                patch.object(self.lab2.HostedProcess, "stop", autospec=True) as stop:
+        with patch.object(self.module.helpers, "load_lab_module", return_value=self.lab3), \
+                patch.object(self.lab3, "port_open", return_value=True), \
+                patch.object(self.lab3.HostedProcess, "start", autospec=True) as start, \
+                patch.object(self.lab3.HostedProcess, "stop", autospec=True) as stop:
             target = self.module.HostedTarget("local", {}, {}, {"enabled": False})
             self.assertIsNone(target.proc)
             target.close()
@@ -956,7 +1006,7 @@ class Lab4HostedTargetTests(unittest.TestCase):
 class PromotionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.module = load("migration_promote", ROOT / "labs/lab4-operate-hosted-agents/promote.py")
+        cls.module = load("migration_promote", ROOT / "labs/lab5-operate-hosted-agents/promote.py")
 
     def test_gate_fails_closed(self):
         with tempfile.TemporaryDirectory() as tmp:

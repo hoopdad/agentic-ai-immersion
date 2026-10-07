@@ -38,7 +38,7 @@ SP-ADATUM; P-1006 Daniel Whitaker is marketplace-only with an unfunded HRA (the 
 The data describes plan year 2026 accounts and plan year 2027 marketplace plans, as they would look during
 the fall 2026 enrollment season. Enrollment-window answers depend on "today". `common/marketplace_data.py` reads
 `MARKETPLACE_TODAY` (ISO date) and defaults to `2026-10-06`, which is nine days before AEP opens. Edit
-the setup notebook's date input to use `2026-10-20` for S1 inside AEP, `2026-11-15` for S3 inside ACA open enrollment, or
+the relevant notebook's date configuration to use `2026-10-20` for S1 inside AEP, `2026-11-15` for S3 inside ACA open enrollment, or
 `2027-09-01` to see Rosa's IEP. Internal tests pass `today=` explicitly for the same reason.
 
 ## Golden questions

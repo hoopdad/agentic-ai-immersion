@@ -1,4 +1,4 @@
-"""Chat message store for Agent Framework sessions (Lab 2 imports it; Lab 3 and S6 reuse the helpers).
+"""Chat message store for Agent Framework sessions (Lab 3 imports it; Lab 4 and S7 reuse the helpers).
 
 Hosted agents are stateless containers by design. If the conversation history lives inside the process, a
 restart, a version roll or a second replica loses the participant mid-call. This module keeps the history

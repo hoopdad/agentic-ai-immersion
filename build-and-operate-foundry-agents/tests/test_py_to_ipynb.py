@@ -23,12 +23,13 @@ from py_to_ipynb import (  # noqa: E402
 )
 
 DRIVERS = (
-    ("lab1-hosted-agent-basics/lab1_hosted_basics.py", "lab1_walkthrough.ipynb", "1"),
-    ("lab2-hosted-knowledge-sessions/lab2_hosted_knowledge.py", "lab2_walkthrough.ipynb", "2"),
-    ("lab3-hosted-multi-agent-handoff/lab3_hosted_multi_agent.py", "lab3_walkthrough.ipynb", "3"),
-    ("lab4-operate-hosted-agents/lab4_operate.py", "lab4_walkthrough.ipynb", "4"),
-    ("stretch5-prompt-agents-and-workflows/stretch5_prompt_agents.py", "stretch5_walkthrough.ipynb", "S5"),
-    ("stretch6-invocations-toolbox-skills/stretch6_invocations.py", "stretch6_walkthrough.ipynb", "S6"),
+    ("lab1-foundry-project-models/lab1_project_models.py", "lab1_walkthrough.ipynb", "1"),
+    ("lab2-hosted-agent-basics/lab2_hosted_basics.py", "lab2_walkthrough.ipynb", "2"),
+    ("lab3-hosted-knowledge-sessions/lab3_hosted_knowledge.py", "lab3_walkthrough.ipynb", "3"),
+    ("lab4-hosted-multi-agent-handoff/lab4_hosted_multi_agent.py", "lab4_walkthrough.ipynb", "4"),
+    ("lab5-operate-hosted-agents/lab5_operate.py", "lab5_walkthrough.ipynb", "5"),
+    ("stretch6-prompt-agents-and-workflows/stretch6_prompt_agents.py", "stretch6_walkthrough.ipynb", "S6"),
+    ("stretch7-invocations-toolbox-skills/stretch7_invocations.py", "stretch7_walkthrough.ipynb", "S7"),
 )
 
 
@@ -88,7 +89,7 @@ class ConverterTests(unittest.TestCase):
     def test_notebook_paths_work_from_repository_and_lab_directories(self):
         original = Path.cwd()
         try:
-            for relative, _, _ in DRIVERS:
+            for relative, _, _ in DRIVERS[1:]:
                 path = ROOT / "labs" / relative
                 tree = ast.parse(path.read_text(encoding="utf-8"))
                 assignment = next(
@@ -105,20 +106,41 @@ class ConverterTests(unittest.TestCase):
         finally:
             os.chdir(original)
 
-    def test_lab2_exercises_execute_without_environment_toggles(self):
-        path = ROOT / "labs" / DRIVERS[1][0]
+    def test_lab3_exercises_execute_without_environment_toggles(self):
+        path = ROOT / "labs" / DRIVERS[2][0]
         notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
-        for step, function in (("2.8", "broken_store_acceptance_gate"), ("2.9", "knowledge_acceptance_gate")):
+        for step, function in (("3.8", "broken_store_acceptance_gate"), ("3.9", "knowledge_acceptance_gate")):
             with self.subTest(step=step):
                 cell = next(cell for cell in notebook["cells"] if "".join(cell["source"]).startswith(f"# Step {step} -"))
                 gate = Mock()
                 exec(compile(notebook_action("".join(cell["source"])), str(path), "exec"), {function: gate})
                 gate.assert_called_once_with()
 
-    def test_scale_out_requires_shared_history_and_does_not_claim_false_success(self):
+    def test_lab2_requires_verified_setup_only_in_notebooks(self):
         path = ROOT / "labs" / DRIVERS[1][0]
         notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
-        cell = next(cell for cell in notebook["cells"] if "".join(cell["source"]).startswith("# Step 2.7 -"))
+        cell = next(cell for cell in notebook["cells"] if "".join(cell["source"]).startswith("# Step 2.2 -"))
+        action = compile(notebook_action("".join(cell["source"])), str(path), "exec")
+        verified = {"provisioning_state": "Succeeded", "smoke_tests": {"chat": "passed", "embedding": "passed"}}
+        for record, valid in ((verified, True), ({}, False),
+                              ({**verified, "smoke_tests": {"chat": "passed", "embedding": "failed"}}, False)):
+            with self.subTest(record=record):
+                require = Mock(return_value=record)
+                namespace = {"LAB": "lab2", "lab_helpers": SimpleNamespace(require_artifact=require)}
+                if valid:
+                    exec(action, namespace)
+                else:
+                    with self.assertRaises(RuntimeError):
+                        exec(action, namespace)
+                require.assert_called_once_with("lab1", "project.json", through=1, caller="lab2")
+        require = Mock(side_effect=AssertionError("Internal builds must not provision or require setup."))
+        exec(action, {"__file__": str(path), "lab_helpers": SimpleNamespace(require_artifact=require)})
+        require.assert_not_called()
+
+    def test_scale_out_requires_shared_history_and_does_not_claim_false_success(self):
+        path = ROOT / "labs" / DRIVERS[2][0]
+        notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
+        cell = next(cell for cell in notebook["cells"] if "".join(cell["source"]).startswith("# Step 3.7 -"))
         code = compile(notebook_action("".join(cell["source"])), str(path), "exec")
         for environment in ({}, {"MARKETPLACE_AZURITE_CONNECTION_STRING": "configured"}):
             with self.subTest(shared=bool(environment)):
@@ -146,13 +168,33 @@ class ConverterTests(unittest.TestCase):
                 ]
                 for call in calls:
                     with self.subTest(driver=relative, call=ast.unparse(call)):
-                        self.assertTrue(any(keyword.arg == "check" and isinstance(keyword.value, ast.Constant)
-                                            and keyword.value.value is True for keyword in call.keywords))
+                        if isinstance(call.args[0], ast.List) and isinstance(call.args[0].elts[0], ast.Constant) \
+                                and call.args[0].elts[0].value in {"bash", "azd"}:
+                            self.assertTrue(any(keyword.arg == "check" and isinstance(keyword.value, ast.Constant)
+                                                and keyword.value.value is True for keyword in call.keywords))
                 # Importing an internal authoring driver must not run notebook actions.
                 runner = Mock(side_effect=AssertionError("deployment during import"))
                 exec(compile(ast.Module(body=[node], type_ignores=[]), str(path), "exec"),
                      {"__file__": str(path), "subprocess": SimpleNamespace(run=runner)})
                 runner.assert_not_called()
+
+    def test_two_package_deployment_stops_when_the_first_command_fails(self):
+        path = ROOT / "labs" / DRIVERS[6][0]
+        notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
+        cell = next(cell for cell in notebook["cells"] if "".join(cell["source"]).startswith("# Step S7.9 -"))
+        runner = Mock(side_effect=RuntimeError("first deployment failed"))
+        namespace = {
+            "subprocess": SimpleNamespace(run=runner),
+            "deploy_commands": Mock(return_value="first deployment\nsecond deployment"),
+            "LAB_DIR": path.parent,
+        }
+        with self.assertRaisesRegex(RuntimeError, "first deployment failed"):
+            exec(compile(notebook_action("".join(cell["source"])), str(path), "exec"), namespace)
+        runner.assert_called_once_with(
+            ["bash", "-lc", "set -euo pipefail\nfirst deployment\nsecond deployment"],
+            cwd=path.parent,
+            check=True,
+        )
 
 
 if __name__ == "__main__":

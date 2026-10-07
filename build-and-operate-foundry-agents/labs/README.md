@@ -25,7 +25,7 @@ terminal or interactive-cell learner entry points. Runtime files such as
 
 | # | Notebook | Builds | Checkpoint |
 |---|---|---|---|
-| 1 | `lab1-foundry-project-models/lab1_walkthrough.ipynb` | Project in an existing Foundry account; chat and embedding deployments | Verified settings persisted to the repository-root `.env` |
+| 1 | `lab1-foundry-project-models/lab1_walkthrough.ipynb` | Project in an existing Foundry account; chat and embedding deployments | `artifacts/lab1/project.json` and verified settings persisted to the repository-root `.env` |
 | 2 | `lab2-hosted-agent-basics/lab2_walkthrough.ipynb` | Typed-tool concierge over Responses, local testing and hosted version | `artifacts/lab2/hosted.json`, `transcripts.md` |
 | 3 | `lab3-hosted-knowledge-sessions/lab3_walkthrough.ipynb` | Search indexes, Foundry IQ knowledge, identity connection and external history | `artifacts/lab3/knowledge.json`, `hosted.json`, `sessions/` |
 | 4 | `lab4-hosted-multi-agent-handoff/lab4_walkthrough.ipynb` | Specialist workflow, bounded review and advisor approval | `artifacts/lab4/handoff_packets/`, `hosted.json`, `sessions/` |

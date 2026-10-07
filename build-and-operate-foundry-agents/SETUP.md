@@ -28,6 +28,15 @@ subscription, tenant, resource group, allowed region, approved network path and
 permissions to create the project and model deployments. Confirm model
 availability and quota before the session.
 
+After Lab 1 creates the learner project, the administrator must confirm that
+**that new project** is enabled for hosted agents and its identity has the required
+resource access before Lab 2. Creating a project does not copy another project's
+RBAC, connections or Standard Agent capability host; private Standard Agent
+environments require the project-scoped configuration described in
+[`infra/README.md`](infra/README.md). Lab 1's model smoke tests do not verify it.
+The approved account must be `AIServices` with project management enabled;
+model deployments are account-level resources used through the learner project.
+
 Shared permission administration remains valid: an authorized administrator
 uses `scripts/setup-permissions.ps1` and its documented parameters in the
 [repository setup guide](../README.md). This is permission setup, not an
@@ -61,9 +70,10 @@ contract, not a manual prerequisite to copy or populate first. Do not commit
 | Chat deployment and embedding deployment choices | Names, supported model versions and capacity used by agents and retrieval |
 | `FOUNDRY_PROJECT_ENDPOINT`, `PROJECT_RESOURCE_ID`, `AZURE_OPENAI_ENDPOINT` | Resolved endpoints and project ARM identity persisted for downstream notebooks |
 | `AZURE_AI_MODEL_DEPLOYMENT_NAME`, `EMBEDDING_MODEL_DEPLOYMENT_NAME` | Provisioned deployment names; retrieval assumes `text-embedding-3-large` with 3072 dimensions |
-| `AZURE_AI_SEARCH_ENDPOINT` | Administrator-supplied Search service for Lab 3 |
-| `APPLICATIONINSIGHTS_CONNECTION_STRING` | Complete approved telemetry destination for Lab 5, or resolve it from the project connection |
-| `MARKETPLACE_RESOURCE_SUFFIX`, `MARKETPLACE_TODAY` | Attendee resource isolation and reproducible scenario date |
+| `AZURE_AI_SEARCH_ENDPOINT` | Later facilitator-provided Search input for Lab 3; not inferred by account discovery |
+| `APPLICATIONINSIGHTS_CONNECTION_STRING` | Later approved telemetry input for Lab 5, or resolved from the project connection |
+| `MARKETPLACE_RESOURCE_SUFFIX` | Attendee resource isolation persisted by Lab 1 |
+| `MARKETPLACE_TODAY` | Scenario date, defaulting to `2026-10-06`; change in notebook configuration only when an exercise needs a different date |
 | Optional Blob account URL and container | Existing shared message-history service for Lab 3, using Entra credentials |
 
 ### Administrator infrastructure variants
@@ -90,6 +100,8 @@ variants expose the same downstream workshop configuration contract; keep their
 state and local tfvars separate. Review the selected variant's networking and
 hosted-agent limitations before deployment.
 
+Search, optional Blob and telemetry settings are later explicit facilitator
+inputs, not resources provisioned or reliably discovered by Lab 1.
 Knowledge MCP endpoints and agent/version references are produced by the
 notebooks and passed through checkpoint artifacts. They are not values learners
 must invent. Optional Toolbox configuration belongs in Stretch 7's editable inputs.
@@ -99,6 +111,8 @@ Do not deploy Azurite's local emulator settings to Foundry.
 
 The new Lab 1 notebook authenticates, creates or resolves the project, provisions
 chat and embedding deployments, verifies readiness and persists their settings.
+Its `artifacts/lab1/project.json` checkpoint records project/model references
+and successful chat/3072-dimensional embedding smoke checks.
 Review the selected model/version, deployment names and capacity before the
 provisioning cell. Account permissions and quota do not become available merely
 because a notebook input is filled in.
@@ -114,8 +128,8 @@ A quota change can take time to propagate.
 
 ## 5. Identity and RBAC
 
-Local notebook and hosted-model calls use `DefaultAzureCredential`; deployed
-containers use their dedicated agent identity. Management-plane provisioning,
+Local notebooks reuse Azure CLI sign-in, and hosted model clients use
+`DefaultAzureCredential`; deployed containers use their dedicated agent identity. Management-plane provisioning,
 data-plane inference, Search retrieval and telemetry publishing are separate
 permissions. Allow propagation before retesting.
 
@@ -190,9 +204,10 @@ not prove any of these live outcomes.
 
 ## 8. Reproducible workshop date
 
-Set the workshop date in Lab 1's editable inputs. The default `2026-10-06` is nine
+The default workshop date `2026-10-06` is nine
 days before Medicare AEP opens; the notebooks propagate it to local and hosted
-agents so enrollment-window answers are comparable across learners.
+agents so enrollment-window answers are comparable across learners. Use editable
+notebook configuration when an exercise calls for another date.
 
 | Date | S1 Evelyn | S3 Rosa |
 |---|---|---|
@@ -204,8 +219,8 @@ agents so enrollment-window answers are comparable across learners.
 
 ## 9. Clean up workshop resources
 
-Use the setup notebook's cleanup guidance to review attendee-scoped resources
-before approving deletion. Keep the exact attendee suffix and project scope
+Review attendee-scoped resources with the facilitator before approving any
+notebook deletion action. Keep the exact attendee suffix and project scope
 visible; never broaden deletion to the room without administrator approval.
 The shared account, Search service, telemetry resource, storage and resource
 group are administrator-owned. Review project/model ownership separately:

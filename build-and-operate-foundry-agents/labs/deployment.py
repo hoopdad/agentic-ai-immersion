@@ -215,7 +215,7 @@ def deploy(args: argparse.Namespace) -> None:
     configure_service_environment(folder / "azure.yaml", args.agent_name, set(container_settings))
     for key, value in container_settings.items():
         run("azd", "env", "set", key, value)
-    run("azd", "up")
+    run("azd", "up", "--no-prompt")
     print(f"Deployment submitted for {args.agent_name}. Wait for status active before invoking.")
 
 
