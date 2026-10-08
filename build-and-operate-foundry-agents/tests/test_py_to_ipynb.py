@@ -55,6 +55,22 @@ def notebook_action(source: str) -> ast.Module:
 
 
 class ConverterTests(unittest.TestCase):
+    def test_each_numbered_folder_owns_exactly_one_documented_lab(self):
+        self.assertEqual(list(WALKTHROUGHS), [f"lab{number}" for number in range(1, 15)])
+        for folder, parts in WALKTHROUGHS.items():
+            with self.subTest(folder=folder):
+                self.assertEqual(len(parts), 1)
+                source, notebook, number, _, _ = parts[0]
+                directory = ROOT / "labs" / folder
+                self.assertEqual(folder, f"lab{number}")
+                self.assertEqual([path.name for path in directory.glob("*.ipynb")], [notebook])
+                self.assertEqual([path.name for path in directory.glob("*.py")], [source])
+                guide = (directory / "README.md").read_text(encoding="utf-8")
+                self.assertTrue(guide.startswith(f"# Lab {number}:"))
+                self.assertIn(f"]({notebook})", guide)
+                self.assertIn("## Prerequisites", guide)
+                self.assertIn("## Checkpoint", guide)
+
     def test_numbered_labs_have_matching_navigation_and_prerequisites(self):
         self.assertEqual([int(prefix) for _, _, prefix in DRIVERS], list(range(1, 15)))
         guide = (ROOT / "labs" / "README.md").read_text(encoding="utf-8")
@@ -114,15 +130,15 @@ class ConverterTests(unittest.TestCase):
 
     def test_fresh_b_kernels_restore_state_without_repeating_a_cloud_work(self):
         cases = (
-            ("hosted-multi-agent-handoff", "lab8_advisor_recovery.py", "lab4",
+            ("lab8", "lab8_advisor_recovery.py", "lab4",
              {"pending": {name: {"session_id": name} for name in ("S1", "S2", "S3")},
               "hosted": {"agent_name": "existing"}, "tested_sources": {"hosted": "synthetic-fingerprint"}}, "pending"),
-            ("operate-hosted-agents", "lab10_release_rollback.py", "lab5",
+            ("lab10", "lab10_release_rollback.py", "lab5",
              {"bundle": {"info": {"version": "measured"}}, "summary": {"questions": 6}}, "bundle"),
-            ("prompt-agents-and-workflows", "lab12_workflows_delegation.py", "stretch6",
+            ("lab12", "lab12_workflows_delegation.py", "stretch6",
              {"prompt_agents": {"agents": {"triage": {"agent_id": "existing", "agent_version": "3"}}}},
              "prompt_info"),
-            ("invocations-toolbox-skills", "lab14_skills_toolbox.py", "stretch7",
+            ("lab14", "lab14_skills_toolbox.py", "stretch7",
              {"nightly": {"reviews": 3}, "invocations": {"agent_name": "existing"}}, "part_a"),
         )
         for directory, filename, lab, state, restored in cases:
@@ -181,7 +197,7 @@ class ConverterTests(unittest.TestCase):
                 cloud.assert_not_called()
 
     def test_advisor_recovery_uses_durable_session_not_a_response_or_new_intake(self):
-        path = ROOT / "labs/hosted-multi-agent-handoff/lab8_advisor_recovery.py"
+        path = ROOT / "labs/lab8/lab8_advisor_recovery.py"
         tree = ast.parse(path.read_text(encoding="utf-8"))
         resume = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "resume_pending")
         namespace = {"json": json, "driver": SimpleNamespace(PENDING="pending")}
@@ -256,7 +272,7 @@ class ConverterTests(unittest.TestCase):
         original = Path.cwd()
         try:
             for relative, _, _ in INTERNAL_DRIVERS[1:]:
-                path = ROOT / "labs" / relative
+                path = ROOT / "shared" / relative
                 tree = ast.parse(path.read_text(encoding="utf-8"))
                 assignment = next(
                     node for node in tree.body
@@ -298,7 +314,7 @@ class ConverterTests(unittest.TestCase):
             os.chdir(original)
 
     def test_lab3_exercises_execute_without_environment_toggles(self):
-        path = ROOT / "labs" / INTERNAL_DRIVERS[2][0]
+        path = ROOT / "shared" / INTERNAL_DRIVERS[2][0]
         notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
         for step, function in (("3.8", "broken_store_acceptance_gate"), ("3.9", "knowledge_acceptance_gate")):
             with self.subTest(step=step):
@@ -308,7 +324,7 @@ class ConverterTests(unittest.TestCase):
                 gate.assert_called_once_with()
 
     def test_lab2_requires_verified_setup_only_in_notebooks(self):
-        path = ROOT / "labs" / INTERNAL_DRIVERS[1][0]
+        path = ROOT / "shared" / INTERNAL_DRIVERS[1][0]
         notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
         cell = next(cell for cell in notebook["cells"] if "".join(cell["source"]).startswith("# Step 2.2 -"))
         action = compile(notebook_action("".join(cell["source"])), str(path), "exec")
@@ -347,7 +363,7 @@ class ConverterTests(unittest.TestCase):
         require.assert_not_called()
 
     def test_scale_out_requires_shared_history_and_does_not_claim_false_success(self):
-        path = ROOT / "labs" / INTERNAL_DRIVERS[2][0]
+        path = ROOT / "shared" / INTERNAL_DRIVERS[2][0]
         notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
         cell = next(cell for cell in notebook["cells"] if "".join(cell["source"]).startswith("# Step 3.7 -"))
         code = compile(notebook_action("".join(cell["source"])), str(path), "exec")
@@ -366,7 +382,7 @@ class ConverterTests(unittest.TestCase):
 
     def test_cloud_deployment_is_an_explicit_checked_notebook_action(self):
         for relative, _, _ in INTERNAL_DRIVERS:
-            path = ROOT / "labs" / relative
+            path = ROOT / "shared" / relative
             tree = ast.parse(path.read_text(encoding="utf-8"))
             for node in tree.body:
                 if not isinstance(node, ast.If) or ast.unparse(node.test) != "'__file__' not in globals()":
@@ -388,7 +404,7 @@ class ConverterTests(unittest.TestCase):
                 runner.assert_not_called()
 
     def test_two_package_deployment_stops_when_the_first_command_fails(self):
-        path = ROOT / "labs" / INTERNAL_DRIVERS[6][0]
+        path = ROOT / "shared" / INTERNAL_DRIVERS[6][0]
         notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
         cell = next(cell for cell in notebook["cells"] if "".join(cell["source"]).startswith("# Step S7.9 -"))
         runner = Mock(side_effect=RuntimeError("first deployment failed"))
@@ -406,7 +422,7 @@ class ConverterTests(unittest.TestCase):
         )
 
     def test_stretch7_inputs_override_unrelated_skill_defaults_and_validate_toolbox(self):
-        path = ROOT / "labs" / INTERNAL_DRIVERS[6][0]
+        path = ROOT / "shared" / INTERNAL_DRIVERS[6][0]
         notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
         source = next(
             "".join(cell["source"]) for cell in notebook["cells"]

@@ -12,7 +12,7 @@ from unittest.mock import patch
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
-LAB = ROOT / "labs/foundry-project-models"
+LAB = ROOT / "shared/foundry-project-models"
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(LAB))
 import project_setup as setup
@@ -271,8 +271,9 @@ class ProjectSetupTests(unittest.TestCase):
             ("lab2_models_verify.py", "lab2_walkthrough.ipynb"),
         ):
             with self.subTest(source=source):
-                text = (LAB / source).read_text(encoding="utf-8")
-                notebook = json.loads((LAB / name).read_text(encoding="utf-8"))
+                folder = ROOT / "labs" / source.split("_")[0]
+                text = (folder / source).read_text(encoding="utf-8")
+                notebook = json.loads((folder / name).read_text(encoding="utf-8"))
                 self.assertEqual(notebook, converter.build_notebook(text, seed=Path(source).stem))
                 self.assertEqual(converter.validate_notebook(notebook), [])
                 self.assertEqual(converter.validate_step_ids(notebook, Path(source).stem.split("_")[0][3:]), [])

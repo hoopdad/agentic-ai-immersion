@@ -10,6 +10,11 @@ select `/usr/local/bin/python`, and run cells in order from that lab folder.
 Read the adjacent README before each lab. **There is one learner run path:
 the walkthrough notebook.**
 
+Folders `lab1` through `lab14` each contain exactly one lab's notebook,
+adjacent authoring source and README. Shared products and implementation helpers
+live separately in [`../shared/`](../shared/README.md); a later lab reuses the
+same product rather than carrying a duplicate.
+
 ## Where things run
 
 The notebook authenticates, calls Azure, manages local Python subprocesses,
@@ -25,25 +30,25 @@ terminal or interactive-cell learner entry points. Runtime files such as
 
 | # | Notebook | Prerequisite | Builds | Checkpoint |
 |---|---|---|---|---|
-| 1 | [Identity and project](foundry-project-models/lab1_walkthrough.ipynb) | Approved account and permissions | Project in an existing Foundry account | `artifacts/lab1/part_a.json` |
-| 2 | [Models and verification](foundry-project-models/lab2_walkthrough.ipynb) | Lab 1 | Chat and embedding deployments | `artifacts/lab1/part_b.json`, `project.json` and verified settings persisted to the repository-root `.env` |
-| 3 | [Tools and local testing](hosted-agent-basics/lab3_walkthrough.ipynb) | Lab 2; hosted-agent enablement | Typed-tool concierge over Responses and local tests | `artifacts/lab2/part_a.json` |
-| 4 | [Deploy and invoke](hosted-agent-basics/lab4_walkthrough.ipynb) | Lab 3 | Hosted version and invocation | `artifacts/lab2/part_b.json`, `hosted.json`, `transcripts.md` |
-| 5 | [Knowledge and retrieval](hosted-knowledge-sessions/lab5_walkthrough.ipynb) | Lab 4; shared Search access | Search indexes, Foundry IQ knowledge and identity connection | `artifacts/lab3/part_a.json`, `knowledge.json` |
-| 6 | [Sessions and resiliency](hosted-knowledge-sessions/lab6_walkthrough.ipynb) | Lab 5 | External history and restart continuity | `artifacts/lab3/part_b.json`, `hosted.json`, `sessions/` |
-| 7 | [Specialist orchestration](hosted-multi-agent-handoff/lab7_walkthrough.ipynb) | Lab 6 | Specialist workflow and bounded review | `artifacts/lab4/part_a.json` |
-| 8 | [Advisor approval and recovery](hosted-multi-agent-handoff/lab8_walkthrough.ipynb) | Lab 7 | Advisor approval and pending-state recovery | `artifacts/lab4/part_b.json`, `handoff_packets/`, `hosted.json`, `sessions/` |
-| 9 | [Tracing and evaluation](operate-hosted-agents/lab9_walkthrough.ipynb) | Lab 6; telemetry permissions | Tracing and measured evaluation baseline | `artifacts/lab5/part_a.json`, `eval_report.md`, `evaluation_bundle.json`, `pipeline.md` |
-| 10 | [Release and rollback](operate-hosted-agents/lab10_walkthrough.ipynb) | Lab 9 | Release gate, promotion and rollback rehearsal | `artifacts/lab5/part_b.json`, `gate_result.json`, `release_plan.json` |
-| 11 | [Prompt agents](prompt-agents-and-workflows/lab11_walkthrough.ipynb) | Lab 6 | Platform prompt agents | `artifacts/stretch6/part_a.json` |
-| 12 | [Workflows and delegation](prompt-agents-and-workflows/lab12_walkthrough.ipynb) | Lab 11 | Platform workflows and hosted delegation | `artifacts/stretch6/part_b.json`, `agents.json`, `handoff_packets/S1.json` |
-| 13 | [Invocations](invocations-toolbox-skills/lab13_walkthrough.ipynb) | Lab 2 | Structured denied-claim reviews | `artifacts/stretch7/part_a.json`, `invocations.json`, `claim_reviews/` |
-| 14 | [Skills and Toolbox](invocations-toolbox-skills/lab14_walkthrough.ipynb) | Lab 13 | Skills and optional Toolbox | `artifacts/stretch7/part_b.json`, `skills_transcript.md` |
+| 1 | [Identity and project](lab1/lab1_walkthrough.ipynb) / [Guide](lab1/README.md) | Approved account and permissions | Project in an existing Foundry account | `artifacts/lab1/part_a.json` |
+| 2 | [Models and verification](lab2/lab2_walkthrough.ipynb) / [Guide](lab2/README.md) | Lab 1 | Chat and embedding deployments | `artifacts/lab1/part_b.json`, `project.json` and verified settings persisted to the repository-root `.env` |
+| 3 | [Tools and local testing](lab3/lab3_walkthrough.ipynb) / [Guide](lab3/README.md) | Lab 2; hosted-agent enablement | Typed-tool concierge over Responses and local tests | `artifacts/lab2/part_a.json` |
+| 4 | [Deploy and invoke](lab4/lab4_walkthrough.ipynb) / [Guide](lab4/README.md) | Lab 3 | Hosted version and invocation | `artifacts/lab2/part_b.json`, `hosted.json`, `transcripts.md` |
+| 5 | [Knowledge and retrieval](lab5/lab5_walkthrough.ipynb) / [Guide](lab5/README.md) | Lab 4; shared Search access | Search indexes, Foundry IQ knowledge and identity connection | `artifacts/lab3/part_a.json`, `knowledge.json` |
+| 6 | [Sessions and resiliency](lab6/lab6_walkthrough.ipynb) / [Guide](lab6/README.md) | Lab 5 | External history and restart continuity | `artifacts/lab3/part_b.json`, `hosted.json`, `sessions/` |
+| 7 | [Specialist orchestration](lab7/lab7_walkthrough.ipynb) / [Guide](lab7/README.md) | Lab 6 | Specialist workflow and bounded review | `artifacts/lab4/part_a.json` |
+| 8 | [Advisor approval and recovery](lab8/lab8_walkthrough.ipynb) / [Guide](lab8/README.md) | Lab 7 | Advisor approval and pending-state recovery | `artifacts/lab4/part_b.json`, `handoff_packets/`, `hosted.json`, `sessions/` |
+| 9 | [Tracing and evaluation](lab9/lab9_walkthrough.ipynb) / [Guide](lab9/README.md) | Lab 6; telemetry permissions | Tracing and measured evaluation baseline | `artifacts/lab5/part_a.json`, `eval_report.md`, `evaluation_bundle.json`, `pipeline.md` |
+| 10 | [Release and rollback](lab10/lab10_walkthrough.ipynb) / [Guide](lab10/README.md) | Lab 9 | Release gate, promotion and rollback rehearsal | `artifacts/lab5/part_b.json`, `gate_result.json`, `release_plan.json` |
+| 11 | [Prompt agents](lab11/lab11_walkthrough.ipynb) / [Guide](lab11/README.md) | Lab 6 | Platform prompt agents | `artifacts/stretch6/part_a.json` |
+| 12 | [Workflows and delegation](lab12/lab12_walkthrough.ipynb) / [Guide](lab12/README.md) | Lab 11 | Platform workflows and hosted delegation | `artifacts/stretch6/part_b.json`, `agents.json`, `handoff_packets/S1.json` |
+| 13 | [Invocations](lab13/lab13_walkthrough.ipynb) / [Guide](lab13/README.md) | Lab 2 | Structured denied-claim reviews | `artifacts/stretch7/part_a.json`, `invocations.json`, `claim_reviews/` |
+| 14 | [Skills and Toolbox](lab14/lab14_walkthrough.ipynb) / [Guide](lab14/README.md) | Lab 13 | Skills and optional Toolbox | `artifacts/stretch7/part_b.json`, `skills_transcript.md` |
 
 Each numbered lab can start in a fresh kernel. Its prerequisite cells validate
 the producing lab's project/model scope, attendee suffix and evidence before
-restoring required variables. Reuse checkpoints, cloud resources and shared
-topic-folder product code; do not rerun provisioning or evaluation merely to
+restoring required variables. Reuse checkpoints, cloud resources and the
+products in `shared/`; do not rerun provisioning or evaluation merely to
 restore kernel state. Changed inputs or source require fresh acceptance evidence.
 
 Labs 9 and 11 reuse Lab 6's concierge and knowledge rather than requiring Lab 8.

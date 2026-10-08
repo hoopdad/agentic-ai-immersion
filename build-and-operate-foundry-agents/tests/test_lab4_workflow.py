@@ -23,7 +23,7 @@ from agent_framework import (
     handler,
 )
 
-HOSTED = Path(__file__).resolve().parents[1] / "labs/hosted-multi-agent-handoff/hosted"
+HOSTED = Path(__file__).resolve().parents[1] / "shared/hosted-multi-agent-handoff/hosted"
 sys.path.insert(0, str(HOSTED))
 import marketplace_workflow as triage  # noqa: E402
 from marketplace_specialists import HandoffPacket, ReviewVerdict  # noqa: E402

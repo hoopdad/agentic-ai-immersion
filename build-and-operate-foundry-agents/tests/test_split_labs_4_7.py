@@ -67,10 +67,10 @@ class SplitNotebookTests(unittest.TestCase):
         self.stack.enter_context(patch.object(lab_helpers, "artifact_path", side_effect=self.artifact))
         self.loaded = {}
         for lab, (folder, _, _, original) in PARTS.items():
-            self.loaded[original] = load(ROOT / "labs" / folder / f"{original}.py", f"split_test_{original}")
+            self.loaded[original] = load(ROOT / "shared" / folder / f"{original}.py", f"split_test_{original}")
             self.loaded[original].LABS_DIR = self.workspace
-        self.gate = load(ROOT / "labs/operate-hosted-agents/eval_gate.py", "split_test_gate")
-        self.promotion = load(ROOT / "labs/operate-hosted-agents/promote.py", "split_test_promotion")
+        self.gate = load(ROOT / "shared/operate-hosted-agents/eval_gate.py", "split_test_gate")
+        self.promotion = load(ROOT / "shared/operate-hosted-agents/promote.py", "split_test_promotion")
         self.modules = {**self.loaded, "eval_gate": self.gate, "promote": self.promotion}
         self.stack.enter_context(patch("subprocess.run", return_value=SimpleNamespace(returncode=0, stdout="offline")))
         self.stack.enter_context(patch.object(
@@ -84,7 +84,8 @@ class SplitNotebookTests(unittest.TestCase):
 
     def cells(self, lab: str, part: str) -> list[str]:
         folder, a, b, _ = PARTS[lab]
-        source = ROOT / "labs" / folder / f"{a if part == 'a' else b}.py"
+        stem = a if part == "a" else b
+        source = ROOT / "labs" / stem.split("_")[0] / f"{stem}.py"
         notebook = converter.build_notebook(source.read_text(encoding="utf-8"), seed=source.stem)
         return ["".join(cell["source"]) for cell in notebook["cells"] if cell["cell_type"] == "code"]
 
@@ -103,7 +104,7 @@ class SplitNotebookTests(unittest.TestCase):
         for lab, (folder, a, b, _) in PARTS.items():
             for stem in (a, b):
                 with self.subTest(stem=stem):
-                    source = ROOT / "labs" / folder / f"{stem}.py"
+                    source = ROOT / "labs" / stem.split("_")[0] / f"{stem}.py"
                     expected = converter.build_notebook(source.read_text(encoding="utf-8"), seed=stem)
                     actual = json.loads(source.with_name(f"{stem.split('_')[0]}_walkthrough.ipynb").read_text())
                     self.assertEqual(actual, expected)
@@ -115,7 +116,7 @@ class SplitNotebookTests(unittest.TestCase):
                         if cell["cell_type"] == "code":
                             self.assertIsNone(cell["execution_count"])
                             self.assertEqual(cell["outputs"], [])
-            self.assertEqual(len(list((ROOT / "labs" / folder).glob("*.ipynb"))), 2)
+                    self.assertEqual(len(list(source.parent.glob("*.ipynb"))), 1)
 
     def test_b_requires_a_before_cloud_actions(self) -> None:
         with patch.object(foundry_env, "get_project_client") as project, \
@@ -154,7 +155,7 @@ class SplitNotebookTests(unittest.TestCase):
                 patch.object(notebook_parts, "read_checkpoint") as checkpoint:
             for folder, a, b, _ in PARTS.values():
                 for stem in (a, b):
-                    load(ROOT / "labs" / folder / f"{stem}.py", f"import_only_{stem}")
+                    load(ROOT / "labs" / stem.split("_")[0] / f"{stem}.py", f"import_only_{stem}")
             project.assert_not_called()
             client.assert_not_called()
             checkpoint.assert_not_called()
@@ -255,8 +256,8 @@ class SplitNotebookTests(unittest.TestCase):
         count = len(sent)
         tested = a["part_a"]["state"]["tested_sources"]
         for name in ("main.py", "marketplace_specialists.py", "marketplace_workflow.py"):
-            self.assertIn(f"labs/hosted-multi-agent-handoff/hosted/{name}", tested)
-        changed_sources = {**tested, "labs/hosted-multi-agent-handoff/hosted/marketplace_specialists.py": "classifier-removed"}
+            self.assertIn(f"shared/hosted-multi-agent-handoff/hosted/{name}", tested)
+        changed_sources = {**tested, "shared/hosted-multi-agent-handoff/hosted/marketplace_specialists.py": "classifier-removed"}
         with patch.object(driver, "source_fingerprints", return_value=changed_sources):
             with self.assertRaises(AssertionError):
                 exec(compile(self.cells("lab4", "a")[-1], "reject_changed_a_publish_source", "exec"), a)
@@ -402,7 +403,7 @@ class SplitNotebookTests(unittest.TestCase):
             "errors": [], "actions": [{"action_id": action} for action in ("triage", "accounts", "compliance", "handoff")],
             "messages": [json.dumps(wrong_packet)],
         }))
-        hosted_tool = load(ROOT / "labs" / PARTS["stretch6"][0] / "hosted_tool_snippet.py", "hosted_tool_snippet")
+        hosted_tool = load(ROOT / "shared" / PARTS["stretch6"][0] / "hosted_tool_snippet.py", "hosted_tool_snippet")
         self.stack.enter_context(patch.object(hosted_tool, "load_workflow_reference", return_value={"workflow_name": driver.WORKFLOW}))
         delegation_packet = packet("marketplace", "P-1005")
         delegation_packet.pop("packet_attempts")
@@ -412,7 +413,7 @@ class SplitNotebookTests(unittest.TestCase):
         }))
         import deployment
         self.stack.enter_context(patch.object(deployment, "bash_deploy_block", return_value="true"))
-        main_path = ROOT / "labs/hosted-knowledge-sessions/hosted/main.py"
+        main_path = ROOT / "shared/hosted-knowledge-sessions/hosted/main.py"
         read_text = Path.read_text
         self.stack.enter_context(patch.object(
             Path, "read_text",
@@ -456,7 +457,7 @@ class SplitNotebookTests(unittest.TestCase):
         combined = json.loads(driver.RECORD.read_text())
         self.assertEqual(combined["agents"]["invocations"], original)
         self.assertIn("hosted-responses-skills", vendors[-1])
-        module = load(ROOT / "labs" / PARTS["stretch7"][0] / "lab14_skills_toolbox.py", "split_config")
+        module = load(ROOT / "labs/lab14/lab14_skills_toolbox.py", "split_config")
         self.assertEqual(module.validate_config("", "", "")["SKILL_NAMES"], "")
         for name, url in (("box", ""), ("", "https://example.test/mcp"),
                           ("box", "http://example.test/mcp"), ("box", "https://attendee@example.test/mcp"),

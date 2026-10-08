@@ -9,7 +9,7 @@ organization's policy and Azure network allow it.
 
 1. Open the repository root and select **Dev Containers: Reopen in Container**.
 2. Wait for bootstrap to finish installing the root dependency lock and toolchain.
-3. Open [Lab 1](labs/foundry-project-models/lab1_walkthrough.ipynb) beneath this workshop.
+3. Open [Lab 1](labs/lab1/lab1_walkthrough.ipynb) beneath this workshop.
 4. Select **Select Kernel > Python Environments > `/usr/local/bin/python`**.
 5. Edit the notebook's setup inputs using values supplied by your administrator,
    then run its authentication, provisioning, verification and persistence cells in order.
@@ -173,7 +173,8 @@ tool access.
 
 ## 6. Notebook execution and recovery
 
-Open each numbered walkthrough in its topic folder and run prerequisite cells
+Open each numbered walkthrough in its matching `labs/labN` folder, read that
+folder's README and run prerequisite cells
 first. Follow the [Labs 1-14 dependency table](labs/README.md#sequence-and-artifact-chain);
 each notebook starts in a fresh kernel and restores validated predecessor
 metadata rather than rerunning provisioning or evaluation work.
@@ -241,25 +242,37 @@ checks and the root offline workflow are implementation validation, not extra
 learner setup steps. The root dependency lock remains authoritative, with
 matching minimal hosted-runtime pins. Offline results make no live Azure claim.
 
-The seven original drivers remain internal callable helpers. Authors edit the
+The seven original drivers remain internal callable helpers under `shared/`,
+alongside reusable product code. Authors edit the
 fourteen adjacent numbered cell sources below and regenerate their paired notebooks;
 do not convert the original drivers into learner notebooks.
 
-| Directory under `labs/` | First lab source → notebook | Next lab source → notebook |
-|---|---|---|
-| `foundry-project-models` | `lab1_identity_project.py` → `lab1_walkthrough.ipynb` | `lab2_models_verify.py` → `lab2_walkthrough.ipynb` |
-| `hosted-agent-basics` | `lab3_tools_local.py` → `lab3_walkthrough.ipynb` | `lab4_deploy_invoke.py` → `lab4_walkthrough.ipynb` |
-| `hosted-knowledge-sessions` | `lab5_knowledge_retrieval.py` → `lab5_walkthrough.ipynb` | `lab6_sessions_resiliency.py` → `lab6_walkthrough.ipynb` |
-| `hosted-multi-agent-handoff` | `lab7_specialist_orchestration.py` → `lab7_walkthrough.ipynb` | `lab8_advisor_recovery.py` → `lab8_walkthrough.ipynb` |
-| `operate-hosted-agents` | `lab9_tracing_evaluation.py` → `lab9_walkthrough.ipynb` | `lab10_release_rollback.py` → `lab10_walkthrough.ipynb` |
-| `prompt-agents-and-workflows` | `lab11_prompt_agents.py` → `lab11_walkthrough.ipynb` | `lab12_workflows_delegation.py` → `lab12_walkthrough.ipynb` |
-| `invocations-toolbox-skills` | `lab13_invocations.py` → `lab13_walkthrough.ipynb` | `lab14_skills_toolbox.py` → `lab14_walkthrough.ipynb` |
+| Directory under `labs/` | Adjacent source → notebook |
+|---|---|
+| `lab1` | `lab1_identity_project.py` → `lab1_walkthrough.ipynb` |
+| `lab2` | `lab2_models_verify.py` → `lab2_walkthrough.ipynb` |
+| `lab3` | `lab3_tools_local.py` → `lab3_walkthrough.ipynb` |
+| `lab4` | `lab4_deploy_invoke.py` → `lab4_walkthrough.ipynb` |
+| `lab5` | `lab5_knowledge_retrieval.py` → `lab5_walkthrough.ipynb` |
+| `lab6` | `lab6_sessions_resiliency.py` → `lab6_walkthrough.ipynb` |
+| `lab7` | `lab7_specialist_orchestration.py` → `lab7_walkthrough.ipynb` |
+| `lab8` | `lab8_advisor_recovery.py` → `lab8_walkthrough.ipynb` |
+| `lab9` | `lab9_tracing_evaluation.py` → `lab9_walkthrough.ipynb` |
+| `lab10` | `lab10_release_rollback.py` → `lab10_walkthrough.ipynb` |
+| `lab11` | `lab11_prompt_agents.py` → `lab11_walkthrough.ipynb` |
+| `lab12` | `lab12_workflows_delegation.py` → `lab12_walkthrough.ipynb` |
+| `lab13` | `lab13_invocations.py` → `lab13_walkthrough.ipynb` |
+| `lab14` | `lab14_skills_toolbox.py` → `lab14_walkthrough.ipynb` |
+
+Each numbered folder has only that lab's source, notebook and README.
+The [shared implementation guide](shared/README.md) identifies product ownership
+and consumers without duplicating a second learner sequence.
 
 For example, from the workshop directory, these internal author commands
 regenerate Labs 1-2; use the same explicit source/output pairing above for
 each other lab.
 
 ```bash
-python tools/py_to_ipynb.py labs/foundry-project-models/lab1_identity_project.py --name lab1_walkthrough
-python tools/py_to_ipynb.py labs/foundry-project-models/lab2_models_verify.py --name lab2_walkthrough
+python tools/py_to_ipynb.py labs/lab1/lab1_identity_project.py --name lab1_walkthrough
+python tools/py_to_ipynb.py labs/lab2/lab2_models_verify.py --name lab2_walkthrough
 ```

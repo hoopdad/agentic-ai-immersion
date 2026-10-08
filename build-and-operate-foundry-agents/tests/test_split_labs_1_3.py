@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
-LAB1 = ROOT / "labs/foundry-project-models"
+LAB1 = ROOT / "shared/foundry-project-models"
 sys.path[:0] = [str(ROOT), str(ROOT / "labs"), str(ROOT / "tools"), str(LAB1)]
 from common import foundry_env, notebook_parts
 import lab_helpers
@@ -42,12 +42,12 @@ ENV = {
     "AZURE_AI_SEARCH_ENDPOINT": "https://approved.search.windows.net",
 }
 PAIRS = (
-    ("foundry-project-models", "lab1_identity_project", "lab1a"),
-    ("foundry-project-models", "lab2_models_verify", "lab1b"),
-    ("hosted-agent-basics", "lab3_tools_local", "lab2a"),
-    ("hosted-agent-basics", "lab4_deploy_invoke", "lab2b"),
-    ("hosted-knowledge-sessions", "lab5_knowledge_retrieval", "lab3a"),
-    ("hosted-knowledge-sessions", "lab6_sessions_resiliency", "lab3b"),
+    ("lab1", "lab1_identity_project", "lab1a"),
+    ("lab2", "lab2_models_verify", "lab1b"),
+    ("lab3", "lab3_tools_local", "lab2a"),
+    ("lab4", "lab4_deploy_invoke", "lab2b"),
+    ("lab5", "lab5_knowledge_retrieval", "lab3a"),
+    ("lab6", "lab6_sessions_resiliency", "lab3b"),
 )
 
 
@@ -454,7 +454,7 @@ class SplitNotebookTests(unittest.TestCase):
                 ("hosted-knowledge-sessions", "lab3_hosted_knowledge"),
             ):
                 spec = importlib.util.spec_from_file_location(
-                    source + "_split_regression", ROOT / "labs" / folder / (source + ".py"))
+                    source + "_split_regression", ROOT / "shared" / folder / (source + ".py"))
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
                 self.assertTrue(callable(module.build))

@@ -20,14 +20,15 @@
   `scripts/generate_prereq_datasheet_v2.py`.
 - Workshop entry point: `build-and-operate-foundry-agents/README.md` and `SETUP.md`.
 - Workshop customer collateral: `build-and-operate-foundry-agents/Datasheets/` contains editable HTML sources and rendered PDF/Word deliverables.
-- Workshop implementation: `common/` (data, environment and state), `data/` (synthetic fixtures), `labs/` (notebooks and adjacent authoring sources).
-- Labs 1-2: `labs/foundry-project-models/` creates a project in an approved existing Foundry account,
+- Workshop implementation: `common/` (data, environment and state), `data/` (synthetic fixtures),
+  `labs/lab1/` through `labs/lab14/` (one notebook, adjacent authoring source and README each),
+  and `shared/` (reusable products and internal drivers). Paths below are relative to the workshop.
+- Labs 1-2: `shared/foundry-project-models/` creates a project in an approved existing Foundry account,
   deploys chat/embedding models, and saves the notebook configuration and `artifacts/lab1/project.json`.
-- Numbered learner entry points: `lab1_walkthrough.ipynb` through `lab14_walkthrough.ipynb` in seven
-  unnumbered topic folders: `foundry-project-models`, `hosted-agent-basics`, `hosted-knowledge-sessions`,
-  `hosted-multi-agent-handoff`, `operate-hosted-agents`, `prompt-agents-and-workflows`, and
-  `invocations-toolbox-skills`. Adjacent `labN_*.py` files author each notebook; original combined
-  Python drivers remain internal reusable helpers.
+- Numbered learner entry points: `labs/labN/labN_walkthrough.ipynb` for Labs 1-14.
+  Each folder documents only its own lab. Adjacent `labN_*.py` files author each notebook.
+  `shared/README.md` maps seven reusable implementation groups to their numbered consumers;
+  original combined drivers are internal helpers, not learner entry points.
 - Part handoffs: `common/notebook_parts.py` stores explicit JSON state and evidence fingerprints in
   `labs/artifacts/<topic-namespace>/part_a.json` and `part_b.json`. Stable namespaces `lab1` through
   `lab5`, `stretch6` and `stretch7` are not learner numbers; `LAB_NUMBERS` maps their recovery messages.
@@ -35,7 +36,7 @@
   cloud operations. Dependency navigation is in `labs/README.md`; Labs 9 and 11 branch from Lab 6,
   while Lab 13 requires only Lab 2.
 - Labs 5-6 conversation history: Azure Blob/Azurite or files; shared storage utilities retain optional backend implementations, but Redis is not a learner prerequisite or default.
-- Labs 5-6 Search configuration: `labs/hosted-knowledge-sessions/knowledge_base.py` resolves underlying model identities separately from attendee-scoped deployment aliases.
+- Labs 5-6 Search configuration: `shared/hosted-knowledge-sessions/knowledge_base.py` resolves underlying model identities separately from attendee-scoped deployment aliases.
 - Hosted model resilience: `common/model_resilience.py` provides visible, retry-header-aware Agent Framework
   throttling retries and consistent failed Responses payload handling for Labs 3-8 and 13-14.
 - Workshop resource lifecycle: `common/resource_names.py` applies one attendee suffix to every created
@@ -53,7 +54,8 @@
   `privatelink/troubleshoot-private-endpoint.sh` diagnoses private network/DNS, service settings and RBAC.
   Public firewall policy has mocked Terraform tests in `public-network/tests/`; offline variant contracts
   are tested in the workshop's `tests/test_infra_network_variants.py`.
-- Deployment: each lab's `hosted*/main.py` and minimal pinned requirements; `prepare.py` vendors shared files. Generated packages, credentials and runtime artifacts are not source.
+- Deployment: `shared/<topic>/hosted*/main.py` and minimal pinned requirements;
+  `prepare.py` vendors common/data/Skills files. Generated packages, credentials and runtime artifacts are not source.
 - Deployment integration: `labs/deployment.py`; explicit notebook cells invoke deployment tooling, and Python holds validation/logic.
 - Notebooks: edit adjacent `# %%` authoring sources and regenerate with `tools/py_to_ipynb.py`; give each code cell a preceding one-sentence description and keep CLI-only entry points out of learner notebooks.
 - Lab teaching alignment: `labs/README.md`, each lab README, and Markdown cells in the fourteen adjacent
@@ -61,9 +63,10 @@
 - Offline checks: the workshop's `tools/validate_workshop.py` and `tests/`, plus `.github/workflows/workshop-validate.yml`. Validation checks notebook cells, dependency pins, self-tests, regression tests and all five hosted packages in a temporary copy.
 - Checkpoint/retry coverage: `tests/test_split_labs_1_3.py`, `test_split_labs_4_7.py`, and
   `test_notebook_parts.py` retain internal topic namespace names. `test_py_to_ipynb.py` checks
-  Labs 1-14 numbering, prerequisites, navigation and source parity. `test_project_setup.py`
+  Labs 1-14 numbering, one-lab-per-folder layout, prerequisites, navigation and source parity. `test_project_setup.py`
   covers provisioning; `test_lab4_workflow.py` covers real graph/streaming/human-approval behavior offline.
-- Cloud pipeline: Labs 9-10's nested workflow is an opt-in template, not an active deployment workflow.
+- Cloud pipeline: `shared/operate-hosted-agents/.github/workflows/agent-ci.yml`
+  is an opt-in template, not an active deployment workflow.
 - Shared RBAC setup: `scripts/setup-permissions.ps1` (PowerShell 7 in the dev container).
 
 ## Conventions
@@ -85,10 +88,12 @@ the parallel `infra/public-network/` root and mocked policy tests, the parent in
 migration guide and ignore rules, workshop navigation updates and `tests/test_infra_network_variants.py`.
 Provider versions and private resource addresses are unchanged; signed Windows checksums are added to locks.
 
-Baseline: `a6cac9ae9b79e8da29c4fadc7a6a8b31a23a2c32`.
-Pending structural changes considered: renaming the seven numbered topic directories and fourteen
-paired learner source/notebook filenames to sequential Labs 1-14; updating path consumers, generation
-validation, dependency guides and checkpoint recovery messages. Original internal drivers, artifact
+Baseline: `81d4c191a35d277718e3ab9706c3f61f834f56f5`.
+Pending structural changes considered: moving the fourteen learner source/notebook pairs into
+`labs/lab1/` through `labs/lab14/`, each with a focused README; moving seven reusable implementation
+groups and five hosted products into `shared/`; replacing paired guides with individual guides
+and one shared ownership guide; updating path consumers, generated notebooks, ignore rules and
+layout validation. Original internal drivers, artifact
 namespaces, hosted package basenames, cloud APIs and dependency pins remain compatible.
 The workshop uses notebook-only Python 3.14 dev-container execution, attendee-scoped naming,
 Blob/Azurite or file history, and explicit acceptance before cloud actions. Generic store utilities

@@ -87,8 +87,8 @@ def require_artifact(lab: str, name: str, through: int, caller: str) -> dict:
 
 
 def load_lab_module(relative_file: str):
-    """Import a lab script by path (folders like hosted-knowledge-sessions are not importable by name)."""
-    path = LABS_DIR / relative_file
+    """Import reusable implementation from the workshop's shared directory."""
+    path = ROOT / "shared" / relative_file
     if not path.exists():
         raise FileNotFoundError(path)
     spec = importlib.util.spec_from_file_location(path.stem, path)

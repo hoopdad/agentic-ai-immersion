@@ -1,7 +1,7 @@
 """py_to_ipynb: stdlib-only converter from a `# %%` cell script to a Jupyter notebook.
 
 Usage:
-    python tools/py_to_ipynb.py labs/hosted-knowledge-sessions/lab5_knowledge_retrieval.py --name lab5_walkthrough
+    python tools/py_to_ipynb.py labs/lab5/lab5_knowledge_retrieval.py --name lab5_walkthrough
     python tools/py_to_ipynb.py <script.py> [-o <notebook.ipynb>] [--name lab6_walkthrough]
     python tools/py_to_ipynb.py --check <notebook.ipynb>      # validate an existing notebook
 

@@ -43,7 +43,7 @@ class NotebookEnvironmentTests(unittest.TestCase):
         self.assertIsInstance(store, lab_helpers._session_store.FileSessionStore)
 
     def test_pipeline_uses_blob_history_settings(self) -> None:
-        paths = list((ROOT / "labs").glob("operate-hosted-agents/.github/workflows/agent-ci.yml"))
+        paths = list((ROOT / "shared").glob("operate-hosted-agents/.github/workflows/agent-ci.yml"))
         self.assertEqual(len(paths), 1)
         source = paths[0].read_text(encoding="utf-8")
         self.assertNotIn("MARKETPLACE_REDIS_URL", source)

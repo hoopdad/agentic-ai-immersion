@@ -25,32 +25,46 @@ INTERNAL_DRIVERS = {
     "invocations-toolbox-skills": ("stretch7_invocations.py", "stretch7_walkthrough.ipynb", "S7", "stretch7"),
 }
 WALKTHROUGHS = {
-    "foundry-project-models": (
+    "lab1": (
         ("lab1_identity_project.py", "lab1_walkthrough.ipynb", "1", "lab1", "a"),
+    ),
+    "lab2": (
         ("lab2_models_verify.py", "lab2_walkthrough.ipynb", "2", "lab1", "b"),
     ),
-    "hosted-agent-basics": (
+    "lab3": (
         ("lab3_tools_local.py", "lab3_walkthrough.ipynb", "3", "lab2", "a"),
+    ),
+    "lab4": (
         ("lab4_deploy_invoke.py", "lab4_walkthrough.ipynb", "4", "lab2", "b"),
     ),
-    "hosted-knowledge-sessions": (
+    "lab5": (
         ("lab5_knowledge_retrieval.py", "lab5_walkthrough.ipynb", "5", "lab3", "a"),
+    ),
+    "lab6": (
         ("lab6_sessions_resiliency.py", "lab6_walkthrough.ipynb", "6", "lab3", "b"),
     ),
-    "hosted-multi-agent-handoff": (
+    "lab7": (
         ("lab7_specialist_orchestration.py", "lab7_walkthrough.ipynb", "7", "lab4", "a"),
+    ),
+    "lab8": (
         ("lab8_advisor_recovery.py", "lab8_walkthrough.ipynb", "8", "lab4", "b"),
     ),
-    "operate-hosted-agents": (
+    "lab9": (
         ("lab9_tracing_evaluation.py", "lab9_walkthrough.ipynb", "9", "lab5", "a"),
+    ),
+    "lab10": (
         ("lab10_release_rollback.py", "lab10_walkthrough.ipynb", "10", "lab5", "b"),
     ),
-    "prompt-agents-and-workflows": (
+    "lab11": (
         ("lab11_prompt_agents.py", "lab11_walkthrough.ipynb", "11", "stretch6", "a"),
+    ),
+    "lab12": (
         ("lab12_workflows_delegation.py", "lab12_walkthrough.ipynb", "12", "stretch6", "b"),
     ),
-    "invocations-toolbox-skills": (
+    "lab13": (
         ("lab13_invocations.py", "lab13_walkthrough.ipynb", "13", "stretch7", "a"),
+    ),
+    "lab14": (
         ("lab14_skills_toolbox.py", "lab14_walkthrough.ipynb", "14", "stretch7", "b"),
     ),
 }
@@ -170,14 +184,21 @@ def main() -> None:
     numbers = [int(prefix) for parts in WALKTHROUGHS.values() for _, _, prefix, _, _ in parts]
     if numbers != list(range(1, 15)):
         raise ValueError("Learner notebooks must be numbered consecutively from Lab 1 through Lab 14.")
+    if list(WALKTHROUGHS) != [f"lab{number}" for number in numbers]:
+        raise ValueError("Each learner folder must be named lab1 through lab14.")
     # The original callable drivers retain the cumulative artifact prerequisites.
     for directory, (script_name, _, _, lab) in INTERNAL_DRIVERS.items():
-        source = ROOT / "labs" / directory / script_name
+        source = ROOT / "shared" / directory / script_name
         validate_artifact_chain(ast.parse(source.read_text(encoding="utf-8")), lab)
     for directory, (script_name, notebook_name, prefix, lab, part) in (
         (directory, item) for directory, parts in WALKTHROUGHS.items() for item in parts
     ):
         source = ROOT / "labs" / directory / script_name
+        guide = source.with_name("README.md")
+        if len(list(source.parent.glob("*.ipynb"))) != 1 or len(list(source.parent.glob("*.py"))) != 1:
+            raise ValueError(f"{source.parent}: each folder must hold exactly one lab source and notebook")
+        if not guide.read_text(encoding="utf-8").startswith(f"# Lab {prefix}:"):
+            raise ValueError(f"{guide}: document only this folder's Lab {prefix}")
         path = source.with_name(notebook_name)
         run("tools/py_to_ipynb.py", "--check", str(path))
         notebook = json.loads(path.read_text(encoding="utf-8"))
@@ -216,16 +237,14 @@ def main() -> None:
                 ast.parse(text, filename=str(path))
     pins = {line.lower() for line in (REPO / "requirements.txt").read_text().splitlines()
             if "==" in line}
-    for path in (ROOT / "labs").glob("**/requirements.txt"):
-        if path.parent == ROOT / "labs":
-            continue
+    for path in (ROOT / "shared").glob("**/requirements.txt"):
         for line in path.read_text().splitlines():
             if line and not line.startswith("#") and line.lower() not in pins:
                 raise ValueError(f"Hosted requirement does not match root lock: {path}: {line}")
     for name in ("marketplace_data", "session_store", "message_store"):
         run(f"common/{name}.py")
     run("-m", "unittest", "discover", "-s", "tests", "-v")
-    run("-m", "unittest", "discover", "-s", "labs/prompt-agents-and-workflows",
+    run("-m", "unittest", "discover", "-s", "shared/prompt-agents-and-workflows",
         "-p", "test_stretch6_offline.py", "-v")
     with tempfile.TemporaryDirectory(prefix="foundry-workshop-check-") as directory:
         sandbox_repo = Path(directory) / "repository"
@@ -243,7 +262,7 @@ def main() -> None:
             sys.executable, "-m", "unittest", "discover", "-s", "tests",
             "-p", "test_py_to_ipynb.py", "-v",
         ], cwd=sandbox, env=environment, check=True)
-        prepares = sorted((sandbox / "labs").glob("*/hosted*/prepare.py"))
+        prepares = sorted((sandbox / "shared").glob("*/hosted*/prepare.py"))
         if len(prepares) != 5:
             raise ValueError(f"Expected five hosted package snapshots, got {len(prepares)}")
         for prepare in prepares:
@@ -251,7 +270,7 @@ def main() -> None:
                            env=environment, check=True)
         subprocess.run([
             sys.executable,
-            str(sandbox / "labs/invocations-toolbox-skills/hosted-invocations/test_local.py"),
+            str(sandbox / "shared/invocations-toolbox-skills/hosted-invocations/test_local.py"),
             "--offline",
         ], cwd=sandbox, env=environment, check=True)
     print("Offline workshop checks passed: Labs 1-14 and five hosted package snapshots. "

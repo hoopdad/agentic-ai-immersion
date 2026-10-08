@@ -56,7 +56,7 @@ pywin32==312; sys_platform == "win32"
 pywinpty==3.0.5; sys_platform == "win32"
 
 # =============================================================================
-# Linting (build-and-operate-foundry-agents/ CI: labs/operate-hosted-agents/.github/workflows/agent-ci.yml)
+# Linting (build-and-operate-foundry-agents/ CI: shared/operate-hosted-agents/.github/workflows/agent-ci.yml)
 # =============================================================================
 ruff>=0.16.0
 
