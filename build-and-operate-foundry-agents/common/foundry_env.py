@@ -111,7 +111,7 @@ def require(env: dict[str, str], *keys: str) -> None:
     missing = [k for k in keys if not env.get(k)]
     if missing:
         raise RuntimeError(f"Missing environment variable(s): {', '.join(missing)}. "
-                           f"Run the Lab 1 setup notebook or populate the configuration cell for this lab (see SETUP.md).")
+                           f"Run Lab 2's setup notebook and its prerequisites or populate this lab's configuration cell (see SETUP.md).")
 
 
 def is_local_redis_url(value: str) -> bool:

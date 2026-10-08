@@ -5,6 +5,7 @@ import ast
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -15,42 +16,42 @@ from py_to_ipynb import build_notebook, validate_cell_descriptions, validate_ste
 ROOT = Path(__file__).resolve().parents[1]
 REPO = ROOT.parent
 INTERNAL_DRIVERS = {
-    "lab1-foundry-project-models": ("lab1_project_models.py", "lab1_walkthrough.ipynb", "1", "lab1"),
-    "lab2-hosted-agent-basics": ("lab2_hosted_basics.py", "lab2_walkthrough.ipynb", "2", "lab2"),
-    "lab3-hosted-knowledge-sessions": ("lab3_hosted_knowledge.py", "lab3_walkthrough.ipynb", "3", "lab3"),
-    "lab4-hosted-multi-agent-handoff": ("lab4_hosted_multi_agent.py", "lab4_walkthrough.ipynb", "4", "lab4"),
-    "lab5-operate-hosted-agents": ("lab5_operate.py", "lab5_walkthrough.ipynb", "5", "lab5"),
-    "stretch6-prompt-agents-and-workflows": ("stretch6_prompt_agents.py", "stretch6_walkthrough.ipynb", "S6", "stretch6"),
-    "stretch7-invocations-toolbox-skills": ("stretch7_invocations.py", "stretch7_walkthrough.ipynb", "S7", "stretch7"),
+    "foundry-project-models": ("lab1_project_models.py", "lab1_walkthrough.ipynb", "1", "lab1"),
+    "hosted-agent-basics": ("lab2_hosted_basics.py", "lab2_walkthrough.ipynb", "2", "lab2"),
+    "hosted-knowledge-sessions": ("lab3_hosted_knowledge.py", "lab3_walkthrough.ipynb", "3", "lab3"),
+    "hosted-multi-agent-handoff": ("lab4_hosted_multi_agent.py", "lab4_walkthrough.ipynb", "4", "lab4"),
+    "operate-hosted-agents": ("lab5_operate.py", "lab5_walkthrough.ipynb", "5", "lab5"),
+    "prompt-agents-and-workflows": ("stretch6_prompt_agents.py", "stretch6_walkthrough.ipynb", "S6", "stretch6"),
+    "invocations-toolbox-skills": ("stretch7_invocations.py", "stretch7_walkthrough.ipynb", "S7", "stretch7"),
 }
 WALKTHROUGHS = {
-    "lab1-foundry-project-models": (
-        ("lab1a_identity_project.py", "lab1a_walkthrough.ipynb", "1", "lab1", "a"),
-        ("lab1b_models_verify.py", "lab1b_walkthrough.ipynb", "1", "lab1", "b"),
+    "foundry-project-models": (
+        ("lab1_identity_project.py", "lab1_walkthrough.ipynb", "1", "lab1", "a"),
+        ("lab2_models_verify.py", "lab2_walkthrough.ipynb", "2", "lab1", "b"),
     ),
-    "lab2-hosted-agent-basics": (
-        ("lab2a_tools_local.py", "lab2a_walkthrough.ipynb", "2", "lab2", "a"),
-        ("lab2b_deploy_invoke.py", "lab2b_walkthrough.ipynb", "2", "lab2", "b"),
+    "hosted-agent-basics": (
+        ("lab3_tools_local.py", "lab3_walkthrough.ipynb", "3", "lab2", "a"),
+        ("lab4_deploy_invoke.py", "lab4_walkthrough.ipynb", "4", "lab2", "b"),
     ),
-    "lab3-hosted-knowledge-sessions": (
-        ("lab3a_knowledge_retrieval.py", "lab3a_walkthrough.ipynb", "3", "lab3", "a"),
-        ("lab3b_sessions_resiliency.py", "lab3b_walkthrough.ipynb", "3", "lab3", "b"),
+    "hosted-knowledge-sessions": (
+        ("lab5_knowledge_retrieval.py", "lab5_walkthrough.ipynb", "5", "lab3", "a"),
+        ("lab6_sessions_resiliency.py", "lab6_walkthrough.ipynb", "6", "lab3", "b"),
     ),
-    "lab4-hosted-multi-agent-handoff": (
-        ("lab4a_specialist_orchestration.py", "lab4a_walkthrough.ipynb", "4", "lab4", "a"),
-        ("lab4b_advisor_recovery.py", "lab4b_walkthrough.ipynb", "4", "lab4", "b"),
+    "hosted-multi-agent-handoff": (
+        ("lab7_specialist_orchestration.py", "lab7_walkthrough.ipynb", "7", "lab4", "a"),
+        ("lab8_advisor_recovery.py", "lab8_walkthrough.ipynb", "8", "lab4", "b"),
     ),
-    "lab5-operate-hosted-agents": (
-        ("lab5a_tracing_evaluation.py", "lab5a_walkthrough.ipynb", "5", "lab5", "a"),
-        ("lab5b_release_rollback.py", "lab5b_walkthrough.ipynb", "5", "lab5", "b"),
+    "operate-hosted-agents": (
+        ("lab9_tracing_evaluation.py", "lab9_walkthrough.ipynb", "9", "lab5", "a"),
+        ("lab10_release_rollback.py", "lab10_walkthrough.ipynb", "10", "lab5", "b"),
     ),
-    "stretch6-prompt-agents-and-workflows": (
-        ("stretch6a_prompt_agents.py", "stretch6a_walkthrough.ipynb", "S6", "stretch6", "a"),
-        ("stretch6b_workflows_delegation.py", "stretch6b_walkthrough.ipynb", "S6", "stretch6", "b"),
+    "prompt-agents-and-workflows": (
+        ("lab11_prompt_agents.py", "lab11_walkthrough.ipynb", "11", "stretch6", "a"),
+        ("lab12_workflows_delegation.py", "lab12_walkthrough.ipynb", "12", "stretch6", "b"),
     ),
-    "stretch7-invocations-toolbox-skills": (
-        ("stretch7a_invocations.py", "stretch7a_walkthrough.ipynb", "S7", "stretch7", "a"),
-        ("stretch7b_skills_toolbox.py", "stretch7b_walkthrough.ipynb", "S7", "stretch7", "b"),
+    "invocations-toolbox-skills": (
+        ("lab13_invocations.py", "lab13_walkthrough.ipynb", "13", "stretch7", "a"),
+        ("lab14_skills_toolbox.py", "lab14_walkthrough.ipynb", "14", "stretch7", "b"),
     ),
 }
 PREREQUISITES = {
@@ -59,6 +60,10 @@ PREREQUISITES = {
     "lab4": {("lab3", "hosted.json", 3)},
     "lab5": {("lab3", "hosted.json", 3), ("lab3", "knowledge.json", 3)},
     "stretch6": {("lab3", "knowledge.json", 3), ("lab3", "hosted.json", 3)},
+}
+LAB_DEPENDENCIES = {
+    1: (), 2: (1,), 3: (2,), 4: (3,), 5: (4,), 6: (5,), 7: (6,), 8: (7,),
+    9: (6,), 10: (9,), 11: (6,), 12: (11,), 13: (2,), 14: (13,),
 }
 
 
@@ -162,6 +167,9 @@ def main() -> None:
     if actual_notebooks != expected_notebooks:
         raise ValueError(f"Workshop must contain exactly fourteen expected walkthroughs: "
                          f"missing={expected_notebooks - actual_notebooks}, unexpected={actual_notebooks - expected_notebooks}")
+    numbers = [int(prefix) for parts in WALKTHROUGHS.values() for _, _, prefix, _, _ in parts]
+    if numbers != list(range(1, 15)):
+        raise ValueError("Learner notebooks must be numbered consecutively from Lab 1 through Lab 14.")
     # The original callable drivers retain the cumulative artifact prerequisites.
     for directory, (script_name, _, _, lab) in INTERNAL_DRIVERS.items():
         source = ROOT / "labs" / directory / script_name
@@ -177,10 +185,20 @@ def main() -> None:
         if notebook != build_notebook(script, seed=source.stem):
             raise ValueError(f"Regenerate {path} from {source}")
         title = "".join(notebook["cells"][0]["source"]).splitlines()[0]
-        label = f"Stretch {prefix[1:]}" if prefix.startswith("S") else f"Lab {prefix}"
-        expected_title = f"# {label}{part.upper()}:"
+        expected_title = f"# Lab {prefix}:"
         if not title.startswith(expected_title):
             raise ValueError(f"{path}: expected notebook title {expected_title!r}, got {title!r}")
+        introduction = "".join(notebook["cells"][0]["source"])
+        if "**Prerequisites:**" not in introduction:
+            raise ValueError(f"{path}: document this lab's prerequisites before execution")
+        for predecessor in LAB_DEPENDENCIES[int(prefix)]:
+            if not re.search(rf"\bLab {predecessor}\b", introduction):
+                raise ValueError(f"{path}: missing documented prerequisite Lab {predecessor}")
+        if source.stem.split("_", 1)[0] != f"lab{prefix}" \
+                or notebook_name != f"lab{prefix}_walkthrough.ipynb":
+            raise ValueError(f"{path}: source and notebook names must use Lab {prefix}")
+        if any(number != prefix for number in re.findall(r"\bStep (\d+)\.", script)):
+            raise ValueError(f"{path}: step references must use this lab's number, {prefix}")
         tree = ast.parse(script, filename=str(source))
         validate_checkpoint_contract(tree, lab, part)
         step_problems = validate_step_ids(notebook, prefix) + validate_cell_descriptions(notebook)
@@ -207,7 +225,7 @@ def main() -> None:
     for name in ("marketplace_data", "session_store", "message_store"):
         run(f"common/{name}.py")
     run("-m", "unittest", "discover", "-s", "tests", "-v")
-    run("-m", "unittest", "discover", "-s", "labs/stretch6-prompt-agents-and-workflows",
+    run("-m", "unittest", "discover", "-s", "labs/prompt-agents-and-workflows",
         "-p", "test_stretch6_offline.py", "-v")
     with tempfile.TemporaryDirectory(prefix="foundry-workshop-check-") as directory:
         sandbox_repo = Path(directory) / "repository"
@@ -233,10 +251,10 @@ def main() -> None:
                            env=environment, check=True)
         subprocess.run([
             sys.executable,
-            str(sandbox / "labs/stretch7-invocations-toolbox-skills/hosted-invocations/test_local.py"),
+            str(sandbox / "labs/invocations-toolbox-skills/hosted-invocations/test_local.py"),
             "--offline",
         ], cwd=sandbox, env=environment, check=True)
-    print("Offline workshop checks passed: fourteen A/B notebooks and five hosted package snapshots. "
+    print("Offline workshop checks passed: Labs 1-14 and five hosted package snapshots. "
           "Azure and container-build checks are separate.")
 
 

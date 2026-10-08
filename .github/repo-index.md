@@ -7,7 +7,7 @@
 - `observability-and-evaluations/`: tracing, evaluator and red-team notebooks.
 - `hosted-agents/`: small deployable examples for the Responses and Invocations protocols.
 - `AgentOps/`: standalone GitOps example with infrastructure and tests.
-- `build-and-operate-foundry-agents/`: cumulative Healthcare Marketplace workshop; five core lab pairs and two stretch pairs, run only through fourteen Jupyter notebooks.
+- `build-and-operate-foundry-agents/`: cumulative Healthcare Marketplace workshop; core Labs 1-10 and optional Labs 11-14, run only through fourteen Jupyter notebooks.
 - `byouc/`: use-case specification templates.
 
 ## Boundaries and navigation
@@ -21,17 +21,23 @@
 - Workshop entry point: `build-and-operate-foundry-agents/README.md` and `SETUP.md`.
 - Workshop customer collateral: `build-and-operate-foundry-agents/Datasheets/` contains editable HTML sources and rendered PDF/Word deliverables.
 - Workshop implementation: `common/` (data, environment and state), `data/` (synthetic fixtures), `labs/` (notebooks and adjacent authoring sources).
-- First lab: `labs/lab1-foundry-project-models/` creates a project in an approved existing Foundry account, deploys chat/embedding models, and saves the notebook configuration and `artifacts/lab1/project.json`.
-- Notebook pairs stay in their original lab directories: `lab1a/b_walkthrough.ipynb` through
-  `lab5a/b_walkthrough.ipynb`, then `stretch6a/b_walkthrough.ipynb` and `stretch7a/b_walkthrough.ipynb`.
-  A/B authoring sources are adjacent; the original combined Python drivers remain internal reusable helpers.
+- Labs 1-2: `labs/foundry-project-models/` creates a project in an approved existing Foundry account,
+  deploys chat/embedding models, and saves the notebook configuration and `artifacts/lab1/project.json`.
+- Numbered learner entry points: `lab1_walkthrough.ipynb` through `lab14_walkthrough.ipynb` in seven
+  unnumbered topic folders: `foundry-project-models`, `hosted-agent-basics`, `hosted-knowledge-sessions`,
+  `hosted-multi-agent-handoff`, `operate-hosted-agents`, `prompt-agents-and-workflows`, and
+  `invocations-toolbox-skills`. Adjacent `labN_*.py` files author each notebook; original combined
+  Python drivers remain internal reusable helpers.
 - Part handoffs: `common/notebook_parts.py` stores explicit JSON state and evidence fingerprints in
-  `labs/artifacts/<lab>/part_a.json` and `part_b.json`. Part B starts in a fresh kernel,
-  validates current project/model scope and unchanged evidence, and does not replay Part A cloud operations.
-- Lab 3 conversation history: Azure Blob/Azurite or files; shared storage utilities retain optional backend implementations, but Redis is not a learner prerequisite or default.
-- Lab 3 Search configuration: `labs/lab3-hosted-knowledge-sessions/knowledge_base.py` resolves underlying model identities separately from attendee-scoped deployment aliases.
+  `labs/artifacts/<topic-namespace>/part_a.json` and `part_b.json`. Stable namespaces `lab1` through
+  `lab5`, `stretch6` and `stretch7` are not learner numbers; `LAB_NUMBERS` maps their recovery messages.
+  Each notebook restores scoped, unchanged predecessor evidence in a fresh kernel without replaying
+  cloud operations. Dependency navigation is in `labs/README.md`; Labs 9 and 11 branch from Lab 6,
+  while Lab 13 requires only Lab 2.
+- Labs 5-6 conversation history: Azure Blob/Azurite or files; shared storage utilities retain optional backend implementations, but Redis is not a learner prerequisite or default.
+- Labs 5-6 Search configuration: `labs/hosted-knowledge-sessions/knowledge_base.py` resolves underlying model identities separately from attendee-scoped deployment aliases.
 - Hosted model resilience: `common/model_resilience.py` provides visible, retry-header-aware Agent Framework
-  throttling retries and consistent failed Responses payload handling for Labs 2-4 and Stretch 7.
+  throttling retries and consistent failed Responses payload handling for Labs 3-8 and 13-14.
 - Workshop resource lifecycle: `common/resource_names.py` applies one attendee suffix to every created
   agent, evaluation, Search resource and project connection; `tools/cleanup_workshop.py` provides
   dry-run-first cleanup for one suffix or every workshop suffix without deleting shared infrastructure.
@@ -51,9 +57,13 @@
 - Deployment integration: `labs/deployment.py`; explicit notebook cells invoke deployment tooling, and Python holds validation/logic.
 - Notebooks: edit adjacent `# %%` authoring sources and regenerate with `tools/py_to_ipynb.py`; give each code cell a preceding one-sentence description and keep CLI-only entry points out of learner notebooks.
 - Lab teaching alignment: `labs/README.md`, each lab README, and Markdown cells in the fourteen adjacent
-  A/B authoring sources connect outcomes to engineering decisions, acceptance evidence and measurement limits.
+  numbered authoring sources connect outcomes to engineering decisions, prerequisites, acceptance evidence and measurement limits.
 - Offline checks: the workshop's `tools/validate_workshop.py` and `tests/`, plus `.github/workflows/workshop-validate.yml`. Validation checks notebook cells, dependency pins, self-tests, regression tests and all five hosted packages in a temporary copy.
-- Cloud pipeline: Lab 5's nested workflow is an opt-in template, not an active deployment workflow.
+- Checkpoint/retry coverage: `tests/test_split_labs_1_3.py`, `test_split_labs_4_7.py`, and
+  `test_notebook_parts.py` retain internal topic namespace names. `test_py_to_ipynb.py` checks
+  Labs 1-14 numbering, prerequisites, navigation and source parity. `test_project_setup.py`
+  covers provisioning; `test_lab4_workflow.py` covers real graph/streaming/human-approval behavior offline.
+- Cloud pipeline: Labs 9-10's nested workflow is an opt-in template, not an active deployment workflow.
 - Shared RBAC setup: `scripts/setup-permissions.ps1` (PowerShell 7 in the dev container).
 
 ## Conventions
@@ -65,44 +75,6 @@ Presentation decks and slide-build plans belong outside the runnable lab track.
 
 ## Freshness
 
-Baseline: `ec19e83bc42f4a332d46a9b9a4e6a6b0361d0ab9` (after squashing the initial workshop commits).
-Pending additions considered: `.gitattributes`, `.vscode/settings.json`,
-`.github/skills/repo-index/SKILL.md`, and this index; related updates to `.gitignore`
-and `.github/copilot-instructions.md` establish shared LF settings and index startup/maintenance rules.
-Updated for the replacement of `foundry-hosted-agents-labs/` with `build-and-operate-foundry-agents/`,
-the shared dev-container Redis service, Bash/Python deployment path and offline validation workflow.
-Updated for attendee-scoped resource naming, dry-run cleanup, startup Redis configuration and enforced
-lab-specific step identifiers in generated walkthrough notebooks.
-Updated for optional Azure Blob conversation history and the local Azurite emulator in Lab 2.
-Removed the workshop's `deck/` directory on 2026-09-30; runnable lab assets remain in place.
-Also removed seven facilitator/authoring documents and the old top-level workshop `infra/`
-scaffolding. A self-contained private Standard Agent `infra/` implementation is pending addition;
-Lab 4's `infra/README.md`, hosted packaging rules and runnable lab assets remain.
-Lab 2 history is limited to Azure Blob/Azurite or files, and Lab 3 uses file-backed session state;
-shared Redis remains available to generic store configurations.
-Added `build-and-operate-foundry-agents/common/model_resilience.py` for shared hosted-agent rate-limit
-handling and Responses failure reporting; updated affected drivers, hosted entry points, and generated notebooks.
-Added the two-page Build and Operate Foundry Agents workshop datasheet, Word version, and editable HTML source under
-`build-and-operate-foundry-agents/Datasheets/`.
-Lab 4 handler-registration and human-approval regression tests are in
-`build-and-operate-foundry-agents/tests/test_lab4_workflow.py` (real workflow, offline packet writer and
-streaming AgentExecutor graph). Lab 4 designates only the advisor coordinator as the final-output executor;
-specialist streaming updates are intermediate outputs.
-Baseline for this addition: `e34129302cdfbff4ed1a41defa5c9b930641a5da`; pending structural change considered:
-the new Lab 3 regression test file.
-Baseline for the lab-alignment documentation pass: `1d7fdc56a41928596ff64b6d2d7efb66a3c89331`.
-Pending changes considered: the lab overview, core and stretch READMEs, artifact and infrastructure guidance,
-six Python Markdown-cell sources, and their regenerated walkthrough notebooks. No runtime architecture,
-dependencies, executable cells, deployment workflow, storage implementation, or artifact contract changed.
-Baseline for the sanitized workshop infrastructure addition: `2798ac5d51e00ed6d418d27c5f67dc9a813ba000`.
-Pending structural change considered: `build-and-operate-foundry-agents/infra/`, including the deployment
-README, ignored local tfvars convention, provider lock, complete Standard Agent resource graph and workshop
-environment outputs. This supersedes the registry-coupled draft and its PowerShell-only deployment checks.
-Baseline for the post-deployment validator: `15f9fdbca29b5137618ff947009cfa58d45e504f`.
-Pending structural change considered: `build-and-operate-foundry-agents/infra/post-deploy-validation.sh`
-and its README/index navigation updates.
-Pending structural change considered: `build-and-operate-foundry-agents/infra/troubleshoot-private-endpoint.sh`
-and its README/index navigation updates.
 Parent integration baseline: fork `f6e5d4c092139995b4700bcfe7cf04dfc634ad26` and
 parent `a92d5b746a08205c793dc27598c95529f11b0382`.
 Added prerequisite PDFs and their two generator scripts; retained the fork's Compose/Bash/PowerShell
@@ -113,17 +85,15 @@ the parallel `infra/public-network/` root and mocked policy tests, the parent in
 migration guide and ignore rules, workshop navigation updates and `tests/test_infra_network_variants.py`.
 Provider versions and private resource addresses are unchanged; signed Windows checksums are added to locks.
 
-Baseline for notebook-first enhancements: `f6e5d4c092139995b4700bcfe7cf04dfc634ad26`.
-Pending structural changes considered: the new Foundry project/model setup lab with its local
-`project_setup.py` helper and offline tests, the six existing lab directories/sources/notebooks shifted by one,
-and corresponding artifact, validation and pipeline references. Learners use the Jupyter notebooks;
-adjacent Python sources, catch-up helpers and command-line tools remain internal authoring/CI utilities.
-Lab 3's exercises no longer require `RUN_LAB2_*` environment switches.
-Converter tests are in `tests/test_py_to_ipynb.py`; provisioning and notebook environment
-regressions are in `tests/test_project_setup.py` and `tests/test_notebook_environment.py`.
-
-Baseline for the fourteen-notebook split: `5ab47d7c6823590f482215922cd5e4d1c0f3f156`.
-Pending structural changes considered: fourteen paired authoring sources/notebooks replacing the seven
-combined learner walkthroughs, shared scope-bound checkpoint support, split regression tests, and updated
-navigation/generation validation. Original cumulative artifact names and hosted package directories remain
-stable; each half also publishes its own successful checkpoint.
+Baseline: `a6cac9ae9b79e8da29c4fadc7a6a8b31a23a2c32`.
+Pending structural changes considered: renaming the seven numbered topic directories and fourteen
+paired learner source/notebook filenames to sequential Labs 1-14; updating path consumers, generation
+validation, dependency guides and checkpoint recovery messages. Original internal drivers, artifact
+namespaces, hosted package basenames, cloud APIs and dependency pins remain compatible.
+The workshop uses notebook-only Python 3.14 dev-container execution, attendee-scoped naming,
+Blob/Azurite or file history, and explicit acceptance before cloud actions. Generic store utilities
+may retain Redis support, but Redis is not a workshop prerequisite.
+Private Standard Agent infrastructure, read-only troubleshooting scripts and customer datasheets
+remain in their indexed locations. Labs 7-8 emit final workflow output only from the advisor
+coordinator; streaming specialist updates are intermediate. No live Azure outcome is established
+by offline validation.

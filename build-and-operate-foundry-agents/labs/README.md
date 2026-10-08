@@ -1,8 +1,8 @@
 # Foundry Agents Labs
 
 One [Healthcare Marketplace use case](../USE-CASE.md), one synthetic data set,
-one cumulative solution. Five core labs progress from project/model setup to
-operating hosted agents; two stretch labs compare platform-managed ownership
+one cumulative solution. Labs 1-10 progress from project/model setup to
+operating hosted agents; optional Labs 11-14 compare platform-managed ownership
 and additional protocols/tools.
 
 Use the repository Python 3.14 dev container. Open the `.ipynb` listed below,
@@ -23,33 +23,39 @@ terminal or interactive-cell learner entry points. Runtime files such as
 
 ## Sequence and artifact chain
 
-| # | Notebook | Builds | Checkpoint |
-|---|---|---|---|
-| 1A | [Identity and project](lab1-foundry-project-models/lab1a_walkthrough.ipynb) | Project in an existing Foundry account | `artifacts/lab1/part_a.json` |
-| 1B | [Models and verification](lab1-foundry-project-models/lab1b_walkthrough.ipynb) | Chat and embedding deployments | `artifacts/lab1/part_b.json`, `project.json` and verified settings persisted to the repository-root `.env` |
-| 2A | [Tools and local testing](lab2-hosted-agent-basics/lab2a_walkthrough.ipynb) | Typed-tool concierge over Responses and local tests | `artifacts/lab2/part_a.json` |
-| 2B | [Deploy and invoke](lab2-hosted-agent-basics/lab2b_walkthrough.ipynb) | Hosted version and invocation | `artifacts/lab2/part_b.json`, `hosted.json`, `transcripts.md` |
-| 3A | [Knowledge and retrieval](lab3-hosted-knowledge-sessions/lab3a_walkthrough.ipynb) | Search indexes, Foundry IQ knowledge and identity connection | `artifacts/lab3/part_a.json`, `knowledge.json` |
-| 3B | [Sessions and resiliency](lab3-hosted-knowledge-sessions/lab3b_walkthrough.ipynb) | External history and restart continuity | `artifacts/lab3/part_b.json`, `hosted.json`, `sessions/` |
-| 4A | [Specialist orchestration](lab4-hosted-multi-agent-handoff/lab4a_walkthrough.ipynb) | Specialist workflow and bounded review | `artifacts/lab4/part_a.json` |
-| 4B | [Advisor approval and recovery](lab4-hosted-multi-agent-handoff/lab4b_walkthrough.ipynb) | Advisor approval and pending-state recovery | `artifacts/lab4/part_b.json`, `handoff_packets/`, `hosted.json`, `sessions/` |
-| 5A | [Tracing and evaluation](lab5-operate-hosted-agents/lab5a_walkthrough.ipynb) | Tracing, evaluation and release gate | `artifacts/lab5/part_a.json`, `eval_report.md`, `gate_result.json` |
-| 5B | [Release and rollback](lab5-operate-hosted-agents/lab5b_walkthrough.ipynb) | Operating runbook, promotion and rollback | `artifacts/lab5/part_b.json`, `pipeline.md` |
-| S6A | [Prompt agents](stretch6-prompt-agents-and-workflows/stretch6a_walkthrough.ipynb) | Platform prompt agents | `artifacts/stretch6/part_a.json` |
-| S6B | [Workflows and delegation](stretch6-prompt-agents-and-workflows/stretch6b_walkthrough.ipynb) | Platform workflows and hosted delegation | `artifacts/stretch6/part_b.json`, `agents.json`, `handoff_packets/S1.json` |
-| S7A | [Invocations](stretch7-invocations-toolbox-skills/stretch7a_walkthrough.ipynb) | Structured denied-claim reviews | `artifacts/stretch7/part_a.json`, `invocations.json`, `claim_reviews/` |
-| S7B | [Skills and Toolbox](stretch7-invocations-toolbox-skills/stretch7b_walkthrough.ipynb) | Skills and optional Toolbox | `artifacts/stretch7/part_b.json`, `skills_transcript.md` |
+| # | Notebook | Prerequisite | Builds | Checkpoint |
+|---|---|---|---|---|
+| 1 | [Identity and project](foundry-project-models/lab1_walkthrough.ipynb) | Approved account and permissions | Project in an existing Foundry account | `artifacts/lab1/part_a.json` |
+| 2 | [Models and verification](foundry-project-models/lab2_walkthrough.ipynb) | Lab 1 | Chat and embedding deployments | `artifacts/lab1/part_b.json`, `project.json` and verified settings persisted to the repository-root `.env` |
+| 3 | [Tools and local testing](hosted-agent-basics/lab3_walkthrough.ipynb) | Lab 2; hosted-agent enablement | Typed-tool concierge over Responses and local tests | `artifacts/lab2/part_a.json` |
+| 4 | [Deploy and invoke](hosted-agent-basics/lab4_walkthrough.ipynb) | Lab 3 | Hosted version and invocation | `artifacts/lab2/part_b.json`, `hosted.json`, `transcripts.md` |
+| 5 | [Knowledge and retrieval](hosted-knowledge-sessions/lab5_walkthrough.ipynb) | Lab 4; shared Search access | Search indexes, Foundry IQ knowledge and identity connection | `artifacts/lab3/part_a.json`, `knowledge.json` |
+| 6 | [Sessions and resiliency](hosted-knowledge-sessions/lab6_walkthrough.ipynb) | Lab 5 | External history and restart continuity | `artifacts/lab3/part_b.json`, `hosted.json`, `sessions/` |
+| 7 | [Specialist orchestration](hosted-multi-agent-handoff/lab7_walkthrough.ipynb) | Lab 6 | Specialist workflow and bounded review | `artifacts/lab4/part_a.json` |
+| 8 | [Advisor approval and recovery](hosted-multi-agent-handoff/lab8_walkthrough.ipynb) | Lab 7 | Advisor approval and pending-state recovery | `artifacts/lab4/part_b.json`, `handoff_packets/`, `hosted.json`, `sessions/` |
+| 9 | [Tracing and evaluation](operate-hosted-agents/lab9_walkthrough.ipynb) | Lab 6; telemetry permissions | Tracing and measured evaluation baseline | `artifacts/lab5/part_a.json`, `eval_report.md`, `evaluation_bundle.json`, `pipeline.md` |
+| 10 | [Release and rollback](operate-hosted-agents/lab10_walkthrough.ipynb) | Lab 9 | Release gate, promotion and rollback rehearsal | `artifacts/lab5/part_b.json`, `gate_result.json`, `release_plan.json` |
+| 11 | [Prompt agents](prompt-agents-and-workflows/lab11_walkthrough.ipynb) | Lab 6 | Platform prompt agents | `artifacts/stretch6/part_a.json` |
+| 12 | [Workflows and delegation](prompt-agents-and-workflows/lab12_walkthrough.ipynb) | Lab 11 | Platform workflows and hosted delegation | `artifacts/stretch6/part_b.json`, `agents.json`, `handoff_packets/S1.json` |
+| 13 | [Invocations](invocations-toolbox-skills/lab13_walkthrough.ipynb) | Lab 2 | Structured denied-claim reviews | `artifacts/stretch7/part_a.json`, `invocations.json`, `claim_reviews/` |
+| 14 | [Skills and Toolbox](invocations-toolbox-skills/lab14_walkthrough.ipynb) | Lab 13 | Skills and optional Toolbox | `artifacts/stretch7/part_b.json`, `skills_transcript.md` |
 
-Each A/B pair runs in order but does not share kernel state: B reads A's validated
-`part_a.json` in a fresh kernel, restores required locals, and writes
-`part_b.json`. Do not run A from B or rerun provisioning/evaluation solely to
-restore variables. The original cumulative final checkpoints remain unchanged.
+Each numbered lab can start in a fresh kernel. Its prerequisite cells validate
+the producing lab's project/model scope, attendee suffix and evidence before
+restoring required variables. Reuse checkpoints, cloud resources and shared
+topic-folder product code; do not rerun provisioning or evaluation merely to
+restore kernel state. Changed inputs or source require fresh acceptance evidence.
 
-Lab 1 supplies configuration for every later notebook. Lab 2 supplies the
-concierge baseline for Lab 3. Lab 3's hosted and knowledge checkpoints feed Lab 4,
-Lab 5 and Stretch 6. Lab 5 evaluates the Lab 3 concierge; Lab 4's packet metadata
-is optional, not required evaluation input. Stretch 7 shares the setup and
-packaging conventions rather than depending on Lab 5's report.
+Labs 9 and 11 reuse Lab 6's concierge and knowledge rather than requiring Lab 8.
+Lab 8's packet metadata is optional evaluation context, not required input.
+Lab 13 depends only on Lab 2's verified configuration; it does not require the
+operations report or platform workflow.
+
+Artifact directories `lab1` through `lab5`, `stretch6` and `stretch7` retain the
+seven original topic namespaces. Their `part_a.json` and `part_b.json` files
+are internal handoff names, **not learner lab numbers**. For example, Lab 5
+publishes knowledge under `artifacts/lab3`, which Lab 6 reuses without rebuilding.
+The cumulative final checkpoint contracts remain unchanged.
 
 Missing a checkpoint? Reopen its producing notebook and rerun the required
 cells. Check acceptance output as well as artifact existence; do not fabricate
@@ -57,49 +63,49 @@ files to bypass prerequisite gates.
 
 ## What you'll learn
 
-### Lab 1: Foundry project and models
+### Labs 1-2: Foundry project and models
 
 - Distinguish an administrator-owned account from a learner project.
 - Choose supported chat/embedding deployment names, versions and capacity.
 - Authenticate, provision, verify and persist configuration through editable notebook inputs.
 - Explain separate management/data-plane permissions and quota constraints.
 
-### Lab 2: Hosted basics
+### Labs 3-4: Hosted basics
 
 - Build an `Agent` on `FoundryChatClient` with typed `@tool` functions and shared compliance instructions.
 - Serve Responses locally and invoke the deployed agent-specific OpenAI endpoint.
 - Prepare a flat, pinned product package; explain Foundry's remote build, identity and immutable versions.
 - Distinguish deploy and invoke roles and diagnose failed startup versus `session_not_ready`.
 
-### Lab 3: Knowledge and session continuity
+### Labs 5-6: Knowledge and session continuity
 
 - Create Search indexes, knowledge sources, a Foundry IQ knowledge base and a managed-identity connection.
 - Attach `MCPStreamableHTTPTool` using Entra authentication and verify grounded citations.
 - Separate message history from session mapping and prove local restart continuity.
 - Require shared Azure Blob history before claiming deployed replica/version continuity.
 
-### Lab 4: Multi-agent handoff
+### Labs 7-8: Multi-agent handoff
 
 - Build explicit fan-out/fan-in with `WorkflowBuilder`, custom executors and agent nodes.
 - Bound compliance reflection to one revision and produce strict Pydantic handoff packets.
 - Pause with `ctx.request_info` and accept an advisor decision on the next HTTP turn.
 - Recover a pending packet after a local restart without claiming file-backed replica continuity.
 
-### Lab 5: Operate
+### Labs 9-10: Operate
 
 - Correlate notebook/hosted OpenTelemetry spans in Application Insights.
 - Combine Groundedness/Relevance judges with deterministic policy evaluators.
 - Fail closed on malformed evidence or a safety violation before promotion.
 - Inspect version promotion, rollback and an opt-in OIDC cloud pipeline with protected environments.
 
-### Stretch 6: Platform-managed agents
+### Labs 11-12: Platform-managed agents
 
 - Create versioned `PromptAgentDefinition` and declarative workflow definitions.
 - Explain why client-side function tools need a caller, while platform workflows need pre-fetched facts.
 - Inspect workflow-action routing and delegate from the hosted concierge.
 - Choose by ownership and lifecycle, not an assumed maturity or cost advantage.
 
-### Stretch 7: Invocations, Skills and Toolbox
+### Labs 13-14: Invocations, Skills and Toolbox
 
 - Contrast structured stateless Invocations with multi-turn Responses.
 - Keep claim facts deterministic and bound the model to explanation fields.
@@ -121,9 +127,9 @@ gate PASS is not a production compliance certification.
 ## Facilitator and author guidance
 
 Rehearse the same notebook path on the approved Azure account and network.
-Confirm identity permissions and propagation before the relevant lab. Lab 3's
+Confirm identity permissions and propagation before the relevant lab. Lab 6's
 restart demo should show two process IDs and the actual history backend.
-Lab 5 must match a newly generated trace ID, not an old portal record.
+Lab 9 must match a newly generated trace ID, not an old portal record.
 
 Internal author tooling regenerates notebooks from the adjacent sources and
 offline CI checks source alignment, contracts and regression tests. It is not

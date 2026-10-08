@@ -14,7 +14,7 @@ from azure.core.exceptions import ResourceExistsError, ResourceModifiedError, Re
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "labs"))
 import deployment  # noqa: E402
-LAB3_DIR = ROOT / "labs/lab3-hosted-knowledge-sessions"
+LAB3_DIR = ROOT / "labs/hosted-knowledge-sessions"
 sys.path.insert(0, str(LAB3_DIR))
 import lab3_hosted_knowledge  # noqa: E402
 from common import message_store

@@ -149,7 +149,7 @@ def contains_recommendation(text: str) -> bool:
 
     Heuristic only: it looks for phrases such as "you should enroll in", "I recommend",
     "the best plan for you is" and "pick plan". A match that is immediately followed by
-    handoff wording (advisor, licensed, speak with) is ignored. Lab 5 measures the real
+    handoff wording (advisor, licensed, speak with) is ignored. Lab 9 measures the real
     rate with a model-graded evaluator; this function is the cheap local check.
     """
     if not isinstance(text, str) or not text:

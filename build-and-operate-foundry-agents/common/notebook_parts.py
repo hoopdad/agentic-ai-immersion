@@ -1,4 +1,4 @@
-"""Durable, scope-bound handoffs between independently runnable notebook halves."""
+"""Durable, scope-bound handoffs between numbered learner labs."""
 from __future__ import annotations
 
 import hashlib
@@ -18,6 +18,20 @@ SCOPE_KEYS = {
 }
 SECRET_KEYS = {"access_token", "refresh_token", "id_token", "password", "secret",
                "api_key", "account_key", "azure_openai_api_key", "azure_ai_search_api_key"}
+LAB_NUMBERS = {
+    "lab1": {"a": 1, "b": 2},
+    "lab2": {"a": 3, "b": 4},
+    "lab3": {"a": 5, "b": 6},
+    "lab4": {"a": 7, "b": 8},
+    "lab5": {"a": 9, "b": 10},
+    "stretch6": {"a": 11, "b": 12},
+    "stretch7": {"a": 13, "b": 14},
+}
+
+
+def lab_label(lab: str, part: str) -> str:
+    """Translate stable artifact namespaces to the learner's sequential lab number."""
+    return f"Lab {LAB_NUMBERS[lab][part]}"
 
 
 def scope(env: dict[str, str]) -> dict[str, str]:
@@ -54,7 +68,8 @@ def _validate_state(value: Any) -> None:
 
 
 def _artifact_root(path: Path, lab: str, part: str) -> Path:
-    if part not in {"a", "b"} or path.name != f"part_{part}.json" or path.parent.name != lab:
+    if lab not in LAB_NUMBERS or part not in {"a", "b"} \
+            or path.name != f"part_{part}.json" or path.parent.name != lab:
         raise ValueError("Use the lab's artifacts directory and part_a.json or part_b.json.")
     root = path.parent.parent.resolve()
     if root.name != "artifacts" or path.is_symlink() or path.parent.is_symlink():
@@ -111,7 +126,7 @@ def read_checkpoint(path: Path, *, lab: str, part: str, context: dict[str, str])
     try:
         record = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
-        raise RuntimeError(f"Run notebook {lab}{part.upper()} to publish a valid checkpoint: {path}") from exc
+        raise RuntimeError(f"Run {lab_label(lab, part)} to publish a valid checkpoint: {path}") from exc
     if not isinstance(record, dict) or record.get("schema_version") != 1 \
             or record.get("lab") != lab or record.get("part") != part \
             or record.get("context") != context:
@@ -127,5 +142,5 @@ def read_checkpoint(path: Path, *, lab: str, part: str, context: dict[str, str])
         except ValueError as exc:
             raise RuntimeError("Checkpoint evidence is missing or outside workshop artifacts.") from exc
         if hashlib.sha256(source.read_bytes()).hexdigest() != row.get("sha256"):
-            raise RuntimeError(f"Checkpoint evidence changed; rerun {lab}{part.upper()}: {source.name}")
+            raise RuntimeError(f"Checkpoint evidence changed; rerun {lab_label(lab, part)}: {source.name}")
     return record

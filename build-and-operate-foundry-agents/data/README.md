@@ -18,7 +18,7 @@ code depends on them, so add fields if you like but do not rename or remove any.
 | `plans.json` | 20 | Plan year 2027 individual plans sold in Utah counties Salt Lake, Utah, Davis and Weber: 6 Medicare Advantage (3 HMO, 3 PPO), 3 Medigap (2 Plan G, 1 Plan N), 3 Part D, 8 ACA (2 Bronze, 3 Silver, 3 Gold). Fields: plan_id, carrier, plan_name, plan_type, premium_monthly, deductible_annual, max_out_of_pocket, star_rating (null for Medigap), network_type, service_area_counties, state, drug_coverage, formulary_tier_examples, dental_vision, plan_year, highlights | search_plans, compare_plans |
 | `hra_accounts.json` | 6 | One HRA account per participant for plan year 2026: annual_allocation, balance, account_status, auto_reimbursement_enabled, debit_card {status, last4}, claims [{claim_id, type, amount, submitted, status, paid_date, reason}] | get_hra_account, get_claim_status |
 | `knowledge/*.md` | 9 docs | The knowledge base: Healthcare Marketplace functional documentation as Markdown with frontmatter (title, context, doc_id, last_reviewed). Contexts: marketplace (KB-MKT-001..004), accounts (KB-ACC-001..003), universal (KB-UNI-001, KB-UNI-002). KB-UNI-001 carries `audience: advisor` and is the advisor-only doc used to show a security filter | list_knowledge_docs, read_knowledge_doc, every knowledge lab |
-| `eval/golden_questions.jsonl` | 18 | Evaluation set, one JSON object per line: id, scenario, query, participant_id, context, expected_behavior, must_include, must_not | Lab 5 (evaluation of the hosted agent) |
+| `eval/golden_questions.jsonl` | 18 | Evaluation set, one JSON object per line: id, scenario, query, participant_id, context, expected_behavior, must_include, must_not | Labs 9-10 (evaluation of the hosted agent) |
 | `transcripts/call-00N.txt` | 3 | Synthetic call transcripts, `[hh:mm:ss] Advisor:` / `[hh:mm:ss] Participant:` lines, 27 turns each. call-001 is S1, call-002 is S2, call-003 is S3 | Anyone demonstrating PII redaction (`guardrails.redact_pii`) |
 
 ## The three scenarios and where their facts live
@@ -45,7 +45,7 @@ the relevant notebook's date configuration to use `2026-10-20` for S1 inside AEP
 
 `must_include` and `must_not` are substrings meant for a case-insensitive check that ignores thousands
 separators (a model may write `$2,210.00` or `2210`). They are guidance for graders, not an exact-match test;
-Lab 5 pairs them with model-graded evaluators (task adherence, groundedness, relevance, the
+Lab 9 pairs them with model-graded evaluators (task adherence, groundedness, relevance, the
 `no_plan_recommendation` label). Every line carries `"recommend a specific plan"` in `must_not` because that
 is the rule the whole workshop is built around. Coverage: plan comparison (GQ-01, 02, 10), enrollment windows
 (GQ-03, 09), denied claim (GQ-05, 06, 07), debit card (GQ-11, 12), premium auto-reimbursement (GQ-13),

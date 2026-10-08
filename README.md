@@ -99,7 +99,7 @@ agentic-ai-immersion-day/
 │   ├── common/                                 # marketplace_data, foundry_env, guardrails, session_store, message_store
 │   ├── data/                                   # synthetic participants, sponsors, plans, knowledge, golden questions
 │   ├── tools/py_to_ipynb.py                    # script -> notebook converter
-│   └── labs/                                   # lab1-foundry-project-models ... stretch7-invocations-toolbox-skills
+│   └── labs/                                   # foundry-project-models ... invocations-toolbox-skills
 │
 ├── 🧩 byouc/                                   # Bring Your Own Use Case
 │   ├── Agentic_UseCase_Spec.md                # Use case spec template (Markdown)
@@ -480,15 +480,15 @@ python -m pytest tests/unit tests/integration -q
 **Location:** `build-and-operate-foundry-agents/`
 
 A notebook-only lab sequence for engineers building benefits-marketplace agents on **Microsoft Foundry Hosted Agents**:
-Agent Framework code that Foundry builds into a container, versions and scales. Five core labs chain
-artifacts (Lab 1 project + models -> Lab 2 basics -> Lab 3 knowledge + sessions ->
-Lab 4 multi-agent handoff with human approval -> Lab 5 operate/evaluate/CI)
-around one use case, the Healthcare Marketplace Concierge, plus two stretch
-labs (prompt agents & workflow agents; Invocations protocol, Toolbox and Skills). Reuses this repo's dev
+Agent Framework code that Foundry builds into a container, versions and scales. Labs 1-10 chain
+artifacts (Labs 1-2 project + models -> Labs 3-4 basics -> Labs 5-6 knowledge + sessions ->
+Labs 7-8 multi-agent handoff with human approval -> Labs 9-10 operate/evaluate/CI)
+around one use case, the Healthcare Marketplace Concierge, with optional Labs 11-14
+(prompt agents & workflow agents; Invocations protocol, Toolbox and Skills). Reuses this repo's dev
 container, `.env` names, pinned requirements and RBAC script; extends the `hosted-agents/` and `AgentOps/`
-patterns. Each lab has independently runnable A/B notebooks (fourteen total) with
-validated checkpoints between halves. Start with
-[Lab 1A](build-and-operate-foundry-agents/labs/lab1-foundry-project-models/lab1a_walkthrough.ipynb).
+patterns. Fourteen sequentially numbered notebooks document their prerequisites and
+reuse validated checkpoints, resources and product code. Start with
+[Lab 1](build-and-operate-foundry-agents/labs/foundry-project-models/lab1_walkthrough.ipynb).
 Synthetic data only.
 
 📖 [Lab sequence guide](build-and-operate-foundry-agents/README.md) • [Use case](build-and-operate-foundry-agents/USE-CASE.md) • [Setup](build-and-operate-foundry-agents/SETUP.md)

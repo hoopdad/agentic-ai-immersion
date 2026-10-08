@@ -1,8 +1,8 @@
 # Build and Operate Foundry Agents
 
 A notebook-first workshop for healthcare marketplace engineers building the
-**Healthcare Marketplace Concierge** on Microsoft Foundry. Five core labs build
-one cumulative solution; two stretch labs compare platform-managed agents and
+**Healthcare Marketplace Concierge** on Microsoft Foundry. Labs 1-10 build
+one cumulative solution; optional Labs 11-14 compare platform-managed agents and
 additional hosted capabilities. All participant data is synthetic.
 
 Start with [SETUP.md](SETUP.md), read the [use case](USE-CASE.md), and follow the
@@ -26,25 +26,28 @@ learner run path.
 
 | # | Notebook | Outcome | Evidence passed onward |
 |---|---|---|---|
-| 1A | [Identity and project](labs/lab1-foundry-project-models/lab1a_walkthrough.ipynb) | Create a project in an existing admin-supplied Foundry account | `artifacts/lab1/part_a.json` |
-| 1B | [Models and verification](labs/lab1-foundry-project-models/lab1b_walkthrough.ipynb) | Provision chat and embedding deployments, verify access, persist downstream settings | `artifacts/lab1/part_b.json`, `project.json` and project/model configuration in the repository-root `.env` |
-| 2A | [Tools and local testing](labs/lab2-hosted-agent-basics/lab2a_walkthrough.ipynb) | Build a typed-tool concierge with shared compliance instructions and test locally | `artifacts/lab2/part_a.json` |
-| 2B | [Deploy and invoke](labs/lab2-hosted-agent-basics/lab2b_walkthrough.ipynb) | Deploy and inspect an immutable version | `artifacts/lab2/part_b.json`, `hosted.json`, transcripts |
-| 3A | [Knowledge and retrieval](labs/lab3-hosted-knowledge-sessions/lab3a_walkthrough.ipynb) | Build governed Foundry IQ knowledge | `artifacts/lab3/part_a.json`, `knowledge.json` |
-| 3B | [Sessions and resiliency](labs/lab3-hosted-knowledge-sessions/lab3b_walkthrough.ipynb) | Prove conversation continuity after a local restart; distinguish files from shared Blob history | `artifacts/lab3/part_b.json`, `hosted.json`, sessions |
-| 4A | [Specialist orchestration](labs/lab4-hosted-multi-agent-handoff/lab4a_walkthrough.ipynb) | Fan out to specialists and bound compliance reflection | `artifacts/lab4/part_a.json` |
-| 4B | [Advisor approval and recovery](labs/lab4-hosted-multi-agent-handoff/lab4b_walkthrough.ipynb) | Pause for advisor approval across HTTP turns and recover pending state | `artifacts/lab4/part_b.json`, `handoff_packets/`, `hosted.json` |
-| 5A | [Tracing and evaluation](labs/lab5-operate-hosted-agents/lab5a_walkthrough.ipynb) | Trace, evaluate and gate | `artifacts/lab5/part_a.json`, `eval_report.md`, `gate_result.json` |
-| 5B | [Release and rollback](labs/lab5-operate-hosted-agents/lab5b_walkthrough.ipynb) | Inspect promotion and rollback; review an opt-in cloud pipeline | `artifacts/lab5/part_b.json`, `pipeline.md` |
-| S6A | [Prompt agents](labs/stretch6-prompt-agents-and-workflows/stretch6a_walkthrough.ipynb) | Compare platform-managed prompt ownership with hosted code | `artifacts/stretch6/part_a.json` |
-| S6B | [Workflows and delegation](labs/stretch6-prompt-agents-and-workflows/stretch6b_walkthrough.ipynb) | Compare workflow ownership and delegate from the concierge | `artifacts/stretch6/part_b.json`, `agents.json`, handoff packet |
-| S7A | [Invocations](labs/stretch7-invocations-toolbox-skills/stretch7a_walkthrough.ipynb) | Contrast structured Invocations with Responses | `artifacts/stretch7/part_a.json`, `invocations.json`, claim reviews |
-| S7B | [Skills and Toolbox](labs/stretch7-invocations-toolbox-skills/stretch7b_walkthrough.ipynb) | Load governed Skills and optionally attach Toolbox | `artifacts/stretch7/part_b.json`, skills transcript |
+| 1 | [Identity and project](labs/foundry-project-models/lab1_walkthrough.ipynb) | Create a project in an existing admin-supplied Foundry account | `artifacts/lab1/part_a.json` |
+| 2 | [Models and verification](labs/foundry-project-models/lab2_walkthrough.ipynb) | Provision chat and embedding deployments, verify access, persist downstream settings | `artifacts/lab1/part_b.json`, `project.json` and project/model configuration in the repository-root `.env` |
+| 3 | [Tools and local testing](labs/hosted-agent-basics/lab3_walkthrough.ipynb) | Build a typed-tool concierge with shared compliance instructions and test locally | `artifacts/lab2/part_a.json` |
+| 4 | [Deploy and invoke](labs/hosted-agent-basics/lab4_walkthrough.ipynb) | Deploy and inspect an immutable version | `artifacts/lab2/part_b.json`, `hosted.json`, transcripts |
+| 5 | [Knowledge and retrieval](labs/hosted-knowledge-sessions/lab5_walkthrough.ipynb) | Build governed Foundry IQ knowledge | `artifacts/lab3/part_a.json`, `knowledge.json` |
+| 6 | [Sessions and resiliency](labs/hosted-knowledge-sessions/lab6_walkthrough.ipynb) | Prove conversation continuity after a local restart; distinguish files from shared Blob history | `artifacts/lab3/part_b.json`, `hosted.json`, sessions |
+| 7 | [Specialist orchestration](labs/hosted-multi-agent-handoff/lab7_walkthrough.ipynb) | Fan out to specialists and bound compliance reflection | `artifacts/lab4/part_a.json` |
+| 8 | [Advisor approval and recovery](labs/hosted-multi-agent-handoff/lab8_walkthrough.ipynb) | Pause for advisor approval across HTTP turns and recover pending state | `artifacts/lab4/part_b.json`, `handoff_packets/`, `hosted.json` |
+| 9 | [Tracing and evaluation](labs/operate-hosted-agents/lab9_walkthrough.ipynb) | Trace and evaluate once, preserving measured results | `artifacts/lab5/part_a.json`, `eval_report.md`, `evaluation_bundle.json`, `pipeline.md` |
+| 10 | [Release and rollback](labs/operate-hosted-agents/lab10_walkthrough.ipynb) | Gate the measured results; rehearse promotion and rollback without deployment | `artifacts/lab5/part_b.json`, `gate_result.json`, `release_plan.json` |
+| 11 | [Prompt agents](labs/prompt-agents-and-workflows/lab11_walkthrough.ipynb) | Compare platform-managed prompt ownership with hosted code | `artifacts/stretch6/part_a.json` |
+| 12 | [Workflows and delegation](labs/prompt-agents-and-workflows/lab12_walkthrough.ipynb) | Compare workflow ownership and delegate from the concierge | `artifacts/stretch6/part_b.json`, `agents.json`, handoff packet |
+| 13 | [Invocations](labs/invocations-toolbox-skills/lab13_walkthrough.ipynb) | Contrast structured Invocations with Responses | `artifacts/stretch7/part_a.json`, `invocations.json`, claim reviews |
+| 14 | [Skills and Toolbox](labs/invocations-toolbox-skills/lab14_walkthrough.ipynb) | Load governed Skills and optionally attach Toolbox | `artifacts/stretch7/part_b.json`, skills transcript |
 
-Run A before B for each lab: fourteen notebooks replace the seven monolithic
-walkthroughs. B starts in a fresh kernel and validates `part_a.json` against the
-current project and attendee scope before restoring its local variables.
-Both halves preserve the cumulative final artifact contracts passed onward.
+Follow Labs 1-14 using the [prerequisite table](labs/README.md#sequence-and-artifact-chain).
+Labs 9 and 11 branch from Lab 6; Lab 13 needs only Lab 2, so optional topics need
+not replay unrelated work. Each notebook can start in a fresh kernel and restores
+validated predecessor evidence instead of repeating provisioning or evaluation.
+Topic folders share product code. Existing `artifacts/lab1` through `lab5`,
+`stretch6`, `stretch7` and `part_a.json`/`part_b.json` names remain internal
+compatibility contracts, not learner lab numbers.
 
 Each hosted breakout retains teach, demo, exercise and checkpoint sections.
 Read its README first, then execute notebook cells in order, including each
@@ -55,21 +58,21 @@ explicit notebook actions, not dev-container bootstrap or offline CI actions.
 
 | Lab | Engineering decision |
 |---|---|
-| 1 | Account versus project scope, model capacity, Entra identity and reproducible configuration |
-| 2 | `FoundryChatClient`, typed `@tool` functions, `ResponsesHostServer`, flat packaging and immutable versions |
-| 3 | Search indexes, knowledge sources, MCP authentication, governed citations and external message history |
-| 4 | `WorkflowBuilder`, fan-out/fan-in, structured packets, bounded reflection, deterministic routing and human approval |
-| 5 | OpenTelemetry, model-judged quality, deterministic safety checks, fail-closed gates and release ownership |
-| S6 | `PromptAgentDefinition`, client tool execution, declarative workflows and delegated ownership |
-| S7 | `InvocationsHostServer`, deterministic facts with bounded model explanations, progressive-disclosure Skills and optional MCP Toolbox |
+| 1-2 | Account versus project scope, model capacity, Entra identity and reproducible configuration |
+| 3-4 | `FoundryChatClient`, typed `@tool` functions, `ResponsesHostServer`, flat packaging and immutable versions |
+| 5-6 | Search indexes, knowledge sources, MCP authentication, governed citations and external message history |
+| 7-8 | `WorkflowBuilder`, fan-out/fan-in, structured packets, bounded reflection, deterministic routing and human approval |
+| 9-10 | OpenTelemetry, model-judged quality, deterministic safety checks, fail-closed gates and release ownership |
+| 11-12 | `PromptAgentDefinition`, client tool execution, declarative workflows and delegated ownership |
+| 13-14 | `InvocationsHostServer`, deterministic facts with bounded model explanations, progressive-disclosure Skills and optional MCP Toolbox |
 
 ## State and guardrails
 
-Hosted containers may restart or scale out. Lab 3 demonstrates local restart
+Hosted containers may restart or scale out. Lab 6 demonstrates local restart
 continuity with files, or shared message history with an existing Azure Blob
 account/container. Azurite is an optional local Blob emulator, never a deployed
-endpoint. Lab 4's pending-packet session map is file-backed: it supports a local
-restart, not cross-replica or version-roll continuity. Lab 5 must inspect the
+endpoint. Labs 7-8's pending-packet session map is file-backed: it supports a local
+restart, not cross-replica or version-roll continuity. Lab 10 must inspect the
 actual backend before claiming rollback preserves conversation history.
 
 Every agent carries the shared compliance block: no plan recommendation or
@@ -80,7 +83,7 @@ evidence, not production compliance certification or cost-per-outcome results.
 ## Configuration and recovery
 
 The administrator supplies account details, permissions, network access and
-shared Search/telemetry resources. Edit Lab 1's notebook inputs instead of
+shared Search/telemetry resources. Edit Labs 1-2's notebook inputs instead of
 copying `.env` templates or running helper scripts. The notebook writes the root
 `.env` for downstream persistence; do not commit it or generated artifacts.
 Keep one unique attendee resource suffix throughout the sequence.

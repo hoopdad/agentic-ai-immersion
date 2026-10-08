@@ -30,10 +30,10 @@ def load(path: Path, name: str):
 
 converter = load(ROOT / "tools/py_to_ipynb.py", "split_4_7_converter")
 PARTS = {
-    "lab4": ("lab4-hosted-multi-agent-handoff", "lab4a_specialist_orchestration", "lab4b_advisor_recovery", "lab4_hosted_multi_agent"),
-    "lab5": ("lab5-operate-hosted-agents", "lab5a_tracing_evaluation", "lab5b_release_rollback", "lab5_operate"),
-    "stretch6": ("stretch6-prompt-agents-and-workflows", "stretch6a_prompt_agents", "stretch6b_workflows_delegation", "stretch6_prompt_agents"),
-    "stretch7": ("stretch7-invocations-toolbox-skills", "stretch7a_invocations", "stretch7b_skills_toolbox", "stretch7_invocations"),
+    "lab4": ("hosted-multi-agent-handoff", "lab7_specialist_orchestration", "lab8_advisor_recovery", "lab4_hosted_multi_agent"),
+    "lab5": ("operate-hosted-agents", "lab9_tracing_evaluation", "lab10_release_rollback", "lab5_operate"),
+    "stretch6": ("prompt-agents-and-workflows", "lab11_prompt_agents", "lab12_workflows_delegation", "stretch6_prompt_agents"),
+    "stretch7": ("invocations-toolbox-skills", "lab13_invocations", "lab14_skills_toolbox", "stretch7_invocations"),
 }
 ENV = {
     "PROJECT_RESOURCE_ID": "/subscriptions/offline/resourceGroups/workshop/providers/Microsoft.CognitiveServices/accounts/workshop/projects/project",
@@ -69,8 +69,8 @@ class SplitNotebookTests(unittest.TestCase):
         for lab, (folder, _, _, original) in PARTS.items():
             self.loaded[original] = load(ROOT / "labs" / folder / f"{original}.py", f"split_test_{original}")
             self.loaded[original].LABS_DIR = self.workspace
-        self.gate = load(ROOT / "labs/lab5-operate-hosted-agents/eval_gate.py", "split_test_gate")
-        self.promotion = load(ROOT / "labs/lab5-operate-hosted-agents/promote.py", "split_test_promotion")
+        self.gate = load(ROOT / "labs/operate-hosted-agents/eval_gate.py", "split_test_gate")
+        self.promotion = load(ROOT / "labs/operate-hosted-agents/promote.py", "split_test_promotion")
         self.modules = {**self.loaded, "eval_gate": self.gate, "promote": self.promotion}
         self.stack.enter_context(patch("subprocess.run", return_value=SimpleNamespace(returncode=0, stdout="offline")))
         self.stack.enter_context(patch.object(
@@ -107,7 +107,7 @@ class SplitNotebookTests(unittest.TestCase):
                     expected = converter.build_notebook(source.read_text(encoding="utf-8"), seed=stem)
                     actual = json.loads(source.with_name(f"{stem.split('_')[0]}_walkthrough.ipynb").read_text())
                     self.assertEqual(actual, expected)
-                    prefix = {"lab4": "4", "lab5": "5", "stretch6": "S6", "stretch7": "S7"}[lab]
+                    prefix = stem.split("_")[0].removeprefix("lab")
                     self.assertEqual(converter.validate_step_ids(actual, prefix), [])
                     self.assertEqual(converter.validate_cell_descriptions(actual), [])
                     self.assertNotIn("%run", source.read_text())
@@ -115,7 +115,7 @@ class SplitNotebookTests(unittest.TestCase):
                         if cell["cell_type"] == "code":
                             self.assertIsNone(cell["execution_count"])
                             self.assertEqual(cell["outputs"], [])
-            self.assertFalse((ROOT / "labs" / folder / f"{lab}_walkthrough.ipynb").exists())
+            self.assertEqual(len(list((ROOT / "labs" / folder).glob("*.ipynb"))), 2)
 
     def test_b_requires_a_before_cloud_actions(self) -> None:
         with patch.object(foundry_env, "get_project_client") as project, \
@@ -255,8 +255,8 @@ class SplitNotebookTests(unittest.TestCase):
         count = len(sent)
         tested = a["part_a"]["state"]["tested_sources"]
         for name in ("main.py", "marketplace_specialists.py", "marketplace_workflow.py"):
-            self.assertIn(f"labs/lab4-hosted-multi-agent-handoff/hosted/{name}", tested)
-        changed_sources = {**tested, "labs/lab4-hosted-multi-agent-handoff/hosted/marketplace_specialists.py": "classifier-removed"}
+            self.assertIn(f"labs/hosted-multi-agent-handoff/hosted/{name}", tested)
+        changed_sources = {**tested, "labs/hosted-multi-agent-handoff/hosted/marketplace_specialists.py": "classifier-removed"}
         with patch.object(driver, "source_fingerprints", return_value=changed_sources):
             with self.assertRaises(AssertionError):
                 exec(compile(self.cells("lab4", "a")[-1], "reject_changed_a_publish_source", "exec"), a)
@@ -412,7 +412,7 @@ class SplitNotebookTests(unittest.TestCase):
         }))
         import deployment
         self.stack.enter_context(patch.object(deployment, "bash_deploy_block", return_value="true"))
-        main_path = ROOT / "labs/lab3-hosted-knowledge-sessions/hosted/main.py"
+        main_path = ROOT / "labs/hosted-knowledge-sessions/hosted/main.py"
         read_text = Path.read_text
         self.stack.enter_context(patch.object(
             Path, "read_text",
@@ -456,7 +456,7 @@ class SplitNotebookTests(unittest.TestCase):
         combined = json.loads(driver.RECORD.read_text())
         self.assertEqual(combined["agents"]["invocations"], original)
         self.assertIn("hosted-responses-skills", vendors[-1])
-        module = load(ROOT / "labs" / PARTS["stretch7"][0] / "stretch7b_skills_toolbox.py", "split_config")
+        module = load(ROOT / "labs" / PARTS["stretch7"][0] / "lab14_skills_toolbox.py", "split_config")
         self.assertEqual(module.validate_config("", "", "")["SKILL_NAMES"], "")
         for name, url in (("box", ""), ("", "https://example.test/mcp"),
                           ("box", "http://example.test/mcp"), ("box", "https://attendee@example.test/mcp"),

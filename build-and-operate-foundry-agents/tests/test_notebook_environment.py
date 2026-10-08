@@ -43,7 +43,7 @@ class NotebookEnvironmentTests(unittest.TestCase):
         self.assertIsInstance(store, lab_helpers._session_store.FileSessionStore)
 
     def test_pipeline_uses_blob_history_settings(self) -> None:
-        paths = list((ROOT / "labs").glob("lab*-operate-hosted-agents/.github/workflows/agent-ci.yml"))
+        paths = list((ROOT / "labs").glob("operate-hosted-agents/.github/workflows/agent-ci.yml"))
         self.assertEqual(len(paths), 1)
         source = paths[0].read_text(encoding="utf-8")
         self.assertNotIn("MARKETPLACE_REDIS_URL", source)
@@ -54,8 +54,23 @@ class NotebookEnvironmentTests(unittest.TestCase):
         with patch.object(lab_helpers, "artifact_path", return_value=ROOT / "labs/artifacts/missing.json"):
             with self.assertRaises(SystemExit) as error:
                 lab_helpers.require_artifact("lab1", "project.json", through=1, caller="lab2")
-        self.assertIn("walkthrough notebooks through Lab 1", str(error.exception))
+        self.assertIn("Run Lab 2 and its prerequisites", str(error.exception))
         self.assertNotIn("python catch_up.py", str(error.exception))
+
+    def test_missing_knowledge_points_to_its_producing_lab(self) -> None:
+        with patch.object(lab_helpers, "artifact_path", return_value=ROOT / "labs/artifacts/missing.json"):
+            with self.assertRaises(SystemExit) as error:
+                lab_helpers.require_artifact("lab3", "knowledge.json", through=3, caller="Lab 6")
+        self.assertIn("Run Lab 5 and its prerequisites", str(error.exception))
+
+    def test_missing_local_hosted_handoff_does_not_point_to_current_lab(self) -> None:
+        for namespace, caller, producer in (("lab2", "Lab 4", "Lab 3"), ("lab3", "Lab 6", "Lab 5")):
+            with self.subTest(caller=caller), patch.object(
+                lab_helpers, "artifact_path", return_value=ROOT / "labs/artifacts/missing.json",
+            ):
+                with self.assertRaises(SystemExit) as error:
+                    lab_helpers.require_artifact(namespace, "hosted.json", through=2, caller=caller)
+                self.assertIn(f"Run {producer} and its prerequisites", str(error.exception))
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-"""Shared helpers for the Foundry Agents lab sequence (project setup first, Prompt Agents in Stretch 6).
+"""Shared helpers for the Foundry Agents lab sequence (project setup first, Prompt Agents in Labs 11-12).
 
 Every lab driver script (the notebook side) imports this module after the standard `common` import block.
 Hosted `main.py` files do not import it: they ship in a container with only `common/` and `data/` vendored.
@@ -8,12 +8,12 @@ stay focused on what they teach:
 * `agent_reference(name)`      the extra_body payload that routes a Responses call to a server-side agent
 * `function_tools(names)`      FunctionTool objects built from marketplace_data.TOOL_SCHEMAS (filtered by name)
 * `run_turn(...)`              one participant turn against a platform prompt agent, including the client-side
-                               function-call loop (Stretch 6 uses it; Lab 5 uses it for the deployed hosted agent)
+                               function-call loop (Lab 11 uses it; Lab 9 uses it for the deployed hosted agent)
 * `artifact_path(...)`         labs/artifacts/labN/<name>
 * `require_artifact(...)`      load a previous lab's artifact or identify the prerequisite notebook
-* `load_lab_module(...)`       import a lab file from a hyphenated folder (used by catch_up.py and Lab 5)
+* `load_lab_module(...)`       import a lab file from a hyphenated folder (used by catch_up.py and Labs 9-10)
 * `get_session_store(dir)`     common.session_store's file backend, else a local
-                               file store with the same get/put/delete/list_ids surface (Lab 3 client side)
+                               file store with the same get/put/delete/list_ids surface (Labs 5-6 client side)
 
 No endpoints, ids or keys live here. Everything comes from `.env` through common.foundry_env.
 """
@@ -32,7 +32,7 @@ ROOT = LABS_DIR.parent                                   # build-and-operate-fou
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from common import marketplace_data, foundry_env, guardrails  # noqa: E402
+from common import marketplace_data, foundry_env, guardrails, notebook_parts  # noqa: E402
 
 DEFAULT_MODEL = "gpt-5.4-mini"
 CITATION_RE = re.compile(r"\[KB-[A-Z]{3}-\d{3}\]")
@@ -77,16 +77,17 @@ def require_artifact(lab: str, name: str, through: int, caller: str) -> dict:
     """Load a JSON artifact from an earlier lab or identify the prerequisite notebook."""
     path = artifact_path(lab, name)
     if not path.exists():
+        local_handoff = name == "hosted.json" and caller == notebook_parts.lab_label(lab, "b")
+        producer = notebook_parts.lab_label(lab, "a" if name == "knowledge.json" or local_handoff else "b")
         raise SystemExit(
             f"[{caller}] Missing artifact {path.relative_to(LABS_DIR)}.\n"
-            f"[{caller}] Run the earlier walkthrough notebooks through Lab {through} "
-            "in sequence, then rerun this cell."
+            f"[{caller}] Run {producer} and its prerequisites, then rerun this cell."
         )
     return foundry_env.load_artifact(path)
 
 
 def load_lab_module(relative_file: str):
-    """Import a lab script by path (folders like lab3-hosted-knowledge-sessions are not importable by name)."""
+    """Import a lab script by path (folders like hosted-knowledge-sessions are not importable by name)."""
     path = LABS_DIR / relative_file
     if not path.exists():
         raise FileNotFoundError(path)
@@ -98,7 +99,7 @@ def load_lab_module(relative_file: str):
 
 
 # ----------------------------------------------------------------------------
-# Session store (Lab 3 persists the session -> conversation map on the client side; the hosted main.py has its own)
+# Session store (Lab 6 persists the session -> conversation map on the client side; the hosted main.py has its own)
 # ----------------------------------------------------------------------------
 @dataclass
 class _FallbackSessionRecord:
@@ -210,7 +211,7 @@ def dispatch_tool(name: str, arguments: str | dict) -> dict | list:
 
 
 # ----------------------------------------------------------------------------
-# The conversation turn against a platform agent (Stretch 6 teaches the loop; Lab 5 uses it for deployed targets)
+# The conversation turn against a platform agent (Lab 11 teaches the loop; Lab 9 uses it for deployed targets)
 # ----------------------------------------------------------------------------
 def run_turn(openai_client, agent_name: str, conversation_id: str, user_text: str,
              max_rounds: int = 6, log_prefix: str = "[agent]") -> tuple[str, list[dict]]:

@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
-LAB1 = ROOT / "labs/lab1-foundry-project-models"
+LAB1 = ROOT / "labs/foundry-project-models"
 sys.path[:0] = [str(ROOT), str(ROOT / "labs"), str(ROOT / "tools"), str(LAB1)]
 from common import foundry_env, notebook_parts
 import lab_helpers
@@ -42,18 +42,19 @@ ENV = {
     "AZURE_AI_SEARCH_ENDPOINT": "https://approved.search.windows.net",
 }
 PAIRS = (
-    ("lab1-foundry-project-models", "lab1a_identity_project", "lab1a"),
-    ("lab1-foundry-project-models", "lab1b_models_verify", "lab1b"),
-    ("lab2-hosted-agent-basics", "lab2a_tools_local", "lab2a"),
-    ("lab2-hosted-agent-basics", "lab2b_deploy_invoke", "lab2b"),
-    ("lab3-hosted-knowledge-sessions", "lab3a_knowledge_retrieval", "lab3a"),
-    ("lab3-hosted-knowledge-sessions", "lab3b_sessions_resiliency", "lab3b"),
+    ("foundry-project-models", "lab1_identity_project", "lab1a"),
+    ("foundry-project-models", "lab2_models_verify", "lab1b"),
+    ("hosted-agent-basics", "lab3_tools_local", "lab2a"),
+    ("hosted-agent-basics", "lab4_deploy_invoke", "lab2b"),
+    ("hosted-knowledge-sessions", "lab5_knowledge_retrieval", "lab3a"),
+    ("hosted-knowledge-sessions", "lab6_sessions_resiliency", "lab3b"),
 )
 
 
 def cells(stem: str) -> list[str]:
-    folder = next(folder for folder, _, name in PAIRS if name == stem)
-    nb = json.loads((ROOT / "labs" / folder / f"{stem}_walkthrough.ipynb").read_text())
+    folder, source, _ = next(row for row in PAIRS if row[2] == stem)
+    notebook_name = source.split("_")[0]
+    nb = json.loads((ROOT / "labs" / folder / f"{notebook_name}_walkthrough.ipynb").read_text())
     return ["".join(cell["source"]) for cell in nb["cells"] if cell["cell_type"] == "code"]
 
 
@@ -77,13 +78,14 @@ class SplitNotebookTests(unittest.TestCase):
         for folder, source, stem in PAIRS:
             with self.subTest(notebook=stem):
                 text = (ROOT / "labs" / folder / f"{source}.py").read_text()
-                nb = json.loads((ROOT / "labs" / folder / f"{stem}_walkthrough.ipynb").read_text())
+                number = source.split("_")[0].removeprefix("lab")
+                nb = json.loads((ROOT / "labs" / folder / f"lab{number}_walkthrough.ipynb").read_text())
                 self.assertEqual(nb, build_notebook(text, seed=source))
                 self.assertEqual(validate_notebook(nb), [])
-                self.assertEqual(validate_step_ids(nb, stem[3]), [])
+                self.assertEqual(validate_step_ids(nb, number), [])
                 self.assertEqual(validate_cell_descriptions(nb), [])
                 self.assertTrue("".join(nb["cells"][0]["source"]).startswith(
-                    f"# Lab {stem[3]}{stem[4].upper()}:"))
+                    f"# Lab {number}:"))
                 self.assertNotIn("%run", text)
                 self.assertNotIn("pickle", text)
                 for cell in nb["cells"]:
@@ -196,7 +198,7 @@ class SplitNotebookTests(unittest.TestCase):
     def test_lab1_handoff_missing_scope_tampering_and_ownership(self) -> None:
         path = self.artifacts / "lab1/part_a.json"
         cli = MagicMock()
-        with self.assertRaisesRegex(RuntimeError, "Lab 1A"):
+        with self.assertRaisesRegex(RuntimeError, "Lab 1"):
             setup.read_project_handoff(path, cli, SUB, TENANT, "jd-4821")
         path.parent.mkdir()
         for invalid in ("not json", "[]"):
@@ -292,7 +294,7 @@ class SplitNotebookTests(unittest.TestCase):
         }))
         with (
             patch.object(foundry_env, "load_env", return_value=ENV),
-            patch.object(lab_helpers, "load_lab_module", side_effect=lambda path: driver2 if "lab2-" in path else driver3),
+            patch.object(lab_helpers, "load_lab_module", side_effect=lambda path: driver2 if "hosted-agent-basics" in path else driver3),
             patch.object(lab_helpers, "require_artifact", side_effect=self.artifact),
             patch.object(lab_helpers, "artifact_path", side_effect=lambda lab: self.artifacts / lab),
             patch("inspect.getsource", return_value="# inspected real implementation"),
@@ -448,8 +450,8 @@ class SplitNotebookTests(unittest.TestCase):
         }), patch.object(foundry_env, "load_env", return_value=ENV), \
                 patch("subprocess.Popen") as process, patch("subprocess.run") as command:
             for folder, source in (
-                ("lab2-hosted-agent-basics", "lab2_hosted_basics"),
-                ("lab3-hosted-knowledge-sessions", "lab3_hosted_knowledge"),
+                ("hosted-agent-basics", "lab2_hosted_basics"),
+                ("hosted-knowledge-sessions", "lab3_hosted_knowledge"),
             ):
                 spec = importlib.util.spec_from_file_location(
                     source + "_split_regression", ROOT / "labs" / folder / (source + ".py"))

@@ -134,8 +134,8 @@ class DeploymentTests(unittest.TestCase):
 
     def test_stretch7_vendoring_removes_generated_python_artifacts(self):
         prepare_paths = (
-            ROOT / "labs/stretch7-invocations-toolbox-skills/hosted-invocations/prepare.py",
-            ROOT / "labs/stretch7-invocations-toolbox-skills/hosted-responses-skills/prepare.py",
+            ROOT / "labs/invocations-toolbox-skills/hosted-invocations/prepare.py",
+            ROOT / "labs/invocations-toolbox-skills/hosted-responses-skills/prepare.py",
         )
         for index, prepare_path in enumerate(prepare_paths):
             with self.subTest(package=prepare_path.parent.name), tempfile.TemporaryDirectory() as tmp:
@@ -164,8 +164,8 @@ class DeploymentTests(unittest.TestCase):
 
     def test_stretch7_vendoring_retains_ignored_azd_environment_state(self):
         prepare_paths = (
-            ROOT / "labs/stretch7-invocations-toolbox-skills/hosted-invocations/prepare.py",
-            ROOT / "labs/stretch7-invocations-toolbox-skills/hosted-responses-skills/prepare.py",
+            ROOT / "labs/invocations-toolbox-skills/hosted-invocations/prepare.py",
+            ROOT / "labs/invocations-toolbox-skills/hosted-responses-skills/prepare.py",
         )
         for index, prepare_path in enumerate(prepare_paths):
             with self.subTest(package=prepare_path.parent.name), tempfile.TemporaryDirectory() as tmp:
@@ -198,7 +198,7 @@ class DeploymentTests(unittest.TestCase):
                         module.review()
 
     def test_lab2_smoke_can_disable_storage_without_changing_multiturn_default(self):
-        module = load("lab2_storage_regression", ROOT / "labs/lab2-hosted-agent-basics/lab2_hosted_basics.py")
+        module = load("lab2_storage_regression", ROOT / "labs/hosted-agent-basics/lab2_hosted_basics.py")
         project = MagicMock()
         client = project.get_openai_client.return_value.with_options.return_value.__enter__.return_value
         client.responses.create.return_value.output_text = "ready"
@@ -212,7 +212,7 @@ class DeploymentTests(unittest.TestCase):
             client.responses.create.assert_called_with(input="next", store=True, previous_response_id="response-1")
 
     def test_lab2_hosted_requirements_do_not_request_all_integrations(self):
-        path = ROOT / "labs/lab2-hosted-agent-basics/hosted/requirements.txt"
+        path = ROOT / "labs/hosted-agent-basics/hosted/requirements.txt"
         requirements = {
             line.strip() for line in path.read_text().splitlines()
             if line.strip() and not line.startswith("#")
@@ -331,10 +331,10 @@ class DeploymentTests(unittest.TestCase):
         env = {"PROJECT_RESOURCE_ID": "/project", "FOUNDRY_PROJECT_ENDPOINT": "https://example.test",
                "AZURE_AI_MODEL_DEPLOYMENT_NAME": "model", "MARKETPLACE_RESOURCE_SUFFIX": "jd-4821"}
         cases = [
-            ("lab2-hosted-agent-basics/lab2_hosted_basics.py", {}),
-            ("lab3-hosted-knowledge-sessions/lab3_hosted_knowledge.py", {"hosted": {"model": "model"}}),
-            ("lab4-hosted-multi-agent-handoff/lab4_hosted_multi_agent.py", {}),
-            ("stretch7-invocations-toolbox-skills/stretch7_invocations.py", {}),
+            ("hosted-agent-basics/lab2_hosted_basics.py", {}),
+            ("hosted-knowledge-sessions/lab3_hosted_knowledge.py", {"hosted": {"model": "model"}}),
+            ("hosted-multi-agent-handoff/lab4_hosted_multi_agent.py", {}),
+            ("invocations-toolbox-skills/stretch7_invocations.py", {}),
         ]
         with patch.dict(os.environ, {"MARKETPLACE_RESOURCE_SUFFIX": "jd-4821"}, clear=True):
             for index, (filename, kwargs) in enumerate(cases):
@@ -350,7 +350,7 @@ class DeploymentTests(unittest.TestCase):
                         self.assertIn("--project-endpoint", command)
 
     def test_stretch7_driver_help_runs_as_a_script(self):
-        script = ROOT / "labs/stretch7-invocations-toolbox-skills/stretch7_invocations.py"
+        script = ROOT / "labs/invocations-toolbox-skills/stretch7_invocations.py"
         result = subprocess.run(
             [sys.executable, str(script), "--help"],
             cwd=ROOT,
@@ -362,7 +362,7 @@ class DeploymentTests(unittest.TestCase):
         self.assertIn("--deploy", result.stdout)
 
     def test_stretch7_driver_loads_workshop_environment_module(self):
-        script = ROOT / "labs/stretch7-invocations-toolbox-skills/stretch7_invocations.py"
+        script = ROOT / "labs/invocations-toolbox-skills/stretch7_invocations.py"
         command = (
             "import runpy; "
             f"module = runpy.run_path({str(script)!r}, run_name='stretch7_test'); "
@@ -391,7 +391,7 @@ class DeploymentTests(unittest.TestCase):
             with self.subTest(toolbox=name), tempfile.TemporaryDirectory(dir=ROOT / "labs") as directory, \
                     patch.dict(os.environ, {**environment, **settings}, clear=True):
                 module = load("stretch7_configuration_regression",
-                              ROOT / "labs/stretch7-invocations-toolbox-skills/stretch7_invocations.py")
+                              ROOT / "labs/invocations-toolbox-skills/stretch7_invocations.py")
                 with patch.object(module.foundry_env, "load_env", return_value=environment), \
                         patch.object(module, "RECORD", Path(directory) / "invocations.json"), \
                         patch.object(module.foundry_env, "save_artifact"):
@@ -429,7 +429,7 @@ class DeploymentTests(unittest.TestCase):
     def test_lab3_storage_uses_blob_or_files_not_redis(self):
         module = load(
             "migration_lab3_storage",
-            ROOT / "labs/lab3-hosted-knowledge-sessions/lab3_hosted_knowledge.py",
+            ROOT / "labs/hosted-knowledge-sessions/lab3_hosted_knowledge.py",
         )
         container_env = module.container_environment(
             {"mcp_endpoint": "https://example.test/mcp"},
@@ -464,7 +464,7 @@ class DeploymentTests(unittest.TestCase):
                 module.shared_history_env_overrides()
 
     def test_lab4_uses_file_session_store_and_does_not_deploy_redis(self):
-        main_path = ROOT / "labs/lab4-hosted-multi-agent-handoff/hosted/main.py"
+        main_path = ROOT / "labs/hosted-multi-agent-handoff/hosted/main.py"
         tree = ast.parse(main_path.read_text(encoding="utf-8"))
         service = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "TriageService")
         initializer = next(node for node in service.body if isinstance(node, ast.FunctionDef) and node.name == "__init__")
@@ -481,7 +481,7 @@ class DeploymentTests(unittest.TestCase):
         }):
             driver = load(
                 "migration_lab4_file_session_driver",
-                ROOT / "labs/lab4-hosted-multi-agent-handoff/lab4_hosted_multi_agent.py",
+                ROOT / "labs/hosted-multi-agent-handoff/lab4_hosted_multi_agent.py",
             )
             with patch.object(deployment, "bash_deploy_block", return_value="deploy") as deploy:
                 driver.deploy_commands(env={"PROJECT_RESOURCE_ID": "/project"})
@@ -510,12 +510,12 @@ class DeploymentTests(unittest.TestCase):
                 self.assertEqual(validate_step_ids(build_notebook(text), prefix), [])
 
     def test_lab2_formatted_header_is_generated_from_driver(self):
-        path = ROOT / "labs/lab2-hosted-agent-basics/lab2_hosted_basics.py"
+        path = ROOT / "labs/hosted-agent-basics/lab2_hosted_basics.py"
         notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
         first_cell = notebook["cells"][0]
         header = "".join(first_cell["source"])
         self.assertEqual(first_cell["cell_type"], "markdown")
-        self.assertTrue(header.startswith("# Lab 2: Hosted agent basics\n"))
+        self.assertTrue(header.startswith("# Labs 3-4: Hosted agent basics\n"))
         self.assertIn("| Goal |", header)
         self.assertIn("**How to run.**", header)
         self.assertIn("Execute this notebook's cells in order", header)
@@ -525,27 +525,27 @@ class DeploymentTests(unittest.TestCase):
 
     def test_walkthrough_headers_include_table_sourced_technology_focus(self):
         cases = {
-            "lab2-hosted-agent-basics/lab2_hosted_basics.py": (
+            "hosted-agent-basics/lab2_hosted_basics.py": (
                 "Hosted version; Responses",
                 "`Agent`; `FoundryChatClient`; `@tool`",
             ),
-            "lab3-hosted-knowledge-sessions/lab3_hosted_knowledge.py": (
+            "hosted-knowledge-sessions/lab3_hosted_knowledge.py": (
                 "Foundry IQ; Search; MCP",
                 "`MCPStreamableHTTPTool`; history",
             ),
-            "lab4-hosted-multi-agent-handoff/lab4_hosted_multi_agent.py": (
+            "hosted-multi-agent-handoff/lab4_hosted_multi_agent.py": (
                 "Hosted triage; HTTP turns",
                 "`WorkflowBuilder`; `request_info`",
             ),
-            "lab5-operate-hosted-agents/lab5_operate.py": (
+            "operate-hosted-agents/lab5_operate.py": (
                 "Tracing; evaluation; versions",
                 "Evaluate the Framework-built agent",
             ),
-            "stretch6-prompt-agents-and-workflows/stretch6_prompt_agents.py": (
+            "prompt-agents-and-workflows/stretch6_prompt_agents.py": (
                 "`PromptAgentDefinition`; YAML workflow",
                 "Hosted `@tool` bridge, not a new graph",
             ),
-            "stretch7-invocations-toolbox-skills/stretch7_invocations.py": (
+            "invocations-toolbox-skills/stretch7_invocations.py": (
                 "Invocations; optional Toolbox",
                 "`InvocationsHostServer`; `@tool`; schema",
             ),
@@ -597,7 +597,7 @@ class DeploymentTests(unittest.TestCase):
                     self.assertEqual(len(re.findall(r"[.!?](?:\s|$)", sentence)), 1)
 
     def test_lab3_build_is_executable_from_the_notebook(self):
-        path = ROOT / "labs/lab3-hosted-knowledge-sessions/lab3_hosted_knowledge.py"
+        path = ROOT / "labs/hosted-knowledge-sessions/lab3_hosted_knowledge.py"
         notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
         build_cell = next(
             "".join(cell["source"])
@@ -608,7 +608,7 @@ class DeploymentTests(unittest.TestCase):
         self.assertIn('if "__file__" not in globals():\n    hosted = build()', build_cell)
 
     def test_lab4_classifier_gate_reports_results_without_false_success(self):
-        path = ROOT / "labs/lab4-hosted-multi-agent-handoff/lab4_hosted_multi_agent.py"
+        path = ROOT / "labs/hosted-multi-agent-handoff/lab4_hosted_multi_agent.py"
         notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
         gate = next(
             "".join(cell["source"])
@@ -658,7 +658,7 @@ class DeploymentTests(unittest.TestCase):
                     ))
 
     def test_search_model_names_come_from_the_matching_verified_checkpoint(self):
-        module = load("search_checkpoint_models", ROOT / "labs/lab3-hosted-knowledge-sessions/knowledge_base.py")
+        module = load("search_checkpoint_models", ROOT / "labs/hosted-knowledge-sessions/knowledge_base.py")
         environment = {
             "PROJECT_RESOURCE_ID": "/account/projects/jd-4821",
             "FOUNDRY_PROJECT_ENDPOINT": "https://project.example.test",
@@ -706,8 +706,8 @@ class DeploymentTests(unittest.TestCase):
                 discovery.assert_not_called()
 
     def test_search_automation_discovers_model_metadata_without_provisioning(self):
-        module = load("search_discovered_models", ROOT / "labs/lab3-hosted-knowledge-sessions/knowledge_base.py")
-        setup = load("model_metadata_setup", ROOT / "labs/lab1-foundry-project-models/project_setup.py")
+        module = load("search_discovered_models", ROOT / "labs/hosted-knowledge-sessions/knowledge_base.py")
+        setup = load("model_metadata_setup", ROOT / "labs/foundry-project-models/project_setup.py")
         account_id = (
             "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/workshop/"
             "providers/Microsoft.CognitiveServices/accounts/workshop"
@@ -760,7 +760,7 @@ class DeploymentTests(unittest.TestCase):
     def test_lab3_embedding_retries_at_the_service_requested_time(self):
         module = load(
             "migration_lab3_embedding_retry",
-            ROOT / "labs/lab3-hosted-knowledge-sessions/knowledge_base.py",
+            ROOT / "labs/hosted-knowledge-sessions/knowledge_base.py",
         )
         response = MagicMock()
         response.headers = {"x-ratelimit-limit-requests": "6"}
@@ -811,11 +811,11 @@ class DeploymentTests(unittest.TestCase):
 
     def test_all_hosted_model_clients_install_rate_limit_retry(self):
         paths = (
-            "labs/lab2-hosted-agent-basics/hosted/main.py",
-            "labs/lab3-hosted-knowledge-sessions/hosted/main.py",
-            "labs/lab4-hosted-multi-agent-handoff/hosted/main.py",
-            "labs/stretch7-invocations-toolbox-skills/hosted-responses-skills/main.py",
-            "labs/stretch7-invocations-toolbox-skills/hosted-invocations/main.py",
+            "labs/hosted-agent-basics/hosted/main.py",
+            "labs/hosted-knowledge-sessions/hosted/main.py",
+            "labs/hosted-multi-agent-handoff/hosted/main.py",
+            "labs/invocations-toolbox-skills/hosted-responses-skills/main.py",
+            "labs/invocations-toolbox-skills/hosted-invocations/main.py",
         )
         for relative_path in paths:
             with self.subTest(path=relative_path):
@@ -827,12 +827,12 @@ class DeploymentTests(unittest.TestCase):
 
     def test_local_responses_clients_surface_failed_payloads(self):
         paths = (
-            "labs/lab2-hosted-agent-basics/lab2_hosted_basics.py",
-            "labs/lab2-hosted-agent-basics/hosted/test_local.py",
-            "labs/lab3-hosted-knowledge-sessions/lab3_hosted_knowledge.py",
-            "labs/lab3-hosted-knowledge-sessions/hosted/test_local.py",
-            "labs/lab4-hosted-multi-agent-handoff/lab4_hosted_multi_agent.py",
-            "labs/lab4-hosted-multi-agent-handoff/hosted/test_local.py",
+            "labs/hosted-agent-basics/lab2_hosted_basics.py",
+            "labs/hosted-agent-basics/hosted/test_local.py",
+            "labs/hosted-knowledge-sessions/lab3_hosted_knowledge.py",
+            "labs/hosted-knowledge-sessions/hosted/test_local.py",
+            "labs/hosted-multi-agent-handoff/lab4_hosted_multi_agent.py",
+            "labs/hosted-multi-agent-handoff/hosted/test_local.py",
         )
         for relative_path in paths:
             with self.subTest(path=relative_path):
@@ -842,7 +842,7 @@ class DeploymentTests(unittest.TestCase):
     def test_lab3_ask_surfaces_failed_response_details(self):
         module = load(
             "migration_lab3_failed_response",
-            ROOT / "labs/lab3-hosted-knowledge-sessions/lab3_hosted_knowledge.py",
+            ROOT / "labs/hosted-knowledge-sessions/lab3_hosted_knowledge.py",
         )
         response = MagicMock()
         response.json.return_value = {
@@ -874,7 +874,7 @@ class Lab5TracingTests(unittest.TestCase):
     def setUpClass(cls):
         cls.module = load(
             "lab5_tracing_regression",
-            ROOT / "labs/lab5-operate-hosted-agents/lab5_operate.py",
+            ROOT / "labs/operate-hosted-agents/lab5_operate.py",
         )
 
     def test_malformed_project_connection_string_disables_optional_tracing(self):
@@ -901,7 +901,7 @@ class Lab5TracingTests(unittest.TestCase):
             configure.assert_called_once()
 
     def test_hosted_tracing_uses_entra_authentication(self) -> None:
-        path = ROOT / "labs/lab3-hosted-knowledge-sessions/hosted/main.py"
+        path = ROOT / "labs/hosted-knowledge-sessions/hosted/main.py"
         tree = ast.parse(path.read_text(encoding="utf-8"))
         function = next(node for node in tree.body if isinstance(node, ast.FunctionDef)
                         and node.name == "configure_tracing")
@@ -920,7 +920,7 @@ class Lab5TracingTests(unittest.TestCase):
             instrument.assert_called_once_with()
 
     def test_trace_gate_prints_kql_for_the_current_trace_id(self) -> None:
-        path = ROOT / "labs/lab5-operate-hosted-agents/lab5_operate.py"
+        path = ROOT / "labs/operate-hosted-agents/lab5_operate.py"
         notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
         gate = next(
             "".join(cell["source"]) for cell in notebook["cells"]
@@ -1067,7 +1067,7 @@ class Lab5TracingTests(unittest.TestCase):
         from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
         lab3 = self.module.helpers.load_lab_module(
-            "lab3-hosted-knowledge-sessions/lab3_hosted_knowledge.py"
+            "hosted-knowledge-sessions/lab3_hosted_knowledge.py"
         )
         provider = TracerProvider()
         self.addCleanup(provider.shutdown)
@@ -1092,10 +1092,10 @@ class Lab5HostedTargetTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.module = load(
             "lab5_hosted_target_regression",
-            ROOT / "labs/lab5-operate-hosted-agents/lab5_operate.py",
+            ROOT / "labs/operate-hosted-agents/lab5_operate.py",
         )
         cls.lab3 = cls.module.helpers.load_lab_module(
-            "lab3-hosted-knowledge-sessions/lab3_hosted_knowledge.py"
+            "hosted-knowledge-sessions/lab3_hosted_knowledge.py"
         )
 
     def test_local_target_uses_lab3_process_api_and_forwards_tracing(self) -> None:
@@ -1139,7 +1139,7 @@ class Lab5HostedTargetTests(unittest.TestCase):
 class PromotionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.module = load("migration_promote", ROOT / "labs/lab5-operate-hosted-agents/promote.py")
+        cls.module = load("migration_promote", ROOT / "labs/operate-hosted-agents/promote.py")
 
     def test_gate_fails_closed(self):
         with tempfile.TemporaryDirectory() as tmp:

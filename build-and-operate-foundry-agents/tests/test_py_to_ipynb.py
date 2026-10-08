@@ -7,6 +7,7 @@ import io
 import json
 import os
 from pathlib import Path
+import re
 import sys
 from types import SimpleNamespace
 import unittest
@@ -22,16 +23,16 @@ from py_to_ipynb import (  # noqa: E402
     validate_notebook,
     validate_step_ids,
 )
-from validate_workshop import WALKTHROUGHS, validate_checkpoint_contract  # noqa: E402
+from validate_workshop import LAB_DEPENDENCIES, WALKTHROUGHS, validate_checkpoint_contract  # noqa: E402
 
 INTERNAL_DRIVERS = (
-    ("lab1-foundry-project-models/lab1_project_models.py", "lab1_walkthrough.ipynb", "1"),
-    ("lab2-hosted-agent-basics/lab2_hosted_basics.py", "lab2_walkthrough.ipynb", "2"),
-    ("lab3-hosted-knowledge-sessions/lab3_hosted_knowledge.py", "lab3_walkthrough.ipynb", "3"),
-    ("lab4-hosted-multi-agent-handoff/lab4_hosted_multi_agent.py", "lab4_walkthrough.ipynb", "4"),
-    ("lab5-operate-hosted-agents/lab5_operate.py", "lab5_walkthrough.ipynb", "5"),
-    ("stretch6-prompt-agents-and-workflows/stretch6_prompt_agents.py", "stretch6_walkthrough.ipynb", "S6"),
-    ("stretch7-invocations-toolbox-skills/stretch7_invocations.py", "stretch7_walkthrough.ipynb", "S7"),
+    ("foundry-project-models/lab1_project_models.py", "lab1_walkthrough.ipynb", "1"),
+    ("hosted-agent-basics/lab2_hosted_basics.py", "lab2_walkthrough.ipynb", "2"),
+    ("hosted-knowledge-sessions/lab3_hosted_knowledge.py", "lab3_walkthrough.ipynb", "3"),
+    ("hosted-multi-agent-handoff/lab4_hosted_multi_agent.py", "lab4_walkthrough.ipynb", "4"),
+    ("operate-hosted-agents/lab5_operate.py", "lab5_walkthrough.ipynb", "5"),
+    ("prompt-agents-and-workflows/stretch6_prompt_agents.py", "stretch6_walkthrough.ipynb", "S6"),
+    ("invocations-toolbox-skills/stretch7_invocations.py", "stretch7_walkthrough.ipynb", "S7"),
 )
 
 DRIVERS = tuple(
@@ -54,6 +55,30 @@ def notebook_action(source: str) -> ast.Module:
 
 
 class ConverterTests(unittest.TestCase):
+    def test_numbered_labs_have_matching_navigation_and_prerequisites(self):
+        self.assertEqual([int(prefix) for _, _, prefix in DRIVERS], list(range(1, 15)))
+        guide = (ROOT / "labs" / "README.md").read_text(encoding="utf-8")
+        rows = {int(cells[1].strip()): cells for line in guide.splitlines()
+                if re.match(r"^\| \d+ \|", line) and (cells := line.split("|"))}
+        self.assertEqual(list(rows), list(range(1, 15)))
+        for source, notebook_name, prefix in DRIVERS:
+            with self.subTest(lab=prefix):
+                number = int(prefix)
+                path = ROOT / "labs" / source
+                notebook_path = path.with_name(notebook_name)
+                self.assertEqual(path.stem.split("_")[0], f"lab{number}")
+                self.assertEqual(notebook_name, f"lab{number}_walkthrough.ipynb")
+                notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
+                introduction = "".join(notebook["cells"][0]["source"])
+                self.assertTrue(introduction.startswith(f"# Lab {number}:"))
+                self.assertIn("**Prerequisites:**", introduction)
+                self.assertIn(notebook_path.relative_to(ROOT / "labs").as_posix(), rows[number][2])
+                for predecessor in LAB_DEPENDENCIES[number]:
+                    self.assertRegex(introduction, rf"\bLab {predecessor}\b")
+                    self.assertRegex(rows[number][3], rf"\bLab {predecessor}\b")
+                text = path.read_text(encoding="utf-8")
+                self.assertEqual(set(re.findall(r"\bStep (\d+)\.", text)), {prefix})
+
     def test_checkpoint_contract_requires_scoped_real_handoffs(self):
         source = (
             "context = notebook_parts.scope(ENV)\n"
@@ -77,7 +102,7 @@ class ConverterTests(unittest.TestCase):
             with self.subTest(source=invalid), self.assertRaises(ValueError):
                 validate_checkpoint_contract(ast.parse(invalid), "lab2", "b")
 
-    def test_all_fourteen_halves_publish_their_real_checkpoint_contract(self):
+    def test_all_fourteen_labs_publish_their_real_checkpoint_contract(self):
         count = 0
         for directory, parts in WALKTHROUGHS.items():
             for source, _, _, lab, part in parts:
@@ -89,15 +114,15 @@ class ConverterTests(unittest.TestCase):
 
     def test_fresh_b_kernels_restore_state_without_repeating_a_cloud_work(self):
         cases = (
-            ("lab4-hosted-multi-agent-handoff", "lab4b_advisor_recovery.py", "lab4",
+            ("hosted-multi-agent-handoff", "lab8_advisor_recovery.py", "lab4",
              {"pending": {name: {"session_id": name} for name in ("S1", "S2", "S3")},
               "hosted": {"agent_name": "existing"}, "tested_sources": {"hosted": "synthetic-fingerprint"}}, "pending"),
-            ("lab5-operate-hosted-agents", "lab5b_release_rollback.py", "lab5",
+            ("operate-hosted-agents", "lab10_release_rollback.py", "lab5",
              {"bundle": {"info": {"version": "measured"}}, "summary": {"questions": 6}}, "bundle"),
-            ("stretch6-prompt-agents-and-workflows", "stretch6b_workflows_delegation.py", "stretch6",
+            ("prompt-agents-and-workflows", "lab12_workflows_delegation.py", "stretch6",
              {"prompt_agents": {"agents": {"triage": {"agent_id": "existing", "agent_version": "3"}}}},
              "prompt_info"),
-            ("stretch7-invocations-toolbox-skills", "stretch7b_skills_toolbox.py", "stretch7",
+            ("invocations-toolbox-skills", "lab14_skills_toolbox.py", "stretch7",
              {"nightly": {"reviews": 3}, "invocations": {"agent_name": "existing"}}, "part_a"),
         )
         for directory, filename, lab, state, restored in cases:
@@ -156,7 +181,7 @@ class ConverterTests(unittest.TestCase):
                 cloud.assert_not_called()
 
     def test_advisor_recovery_uses_durable_session_not_a_response_or_new_intake(self):
-        path = ROOT / "labs/lab4-hosted-multi-agent-handoff/lab4b_advisor_recovery.py"
+        path = ROOT / "labs/hosted-multi-agent-handoff/lab8_advisor_recovery.py"
         tree = ast.parse(path.read_text(encoding="utf-8"))
         resume = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "resume_pending")
         namespace = {"json": json, "driver": SimpleNamespace(PENDING="pending")}

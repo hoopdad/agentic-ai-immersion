@@ -12,7 +12,7 @@ from unittest.mock import patch
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
-LAB = ROOT / "labs/lab1-foundry-project-models"
+LAB = ROOT / "labs/foundry-project-models"
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(LAB))
 import project_setup as setup
@@ -267,15 +267,15 @@ class ProjectSetupTests(unittest.TestCase):
         converter = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(converter)
         for source, name in (
-            ("lab1a_identity_project.py", "lab1a_walkthrough.ipynb"),
-            ("lab1b_models_verify.py", "lab1b_walkthrough.ipynb"),
+            ("lab1_identity_project.py", "lab1_walkthrough.ipynb"),
+            ("lab2_models_verify.py", "lab2_walkthrough.ipynb"),
         ):
             with self.subTest(source=source):
                 text = (LAB / source).read_text(encoding="utf-8")
                 notebook = json.loads((LAB / name).read_text(encoding="utf-8"))
                 self.assertEqual(notebook, converter.build_notebook(text, seed=Path(source).stem))
                 self.assertEqual(converter.validate_notebook(notebook), [])
-                self.assertEqual(converter.validate_step_ids(notebook, "1"), [])
+                self.assertEqual(converter.validate_step_ids(notebook, Path(source).stem.split("_")[0][3:]), [])
                 for index, cell in enumerate(notebook["cells"]):
                     if cell["cell_type"] == "code":
                         self.assertGreater(index, 0)

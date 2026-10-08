@@ -40,8 +40,13 @@ class NotebookPartCheckpointTests(unittest.TestCase):
                          "lab2/local_checks.json")
 
     def test_missing_checkpoint_blocks_part_b(self) -> None:
-        with self.assertRaisesRegex(RuntimeError, "Run notebook"):
+        with self.assertRaisesRegex(RuntimeError, "Run Lab 3"):
             self.read()
+
+    def test_artifact_namespaces_map_to_consecutive_learner_numbers(self) -> None:
+        numbers = [number for parts in notebook_parts.LAB_NUMBERS.values() for number in parts.values()]
+        self.assertEqual(numbers, list(range(1, 15)))
+        self.assertEqual(notebook_parts.lab_label("stretch7", "b"), "Lab 14")
 
     def test_changed_context_blocks_part_b(self) -> None:
         self.publish()

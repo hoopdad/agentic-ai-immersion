@@ -1,4 +1,4 @@
-"""Session map for resilient clients and hosted agents (shared by Lab 2 and Lab 5).
+"""Session map for resilient clients and hosted agents (shared by Labs 3-4 and Labs 9-10).
 
 A SessionRecord is the small piece of state a client must never lose: which Foundry conversation (Prompt
 Agents) or which message-store key (Hosted Agents) belongs to a participant session. Keep it outside the

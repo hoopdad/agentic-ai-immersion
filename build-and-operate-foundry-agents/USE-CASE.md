@@ -70,7 +70,7 @@ birthday); the licensed benefit advisor (the only person who may recommend or en
 agent (verifies, explains, routes); compliance and privacy (own the rules, read the eval reports); the
 engineer building it.
 
-Agent roles, identical across the solution labs (hosted agents in Labs 2 to 5 and S7, prompt agents in Stretch 6; Lab 1 provisions project/models):
+Agent roles, identical across the solution labs (hosted agents in Labs 3-10 and 13-14, prompt agents in Labs 11-12; Labs 1-2 provision project/models):
 
 | Role | Name in code | LOB | Tools | Knowledge context |
 |---|---|---|---|---|
