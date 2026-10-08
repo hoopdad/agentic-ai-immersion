@@ -217,13 +217,18 @@ class ProjectSetupTests(unittest.TestCase):
         before = "# Keep comment\nUNRELATED=untouched\nAZURE_AI_SEARCH_ENDPOINT=https://approved.search.windows.net\n"
         try:
             path.write_text(before + "export TENANT_ID=old\nTENANT_ID=duplicate\n", encoding="utf-8")
-            with patch.dict(os.environ, {}, clear=True):
+            with patch.dict(os.environ, {}, clear=True), patch.object(setup.os, "open", wraps=os.open) as open_file:
                 setup.write_env(path, {"TENANT_ID": TENANT, "FOUNDRY_MODEL": "chat-jd-4821"})
                 self.assertEqual(os.environ["TENANT_ID"], TENANT)
+            open_file.assert_called_once_with(
+                path.with_name(path.name + ".project-setup-new"),
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600,
+            )
             content = path.read_text(encoding="utf-8")
             self.assertTrue(content.startswith(before))
             self.assertEqual(content.count("TENANT_ID="), 1)
-            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            if os.name != "nt":
+                self.assertEqual(path.stat().st_mode & 0o777, 0o600)
             self.assertFalse(path.with_name(path.name + ".project-setup-new").exists())
             with self.assertRaises(ValueError):
                 setup.write_env(path, {"TOKEN": "secret"})
