@@ -5,7 +5,6 @@
 *.tfvars
 !*.tfvars.example
 *.tfplan
-workshop.env
 crash.log
 crash.*.log
 override.tf

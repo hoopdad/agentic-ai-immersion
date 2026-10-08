@@ -27,16 +27,18 @@
 - Workshop resource lifecycle: `common/resource_names.py` applies one attendee suffix to every created
   agent, evaluation, Search resource and project connection; `tools/cleanup_workshop.py` provides
   dry-run-first cleanup for one suffix or every workshop suffix without deleting shared infrastructure.
-- Workshop infrastructure: `build-and-operate-foundry-agents/infra/README.md` is the entry point for a
-  self-contained private Microsoft Foundry Standard Agent deployment. `variables.tf` and
-  `terraform.tfvars.example` configure Azure placement, naming, networking, models and capacity; Terraform owns
-  the VNet/private DNS, identity, Storage, Cosmos DB, AI Search, Foundry project/capability host, monitoring,
-  registry and vault. Outputs map directly to the workshop `.env`; no concrete Azure identifiers are committed.
-  `post-deploy-validation.sh` reuses Azure CLI credentials, verifies the tfvars-selected Azure context and
-  Foundry resources, and runs a mini-model Responses API smoke test.
-  `troubleshoot-private-endpoint.sh` performs read-only, continue-on-error diagnostics across the deployed
-  resource inventory, VNet/subnets, NSGs, private endpoints and NICs, private DNS zones and links, service
-  public-access settings, Foundry/operator/managed-identity RBAC, local private-IP resolution and activity logs.
+- Workshop infrastructure: `build-and-operate-foundry-agents/infra/README.md` selects between independent
+  `privatelink/` and `public-network/` Terraform roots and documents state-safe relocation of existing
+  private deployments. Each root owns variables, example tfvars, provider lock and state; use distinct
+  resource suffixes/backend keys. Both deploy identity, Storage, Cosmos DB, AI Search, Foundry
+  project/capability host, monitoring, registry and vault with the same workshop `.env` contract.
+  `privatelink/` retains VNet injection, private endpoints/DNS and AMPLS; `public-network/` uses public
+  service hostnames with open Foundry/data-service access and mandatory Key Vault/ACR IPv4 allowlists,
+  retaining service Entra/RBAC controls with no private network resources.
+  Each root's `post-deploy-validation.sh` checks Azure context/resources and mini-model inference.
+  `privatelink/troubleshoot-private-endpoint.sh` diagnoses private network/DNS, service settings and RBAC.
+  Public firewall policy has mocked Terraform tests in `public-network/tests/`; offline variant contracts
+  are tested in the workshop's `tests/test_infra_network_variants.py`.
 - Deployment: each lab's `hosted*/main.py` and minimal pinned requirements; `prepare.py` vendors shared files. Generated packages, credentials and runtime artifacts are not source.
 - Shell integration: `labs/deployment.py`; Bash is the learner shell, Python holds deployment validation/logic.
 - Notebooks: edit the adjacent `# %%` Python driver and regenerate with `tools/py_to_ipynb.py`; preserve exercise gates.
@@ -98,3 +100,8 @@ Parent integration baseline: fork `f6e5d4c092139995b4700bcfe7cf04dfc634ad26` and
 parent `a92d5b746a08205c793dc27598c95529f11b0382`.
 Added prerequisite PDFs and their two generator scripts; retained the fork's Compose/Bash/PowerShell
 setup and newer GitHub CLI lock while adopting the parent's azd `:0` pin and Windows-only dependency markers.
+Baseline for the network-variant split: `f6e5d4c092139995b4700bcfe7cf04dfc634ad26`.
+Pending structural changes considered: relocation of the previous Terraform root to `infra/privatelink/`,
+the parallel `infra/public-network/` root and mocked policy tests, the parent infrastructure selector/state
+migration guide and ignore rules, workshop navigation updates and `tests/test_infra_network_variants.py`.
+Provider versions and private resource addresses are unchanged; signed Windows checksums are added to locks.

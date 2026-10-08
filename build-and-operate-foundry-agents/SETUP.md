@@ -141,12 +141,27 @@ compare those runtime headers with the deployment's quota allocation in Foundry.
 
 ## 4. Azure resources and connections
 
-To provision a complete private workshop environment instead of using existing
-shared resources, follow the Terraform deployment in
-[`infra/README.md`](infra/README.md). Its outputs map directly to the environment
-variables in section 2. Because every data-plane endpoint is private, connect the
-learner workstation to the deployed virtual network before running preflight or
-the labs.
+To provision a complete workshop environment instead of using existing shared
+resources, choose a Terraform variant in [`infra/README.md`](infra/README.md):
+
+- [`infra/privatelink/`](infra/privatelink/README.md) keeps the private deployment.
+  Connect the learner workstation to its virtual network, with private DNS
+  resolution, before running preflight or the labs.
+- [`infra/public-network/`](infra/public-network/README.md) uses public endpoints,
+  with all network sources allowed on Foundry, Storage, Cosmos DB and AI Search
+  so the managed agent runtime can reach its dependencies. Existing Entra/RBAC
+  controls remain in place; public reachability does not grant data access.
+  Key Vault and ACR deny other sources and require
+  `allowed_public_ipv4_cidrs` for the actual operator/CI outbound public IPs.
+  Replace the example's `<your-public-egress-ip>/32` placeholder before applying;
+  empty, `/0`, private and reserved ranges are rejected. Application Insights
+  and Log Analytics permit public ingestion/query as an explicit exception:
+  they have no native source-IP allowlist. This variant is not network-isolated.
+
+Run Terraform from the selected variant directory, not the `infra/` root. Both
+variants expose the workshop environment variables in section 2; keep their
+state and local tfvars separate. Review the selected variant's networking and
+hosted-agent limitations before deployment.
 
 | Resource | Needed by | Setup |
 |---|---|---|
