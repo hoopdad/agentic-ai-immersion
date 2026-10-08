@@ -40,6 +40,8 @@ facilitator; no success artifact is published on a failed provisioning rerun.
 Provisioning and smoke-test reruns invalidate previous evidence and checkpoints
 before starting. Publishing requires fresh passed tests bound to the exact
 project, tenant, endpoints, deployment names and model/SKU/capacity specifications.
+The setup cell also resets that half's marker immediately; 1A resets 1B's marker
+and the original project handoff without deleting cloud resources.
 
 The root `.env` update preserves unrelated values and writes no Azure access
 tokens, passwords or SAS credentials. **1B Step 1.2** also exposes **optional explicit

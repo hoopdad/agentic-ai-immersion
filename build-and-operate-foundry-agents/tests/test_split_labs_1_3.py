@@ -57,7 +57,12 @@ def cells(stem: str) -> list[str]:
     return ["".join(cell["source"]) for cell in nb["cells"] if cell["cell_type"] == "code"]
 
 
-def execute(source: str, namespace: dict) -> None:
+def execute(source: str, namespace: dict, *, artifacts: Path | None = None) -> None:
+    if artifacts is not None:
+        for lab in ("lab1", "lab2", "lab3"):
+            source = source.replace(
+                f'ARTIFACTS = WORKSHOP / "labs/artifacts/{lab}"',
+                f"ARTIFACTS = Path({str(artifacts / lab)!r})")
     exec(compile(source, "<fresh-kernel-cell>", "exec"), namespace)
 
 
@@ -87,12 +92,19 @@ class SplitNotebookTests(unittest.TestCase):
                         self.assertEqual(cell["outputs"], [])
 
     def lab1_handoff(self) -> dict:
-        return {
+        state = {
             "schema_version": 1, "part": "a", **CONTEXT,
             "resource_group": "approved", "account_name": "foundry",
             "account_resource_id": ACCOUNT_ID, "project_resource_id": PROJECT_ID,
             "resource_suffix": "jd-4821", "project_endpoint": ENDPOINT,
             "azure_openai_endpoint": "https://approved.openai.azure.com/",
+        }
+        return {
+            "schema_version": 1, "lab": "lab1", "part": "a",
+            "context": {"subscription_id": SUB, "tenant_id": TENANT,
+                        "account_resource_id": ACCOUNT_ID.lower(), "project_resource_id": PROJECT_ID.lower(),
+                        "resource_suffix": "jd-4821"},
+            "state": state, "evidence": [],
         }
 
     def test_lab1_fresh_a_to_b_no_project_recreation_and_stale_smoke(self) -> None:
@@ -100,6 +112,9 @@ class SplitNotebookTests(unittest.TestCase):
         ns_a: dict = {}
         ns_b: dict = {}
         artifacts = self.artifacts / "lab1"
+        artifacts.mkdir()
+        for name in ("part_a.json", "part_b.json", "project.json"):
+            (artifacts / name).write_text("{}")
         models = [
             {"format": "OpenAI", "name": "gpt-5.4-mini", "version": "live",
              "skus": [{"name": "GlobalStandard"}]},
@@ -120,7 +135,9 @@ class SplitNotebookTests(unittest.TestCase):
             patch.object(foundry_env, "load_env", side_effect=lambda: ns_b["OUTPUT_ENV"]),
             patch("builtins.print"),
         ):
-            execute(a[0], ns_a)
+            execute(a[0], ns_a, artifacts=self.artifacts)
+            self.assertFalse(any((artifacts / name).exists()
+                                 for name in ("part_a.json", "part_b.json", "project.json")))
             ns_a["ARTIFACTS"] = artifacts
             execute(a[1], ns_a)
             ns_a.update(SUBSCRIPTION_ID=SUB, TENANT_ID=TENANT, RESOURCE_GROUP="approved",
@@ -130,10 +147,15 @@ class SplitNotebookTests(unittest.TestCase):
             create_project.assert_called_once()
             deploy.assert_not_called()
             self.assertFalse((artifacts / "project.json").exists())
-            handoff = json.loads((artifacts / "part_a.json").read_text())
+            handoff = json.loads((artifacts / "part_a.json").read_text())["state"]
             self.assertFalse(set(handoff) & {"access_token", "env", "chat_deployment"})
 
-            execute(b[0], ns_b)
+            for name in ("part_b.json", "project.json"):
+                (artifacts / name).write_text("{}")
+            execute(b[0], ns_b, artifacts=self.artifacts)
+            self.assertTrue((artifacts / "part_a.json").exists())
+            self.assertFalse((artifacts / "part_b.json").exists())
+            self.assertFalse((artifacts / "project.json").exists())
             ns_b.update(ARTIFACTS=artifacts, ARTIFACT=artifacts / "project.json")
             create_project.assert_called_once()  # B initialization is definitions only.
             execute(b[1], ns_b)
@@ -190,7 +212,9 @@ class SplitNotebookTests(unittest.TestCase):
                 {"project_endpoint": ENDPOINT + "-other"},
             ):
                 with self.subTest(change=change):
-                    path.write_text(json.dumps({**self.lab1_handoff(), **change}))
+                    handoff = self.lab1_handoff()
+                    handoff["state"].update(change)
+                    path.write_text(json.dumps(handoff))
                     cli.rest.return_value = PROJECT
                     with self.assertRaises(RuntimeError):
                         setup.read_project_handoff(path, cli, SUB, TENANT, "jd-4821")
@@ -275,11 +299,17 @@ class SplitNotebookTests(unittest.TestCase):
             patch("subprocess.run") as deploy,
             patch("builtins.print"),
         ):
+            kernels = {}
             for lab, driver in (("lab2", driver2), ("lab3", driver3)):
                 with self.subTest(lab=lab):
                     ns_a: dict = {}
-                    for source in cells(lab + "a"):
-                        execute(source, ns_a)
+                    for name in ("part_a.json", "part_b.json"):
+                        (driver.ARTIFACTS / name).write_text("{}")
+                    for index, source in enumerate(cells(lab + "a")):
+                        execute(source, ns_a, artifacts=self.artifacts)
+                        if index == 0:
+                            self.assertFalse((driver.ARTIFACTS / "part_a.json").exists())
+                            self.assertFalse((driver.ARTIFACTS / "part_b.json").exists())
                     builds = driver.build.call_count
                     demos = driver.demo.call_count
                     driver.build.reset_mock()
@@ -288,8 +318,10 @@ class SplitNotebookTests(unittest.TestCase):
                     deploy.reset_mock()
                     ns_b: dict = {}
                     b = cells(lab + "b")
+                    (driver.ARTIFACTS / "part_b.json").write_text("{}")
                     for source in b[:3]:
-                        execute(source, ns_b)
+                        execute(source, ns_b, artifacts=self.artifacts)
+                    self.assertFalse((driver.ARTIFACTS / "part_b.json").exists())
                     driver.build.assert_not_called()
                     driver.demo.assert_not_called()
                     driver.HostedProcess.assert_not_called()
@@ -320,6 +352,36 @@ class SplitNotebookTests(unittest.TestCase):
                     # B updates hosted.json but cannot make A's immutable evidence stale.
                     notebook_parts.read_checkpoint(
                         self.artifacts / lab / "part_a.json", lab=lab, part="a", context=notebook_parts.scope(ENV))
+                    kernels[lab] = (ns_a, ns_b)
+            # A failed rerun removes old success before the operation, and publishing
+            # cannot recycle successful variables from an earlier invocation.
+            for lab, driver, fail_cell, publish_cell in (
+                ("lab2", driver2, 4, 5), ("lab3", driver3, 4, 8),
+            ):
+                ns_a, ns_b = kernels[lab]
+                if lab == "lab2":
+                    driver.call_deployed.side_effect = RuntimeError("failed acceptance rerun")
+                else:
+                    driver.broken_store_acceptance_gate.side_effect = RuntimeError("failed acceptance rerun")
+                with self.assertRaisesRegex(RuntimeError, "failed acceptance rerun"):
+                    source = cells(lab + "b")[fail_cell].replace(
+                        'DEPLOYED_VERSION = ""', 'DEPLOYED_VERSION = "9"')
+                    execute(source, ns_b)
+                self.assertFalse((driver.ARTIFACTS / "part_b.json").exists())
+                with self.assertRaisesRegex(RuntimeError, "successfully"):
+                    execute(cells(lab + "b")[publish_cell], ns_b)
+                if lab == "lab2":
+                    driver.post_responses.side_effect = RuntimeError("failed local rerun")
+                    source = cells("lab2a")[5]
+                else:
+                    driver.ask.side_effect = RuntimeError("failed local rerun")
+                    source = cells("lab3a")[3]
+                with self.assertRaisesRegex(RuntimeError, "failed local rerun"):
+                    execute(source, ns_a)
+                self.assertFalse((driver.ARTIFACTS / "part_a.json").exists())
+                self.assertFalse((driver.ARTIFACTS / "part_b.json").exists())
+                with self.assertRaisesRegex(RuntimeError, "successfully"):
+                    execute(cells(lab + "a")[-1], ns_a)
 
     def test_labs2_and3_b_reject_missing_changed_scope_evidence_and_source(self) -> None:
         for lab in ("lab2", "lab3"):
@@ -336,7 +398,9 @@ class SplitNotebookTests(unittest.TestCase):
                     patch("builtins.print"),
                 ):
                     ns: dict = {}
-                    execute(b[0], ns)
+                    (driver.ARTIFACTS / "part_b.json").write_text("{}")
+                    execute(b[0], ns, artifacts=self.artifacts)
+                    self.assertFalse((driver.ARTIFACTS / "part_b.json").exists())
                     with self.assertRaisesRegex(RuntimeError, "checkpoint"):
                         execute(b[1], ns)
                     evidence = driver.TRANSCRIPTS if lab == "lab2" else driver.ARTIFACTS / "knowledge.json"
@@ -367,7 +431,8 @@ class SplitNotebookTests(unittest.TestCase):
     def test_lab3_shared_scale_configuration_runs_the_gate(self) -> None:
         driver = self.fake_driver("lab3")
         namespace = {"ENV": {**ENV, "MARKETPLACE_BLOB_STORAGE_URL": "https://approved.blob.core.windows.net"},
-                     "lab3": driver, "knowledge": {"mcp_endpoint": "https://approved.test/mcp"}}
+                     "lab3": driver, "ARTIFACTS": driver.ARTIFACTS,
+                     "knowledge": {"mcp_endpoint": "https://approved.test/mcp"}}
         execute(cells("lab3b")[5], namespace)
         driver.scale_out_acceptance_gate.assert_called_once_with(namespace["knowledge"])
         self.assertEqual(namespace["shared_scale"], "passed")

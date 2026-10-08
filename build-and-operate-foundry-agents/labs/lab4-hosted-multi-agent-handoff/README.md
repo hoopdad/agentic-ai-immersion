@@ -18,12 +18,14 @@ kernel. They play participant and advisor against the local product on port
 
 | Half | Scope | Durable checkpoint |
 |---|---|---|
-| 4A (30 min) | Graph construction, specialist fan-out, bounded compliance reflection, model classification; stops at pending approval | `artifacts/lab4/part_a.json`, `pending_cases.json`, classification/compliance evidence and persisted sessions |
+| 4A (30 min) | Graph construction, specialist fan-out, bounded compliance reflection, model classification; stops at pending approval | `artifacts/lab4/part_a.json`, immutable `pending_cases.json`/`pending_sessions.json`, classification/compliance evidence and persisted sessions |
 | 4B (30 min) | Resume A's S3 revision and S2 restart path, approve existing packets, deploy and verify final approval | `artifacts/lab4/part_b.json` and original `hosted.json`/`handoff_packets/` |
 
 4B imports definitions, not 4A's notebook, and does not repeat intake or specialist calls.
 Missing, changed, or differently scoped A evidence blocks B before advisor/deployment actions.
 Do not delete pending sessions between halves; rerunning A is required after changing its evidence or Azure context.
+B compares live session packets/status to A's immutable snapshot before sending any advisor decision.
+Rerunning an A action invalidates both completion checkpoints; rerunning B invalidates its checkpoint until success.
 
 ## What you'll learn
 

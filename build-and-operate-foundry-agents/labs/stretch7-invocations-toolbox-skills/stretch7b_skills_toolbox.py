@@ -9,6 +9,7 @@
 # This cell loads A's batch checkpoint and Skills definitions without building or invoking the batch host.
 # %% Step S7.1 - Load the completed batch prerequisite
 from pathlib import Path
+import json
 import os
 import subprocess
 import sys
@@ -29,10 +30,16 @@ from common import notebook_parts
 driver = lab_helpers.load_lab_module("stretch7-invocations-toolbox-skills/stretch7_invocations.py")
 
 if "__file__" not in globals():
+    (driver.ARTIFACTS / "part_b.json").unlink(missing_ok=True)
     part_a = notebook_parts.read_checkpoint(
         driver.ARTIFACTS / "part_a.json", lab="stretch7", part="a", context=notebook_parts.scope(driver.ENV),
     )
     assert part_a["state"]["nightly"]["reviews"] > 0
+    batch_record = json.loads(driver.RECORD.read_text(encoding="utf-8"))
+    assert batch_record.get("agents", {}).get("invocations") == part_a["state"]["invocations"], (
+        "The cumulative Invocations reference no longer matches Stretch 7A."
+    )
+    assert batch_record.get("sample_run") == part_a["state"]["nightly"], "The completed nightly batch evidence changed."
 
 # %% [markdown]
 # This cell validates optional Toolbox inputs and local skill selection while leaving empty SKILL_NAMES to include every local skill.
@@ -54,6 +61,7 @@ def validate_config(toolbox_name: str, toolbox_url: str, skill_names: str) -> di
 
 
 if "__file__" not in globals():
+    (driver.ARTIFACTS / "part_b.json").unlink(missing_ok=True)
     TOOLBOX_NAME = ""  # Optional administrator-provided Toolbox name.
     TOOLBOX_MCP_URL = ""  # Optional HTTPS MCP endpoint without credentials.
     SKILL_NAMES = ""  # Blank automatically includes every local workshop skill.
@@ -65,6 +73,7 @@ if "__file__" not in globals():
 # This cell prepares only the conversational package and verifies its first governed skill answer without invoking batch processing.
 # %% Step S7.3 - Exercise the first governed skill
 if "__file__" not in globals():
+    (driver.ARTIFACTS / "part_b.json").unlink(missing_ok=True)
     record = driver.build(protocols=("responses_skills",))
     skill_text = driver.skills_demo()
     assert "[KB-ACC-001]" in skill_text, "The skill answer must cite its governed source."
@@ -84,7 +93,9 @@ if "__file__" not in globals():
 # This cell rebuilds only the Skills host and requires the debit-card answer to cite its source and actually read the new skill.
 # %% Step S7.4 - Verify the second skill
 if "__file__" not in globals():
+    (driver.ARTIFACTS / "part_b.json").unlink(missing_ok=True)
     second_skill_text = driver.second_skill_acceptance_gate(protocols=("responses_skills",))
+    record = json.loads(driver.RECORD.read_text(encoding="utf-8"))
     second_checks = lab_helpers.guardrail_report(second_skill_text)
     assert second_checks["no_recommendation"] and second_checks["no_pii"], second_checks
     driver.foundry_env.save_artifact(driver.ARTIFACTS / "skills_evidence.json", {
@@ -98,6 +109,7 @@ if "__file__" not in globals():
 # This cell deploys only the Responses Skills package using validated configuration and records completed deployment-command evidence.
 # %% Step S7.5 - Deploy Skills and optional Toolbox configuration
 if "__file__" not in globals():
+    (driver.ARTIFACTS / "part_b.json").unlink(missing_ok=True)
     from deployment import bash_deploy_block
     settings = dict(config)
     settings["SKILL_NAMES"] = settings["SKILL_NAMES"] or ",".join(

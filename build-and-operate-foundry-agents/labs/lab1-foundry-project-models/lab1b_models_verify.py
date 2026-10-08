@@ -20,12 +20,16 @@ LAB_DIR = WORKSHOP / "labs/lab1-foundry-project-models"
 for folder in (WORKSHOP, LAB_DIR):
     if str(folder) not in sys.path:
         sys.path.insert(0, str(folder))
-from common import foundry_env, resource_names
+from common import foundry_env, notebook_parts, resource_names
 import project_setup
 
 CLI = project_setup.AzureCLI()
 ARTIFACTS = WORKSHOP / "labs/artifacts/lab1"
 ARTIFACT = ARTIFACTS / "project.json"
+ARTIFACT.unlink(missing_ok=True)
+(ARTIFACTS / "part_b.json").unlink(missing_ok=True)
+SMOKE_TESTS = {}
+SMOKE_TARGET = None
 
 # %% [markdown]
 # This cell records independently approved scope inputs and optional downstream settings rather than trusting a cached environment.
@@ -42,10 +46,19 @@ MARKETPLACE_TODAY = "2026-10-06"
 # %% [markdown]
 # This cell reads the checkpoint, rechecks current identity and live project ownership, and lists account model capabilities without writes.
 # %% Step 1.3 - Validate handoff and discover models
+ARTIFACT.unlink(missing_ok=True)
+(ARTIFACTS / "part_b.json").unlink(missing_ok=True)
 HANDOFF, CONTEXT, ACCOUNT, PROJECT = project_setup.read_project_handoff(
     ARTIFACTS / "part_a.json", CLI, SUBSCRIPTION_ID, TENANT_ID, ATTENDEE_SUFFIX)
 SUFFIX = HANDOFF["resource_suffix"]
 PROJECT_ENDPOINT, OPENAI_ENDPOINT = project_setup.endpoints(ACCOUNT, PROJECT)
+PROJECT_CONTEXT = {
+    "subscription_id": CONTEXT["subscription_id"].lower(), "tenant_id": CONTEXT["tenant_id"].lower(),
+    "account_resource_id": ACCOUNT["id"].lower(), "project_resource_id": PROJECT["id"].lower(),
+    "resource_suffix": SUFFIX,
+}
+part_a = notebook_parts.read_checkpoint(
+    ARTIFACTS / "part_a.json", lab="lab1", part="a", context=PROJECT_CONTEXT)
 MODELS = CLI.items(ACCOUNT["id"] + "/models")
 print(json.dumps([m for m in MODELS if m.get("format") == "OpenAI"
                   and (m.get("name", "").startswith("gpt-")
@@ -54,6 +67,10 @@ print(json.dumps([m for m in MODELS if m.get("format") == "OpenAI"
 # %% [markdown]
 # This cell selects live model versions and advertised SKUs and displays the cost-bearing deployment plan.
 # %% Step 1.4 - Review the model plan
+SMOKE_TESTS = {}
+SMOKE_TARGET = None
+ARTIFACT.unlink(missing_ok=True)
+(ARTIFACTS / "part_b.json").unlink(missing_ok=True)
 CHAT_MODEL = "gpt-5.4-mini"
 CHAT_VERSION = ""
 CHAT_SKU = "GlobalStandard"
@@ -145,7 +162,9 @@ CHECKPOINT = {
     "provisioning_state": "Succeeded", "smoke_tests": SMOKE_TESTS,
 }
 foundry_env.save_artifact(ARTIFACT, CHECKPOINT)
-foundry_env.save_artifact(ARTIFACTS / "part_b.json", {**CHECKPOINT, "part": "b"})
+notebook_parts.write_checkpoint(
+    ARTIFACTS / "part_b.json", lab="lab1", part="b", context=notebook_parts.scope(ENV),
+    evidence=[ARTIFACT], state={"smoke_tests": SMOKE_TESTS, "project_resource_id": PROJECT["id"]})
 print(f"Verified checkpoint: {ARTIFACT.relative_to(REPO_ROOT)}")
 
 # %% [markdown]

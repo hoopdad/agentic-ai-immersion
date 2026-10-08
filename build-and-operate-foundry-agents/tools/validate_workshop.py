@@ -114,29 +114,29 @@ def validate_checkpoint_contract(tree: ast.Module, lab: str, part: str) -> None:
     if part == "b":
         required["read_checkpoint"] = "a"
     for name, expected_part in required.items():
-        if len(calls[name]) != 1:
-            raise ValueError(f"{lab}{part.upper()}: expected one {name} handoff")
-        call = calls[name][0]
-        keywords = {keyword.arg: keyword.value for keyword in call.keywords}
-        for key, expected in (("lab", lab), ("part", expected_part)):
-            value = resolve(keywords.get(key, ast.Constant(None)))
-            if not isinstance(value, ast.Constant) or value.value != expected:
-                raise ValueError(f"{lab}{part.upper()}: {name} must use {key}={expected!r}")
-        if "context" not in keywords or isinstance(resolve(keywords["context"]), ast.Constant):
-            raise ValueError(f"{lab}{part.upper()}: {name} needs explicit current scope context")
-        if not call.args:
-            raise ValueError(f"{lab}{part.upper()}: {name} needs the checkpoint artifact path")
-        path = resolve(call.args[0])
-        if f"part_{expected_part}.json" not in ast.unparse(path):
-            raise ValueError(f"{lab}{part.upper()}: {name} must address part_{expected_part}.json")
-        if name == "write_checkpoint":
-            metadata = [resolve(keywords[key]) for key in ("state", "evidence") if key in keywords]
-            if not any(
-                isinstance(node, (ast.Name, ast.Call))
-                for value in metadata for node in ast.walk(value)
-            ):
-                raise ValueError(f"{lab}{part.upper()}: checkpoint needs actual state or evidence")
-    if part == "b" and calls["read_checkpoint"][0].lineno >= calls["write_checkpoint"][0].lineno:
+        if not calls[name] or name == "write_checkpoint" and len(calls[name]) != 1:
+            raise ValueError(f"{lab}{part.upper()}: expected {name} handoff")
+        for call in calls[name]:
+            keywords = {keyword.arg: keyword.value for keyword in call.keywords}
+            for key, expected in (("lab", lab), ("part", expected_part)):
+                value = resolve(keywords.get(key, ast.Constant(None)))
+                if not isinstance(value, ast.Constant) or value.value != expected:
+                    raise ValueError(f"{lab}{part.upper()}: {name} must use {key}={expected!r}")
+            if "context" not in keywords or isinstance(resolve(keywords["context"]), ast.Constant):
+                raise ValueError(f"{lab}{part.upper()}: {name} needs explicit current scope context")
+            if not call.args:
+                raise ValueError(f"{lab}{part.upper()}: {name} needs the checkpoint artifact path")
+            path = resolve(call.args[0])
+            if f"part_{expected_part}.json" not in ast.unparse(path):
+                raise ValueError(f"{lab}{part.upper()}: {name} must address part_{expected_part}.json")
+            if name == "write_checkpoint":
+                metadata = [resolve(keywords[key]) for key in ("state", "evidence") if key in keywords]
+                if not any(
+                    isinstance(node, (ast.Name, ast.Call))
+                    for value in metadata for node in ast.walk(value)
+                ):
+                    raise ValueError(f"{lab}{part.upper()}: checkpoint needs actual state or evidence")
+    if part == "b" and min(call.lineno for call in calls["read_checkpoint"]) >= calls["write_checkpoint"][0].lineno:
         raise ValueError(f"{lab}B: restore A before publishing B")
 
 

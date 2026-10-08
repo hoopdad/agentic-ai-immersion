@@ -21,11 +21,13 @@ LAB_DIR = WORKSHOP / "labs/lab1-foundry-project-models"
 for folder in (WORKSHOP, LAB_DIR):
     if str(folder) not in sys.path:
         sys.path.insert(0, str(folder))
-from common import foundry_env, resource_names
+from common import notebook_parts, resource_names
 import project_setup
 
 CLI = project_setup.AzureCLI()
 ARTIFACTS = WORKSHOP / "labs/artifacts/lab1"
+for name in ("part_a.json", "part_b.json", "project.json"):
+    (ARTIFACTS / name).unlink(missing_ok=True)
 
 # %% [markdown]
 # This cell records explicit approved identity inputs without switching the active Azure subscription.
@@ -40,6 +42,8 @@ APPROVE_PROJECT = False  # Set True only after reviewing account, scope and owne
 # %% [markdown]
 # This cell displays the authenticated identity context and project-enabled existing accounts for facilitator review.
 # %% Step 1.3 - Discover identity and accounts
+for name in ("part_a.json", "part_b.json", "project.json"):
+    (ARTIFACTS / name).unlink(missing_ok=True)
 CONTEXT = project_setup.azure_context(CLI, SUBSCRIPTION_ID, TENANT_ID)
 print(json.dumps(CONTEXT, indent=2))
 print(json.dumps(project_setup.account_inventory(CLI, CONTEXT), indent=2))
@@ -48,6 +52,8 @@ print("Fill both approved GUIDs and the selected account in Step 1.2, then rerun
 # %% [markdown]
 # This cell verifies the selected account and prints the attendee-owned project scope before any writes.
 # %% Step 1.4 - Review project ownership
+for name in ("part_a.json", "part_b.json", "project.json"):
+    (ARTIFACTS / name).unlink(missing_ok=True)
 if not SUBSCRIPTION_ID or not TENANT_ID:
     raise ValueError("Enter the reviewed subscription and tenant GUIDs in Step 1.2.")
 CONTEXT = project_setup.azure_context(CLI, SUBSCRIPTION_ID, TENANT_ID)
@@ -76,7 +82,13 @@ HANDOFF = {
     "resource_suffix": SUFFIX, "project_endpoint": PROJECT_ENDPOINT,
     "azure_openai_endpoint": OPENAI_ENDPOINT,
 }
-foundry_env.save_artifact(ARTIFACTS / "part_a.json", HANDOFF)
+PROJECT_CONTEXT = {
+    "subscription_id": CONTEXT["subscription_id"].lower(), "tenant_id": CONTEXT["tenant_id"].lower(),
+    "account_resource_id": ACCOUNT["id"].lower(), "project_resource_id": PROJECT["id"].lower(),
+    "resource_suffix": SUFFIX,
+}
+notebook_parts.write_checkpoint(
+    ARTIFACTS / "part_a.json", lab="lab1", part="a", context=PROJECT_CONTEXT, state=HANDOFF)
 print(json.dumps(HANDOFF, indent=2))
 
 # %% [markdown]

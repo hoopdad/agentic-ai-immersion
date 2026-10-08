@@ -25,10 +25,16 @@ from common import notebook_parts
 
 driver = lab_helpers.load_lab_module("stretch6-prompt-agents-and-workflows/stretch6_prompt_agents.py")
 
+if "__file__" not in globals():
+    lab_helpers.artifact_path("stretch6", "part_a.json").unlink(missing_ok=True)
+    lab_helpers.artifact_path("stretch6", "part_b.json").unlink(missing_ok=True)
+
 # %% [markdown]
 # This cell publishes only the six platform prompt agents and retains their names, version IDs, and tool contracts.
 # %% Step S6.2 - Publish prompt agents only
 if "__file__" not in globals():
+    lab_helpers.artifact_path("stretch6", "part_a.json").unlink(missing_ok=True)
+    lab_helpers.artifact_path("stretch6", "part_b.json").unlink(missing_ok=True)
     info = driver.publish_prompt_agents()
     assert "workflow_name" not in info
     driver.foundry_env.save_artifact(lab_helpers.artifact_path("stretch6", "prompt_agents.json"), info)
@@ -37,6 +43,8 @@ if "__file__" not in globals():
 # This cell demonstrates the concierge's client-side function-tool loop without invoking or creating a workflow.
 # %% Step S6.3 - Execute a prompt-agent tool turn
 if "__file__" not in globals():
+    lab_helpers.artifact_path("stretch6", "part_a.json").unlink(missing_ok=True)
+    lab_helpers.artifact_path("stretch6", "part_b.json").unlink(missing_ok=True)
     text, calls = driver.run_concierge_turn(
         driver.foundry_env.get_openai_client(),
         lab_helpers.identity_line("P-1001") + " When can I change my Medicare plan?",
@@ -60,6 +68,8 @@ if "__file__" not in globals():
 # This cell verifies the portal greeting change and restores the concierge without publishing any workflow.
 # %% Step S6.4 - Verify portal instructions
 if "__file__" not in globals():
+    lab_helpers.artifact_path("stretch6", "part_a.json").unlink(missing_ok=True)
+    lab_helpers.artifact_path("stretch6", "part_b.json").unlink(missing_ok=True)
     project = driver.foundry_env.get_project_client()
     try:
         portal_text, portal_calls = driver.run_concierge_turn(
@@ -81,6 +91,8 @@ if "__file__" not in globals():
 # This cell checkpoints the published prompt references and observed tool and portal evidence for a fresh workflow kernel.
 # %% Step S6.5 - Save prompt-agent references
 if "__file__" not in globals():
+    lab_helpers.artifact_path("stretch6", "part_a.json").unlink(missing_ok=True)
+    lab_helpers.artifact_path("stretch6", "part_b.json").unlink(missing_ok=True)
     part_a = notebook_parts.write_checkpoint(
         lab_helpers.artifact_path("stretch6", "part_a.json"), lab="stretch6", part="a", context=notebook_parts.scope(driver.ENV),
         state={"prompt_agents": info},

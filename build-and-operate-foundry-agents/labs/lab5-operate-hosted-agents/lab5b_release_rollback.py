@@ -32,13 +32,19 @@ promotion = lab_helpers.load_lab_module("lab5-operate-hosted-agents/promote.py")
 
 
 def gate_rows(rows: list[dict], errors: list[str] | None = None) -> dict:
+    incomplete = [
+        f"row {index}: missing measured {metric} judge score"
+        for index, row in enumerate(rows, 1) for metric in ("groundedness", "relevance")
+        if not isinstance(row.get("scores"), dict) or row["scores"].get(metric) is None
+    ]
     return gate.evaluate_gate(
         rows, min_groundedness=driver.PASS_THRESHOLD,
-        min_relevance=driver.PASS_THRESHOLD, strict=True, input_errors=errors,
+        min_relevance=driver.PASS_THRESHOLD, strict=True, input_errors=[*(errors or []), *incomplete],
     )
 
 
 if "__file__" not in globals():
+    lab_helpers.artifact_path("lab5", "part_b.json").unlink(missing_ok=True)
     part_a = notebook_parts.read_checkpoint(
         lab_helpers.artifact_path("lab5", "part_a.json"), lab="lab5", part="a", context=notebook_parts.scope(driver.ENV),
     )
@@ -50,6 +56,7 @@ if "__file__" not in globals():
 # This cell recomputes deterministic release rules on A's exact responses and applies strict thresholds to its saved judge scores.
 # %% Step 5.2 - Gate the measured baseline
 if "__file__" not in globals():
+    lab_helpers.artifact_path("lab5", "part_b.json").unlink(missing_ok=True)
     baseline_gate = gate_rows(rows, load_errors)
     gate.write_outputs(baseline_gate)
     assert baseline_gate["passed"], baseline_gate["failures"]
@@ -59,6 +66,7 @@ if "__file__" not in globals():
 # This cell demonstrates blocked promotion using a deliberately unsafe copy of one response while preserving A's measured files.
 # %% Step 5.3 - Reject a release regression
 if "__file__" not in globals():
+    lab_helpers.artifact_path("lab5", "part_b.json").unlink(missing_ok=True)
     broken_rows = copy.deepcopy(rows)
     broken_rows[0]["response"] = "You should choose Gold Plus."
     broken_gate = gate_rows(broken_rows)
@@ -76,6 +84,7 @@ if "__file__" not in globals():
 # This cell restores the exact baseline gate without model calls and records recovered release evidence in the original artifact contract.
 # %% Step 5.4 - Recover the known-good release evidence
 if "__file__" not in globals():
+    lab_helpers.artifact_path("lab5", "part_b.json").unlink(missing_ok=True)
     recovered_gate = gate_rows(rows, load_errors)
     assert recovered_gate["passed"], recovered_gate["failures"]
     gate.write_outputs(recovered_gate)
@@ -85,20 +94,24 @@ if "__file__" not in globals():
     })
 
 # %% [markdown]
-# ## YOUR TURN: promote through the approved operator path
+# ## YOUR TURN: rehearse a gated promotion
 #
-# Inspect active and previous versions in Foundry, fill `envs/.env.test` with the target project's configuration,
-# and request operator approval before executing the printed command.
-# `promote.py` validates the target, deploys the known source, smoke-tests it, and records the promotion.
-# Its default invocation below records only `dry-run`, not a successful cloud release.
+# Inspect active and previous versions in Foundry and enter your proposed target and release tag below.
+# An authorized release administrator owns target configuration, approvals, deployment, and smoke tests
+# through the optional operator workflow; learners do not edit operator environment files or execute terminal commands.
+# This notebook records only a validated `dry-run`, not a successful cloud release.
 #
 # This cell validates the recovered gate and prepares a target-environment promotion without executing a deployment.
 # %% Step 5.5 - Prepare a gated promotion
 if "__file__" not in globals():
+    lab_helpers.artifact_path("lab5", "part_b.json").unlink(missing_ok=True)
     TARGET_ENVIRONMENT = "test"
-    RELEASE_TAG = "healthcare-marketplace-concierge-test-REPLACE"
+    RELEASE_TAG = ""  # Enter your proposed release tag; this notebook does not create it.
+    assert TARGET_ENVIRONMENT in promotion.ORDER, "Choose a supported target environment."
+    assert RELEASE_TAG and "REPLACE" not in RELEASE_TAG and "<" not in RELEASE_TAG, "Enter a real proposed release tag."
+    subprocess.run(["git", "check-ref-format", f"refs/tags/{RELEASE_TAG}"], cwd=ROOT, check=True)
     validated_gate = promotion.check_gate()
-    print(promotion.bash_block(TARGET_ENVIRONMENT, RELEASE_TAG))
+    print(f"Promotion rehearsal: target={TARGET_ENVIRONMENT}, tag={RELEASE_TAG}; dry-run only, not deployed.")
     promotion.record(validated_gate, TARGET_ENVIRONMENT, RELEASE_TAG, "dry-run")
 
 # %% [markdown]
@@ -112,6 +125,7 @@ if "__file__" not in globals():
 # This cell records your inspected rollback plan and completes B only with passing recovered evaluation evidence.
 # %% Step 5.6 - Retain version and rollback evidence
 if "__file__" not in globals():
+    lab_helpers.artifact_path("lab5", "part_b.json").unlink(missing_ok=True)
     ACTIVE_VERSION = ""  # Enter the version inspected in Foundry.
     KNOWN_GOOD_VERSION = ""  # Enter the retained, validated rollback version.
     KNOWN_GOOD_REVISION = ""  # Enter its source revision for the approved operator workflow.

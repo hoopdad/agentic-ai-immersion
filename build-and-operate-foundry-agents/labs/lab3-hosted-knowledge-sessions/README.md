@@ -94,6 +94,10 @@ the shared-scale result (or explicitly unproven result), and deployed citation e
 Changing knowledge/source between halves requires fresh 3A acceptance. The original
 `knowledge.json` and `hosted.json` contracts remain unchanged. Paired adjacent Python
 files are authoring inputs, and the original driver remains an internal helper.
+Acceptance/deployment reruns remove prior same-part markers first; rerunning 3A
+also invalidates 3B. Failed gates cannot recycle old in-kernel success evidence.
+Import/setup clears markers and cached acceptance flags before prerequisite
+validation, while preserving existing knowledge and cloud resources.
 
 ## Troubleshooting
 

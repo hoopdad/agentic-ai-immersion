@@ -44,16 +44,28 @@ def resume_pending(case: dict, decisions: list[str], send, restart=None) -> tupl
 
 
 if "__file__" not in globals():
+    (driver.ARTIFACTS / "part_b.json").unlink(missing_ok=True)
     part_a = notebook_parts.read_checkpoint(
         driver.ARTIFACTS / "part_a.json", lab="lab4", part="a", context=notebook_parts.scope(driver.ENV),
     )
     pending = part_a["state"]["pending"]
     assert set(pending) == {"S1", "S2", "S3"}
+    session_snapshot = json.loads((driver.ARTIFACTS / "pending_sessions.json").read_text(encoding="utf-8"))
+    for case in pending.values():
+        session_id = case["session_id"]
+        session = json.loads((driver.ARTIFACTS / "sessions" / f"{session_id}.json").read_text(encoding="utf-8"))
+        notes = session.get("notes", {})
+        assert {"status": notes.get("status"), "packet": notes.get("packet")} == session_snapshot[session_id], (
+            "The durable pending session changed since Lab 4A; continue the current B kernel or rerun A for new cases."
+        )
+    hosted_record = json.loads(driver.HOSTED_RECORD.read_text(encoding="utf-8"))
+    assert hosted_record.get("agent_name") == part_a["state"]["hosted"]["agent_name"]
 
 # %% [markdown]
 # This cell resumes the existing S3 case with an advisor revision and verifies the added enrollment question before approval.
 # %% Step 4.2 - Revise and approve the persisted packet
 if "__file__" not in globals():
+    (driver.ARTIFACTS / "part_b.json").unlink(missing_ok=True)
     with driver.HostedProcess():
         revised, revision_paths = resume_pending(
             pending["S3"], driver.SCENARIOS["S3"]["auto_decisions"],
@@ -69,6 +81,7 @@ if "__file__" not in globals():
 # This cell restarts the server before approving A's S2 case and confirms that durable session recovery supplies the packet.
 # %% Step 4.3 - Verify restart-safe advisor approval
 if "__file__" not in globals():
+    (driver.ARTIFACTS / "part_b.json").unlink(missing_ok=True)
     server = driver.HostedProcess().start()
     try:
         def restart() -> None:
@@ -95,6 +108,7 @@ if "__file__" not in globals():
 # This cell deploys the safe triage package to Azure and displays its version status after local approval checks pass.
 # %% Step 4.4 - Deploy the approved triage package
 if "__file__" not in globals():
+    (driver.ARTIFACTS / "part_b.json").unlink(missing_ok=True)
     assert revised["advisor_decision"] == recovered["advisor_decision"] == "approve"
     subprocess.run(["bash", "-lc", driver.deploy_commands()], cwd=driver.HOSTED_DIR, check=True)
     subprocess.run(["azd", "ai", "agent", "show", driver.AGENT_NAME], cwd=driver.HOSTED_DIR, check=True)
@@ -103,6 +117,7 @@ if "__file__" not in globals():
 # This cell records the active version you inspected and saves Lab 4B only after a deployed case reaches final approval.
 # %% Step 4.5 - Verify final deployed approval
 if "__file__" not in globals():
+    (driver.ARTIFACTS / "part_b.json").unlink(missing_ok=True)
     DEPLOYED_VERSION = ""  # Enter the active version shown by the previous cell.
     assert DEPLOYED_VERSION, "Enter the active Foundry version in DEPLOYED_VERSION."
     deployed = driver.demo(scenarios=("S2",), auto=True, deployed=True)

@@ -95,6 +95,7 @@ class SplitNotebookTests(unittest.TestCase):
             code = code.replace('ACTIVE_VERSION = ""', 'ACTIVE_VERSION = "3"')
             code = code.replace('KNOWN_GOOD_VERSION = ""', 'KNOWN_GOOD_VERSION = "2"')
             code = code.replace('KNOWN_GOOD_REVISION = ""', 'KNOWN_GOOD_REVISION = "offline-reviewed-revision"')
+            code = code.replace('RELEASE_TAG = ""', 'RELEASE_TAG = "healthcare-marketplace-concierge-test-offline"')
             exec(compile(code, f"{lab}{part}_cell", "exec"), namespace)
         return namespace
 
@@ -120,8 +121,10 @@ class SplitNotebookTests(unittest.TestCase):
         with patch.object(foundry_env, "get_project_client") as project, \
                 patch.object(foundry_env, "get_openai_client") as client:
             for lab in PARTS:
+                self.artifact(lab, "part_b.json").write_text('{"old_success": true}')
                 with self.subTest(lab=lab), self.assertRaises(RuntimeError):
                     self.execute(lab, "b", limit=1)
+                self.assertFalse(self.artifact(lab, "part_b.json").exists())
             project.assert_not_called()
             client.assert_not_called()
 
@@ -156,6 +159,31 @@ class SplitNotebookTests(unittest.TestCase):
             client.assert_not_called()
             checkpoint.assert_not_called()
 
+    def test_failed_a_action_cannot_publish_a_completion_checkpoint(self) -> None:
+        for lab, (_, _, _, original) in PARTS.items():
+            driver = self.loaded[original]
+            action = "publish_prompt_agents" if lab == "stretch6" else "build"
+            for part in ("a", "b"):
+                self.artifact(lab, f"part_{part}.json").write_text('{"old_success": true}')
+            with self.subTest(lab=lab), patch.object(driver, action, side_effect=RuntimeError("offline failure")):
+                with self.assertRaises(RuntimeError):
+                    self.execute(lab, "a")
+                self.assertFalse(self.artifact(lab, "part_a.json").exists())
+                self.assertFalse(self.artifact(lab, "part_b.json").exists())
+
+    def test_individual_a_cell_rerun_invalidates_prior_a_and_b_success(self) -> None:
+        for lab, (_, _, _, original) in PARTS.items():
+            namespace = self.execute(lab, "a", limit=1)
+            for part in ("a", "b"):
+                self.artifact(lab, f"part_{part}.json").write_text('{"old_success": true}')
+            driver = self.loaded[original]
+            action = "publish_prompt_agents" if lab == "stretch6" else "build"
+            with self.subTest(lab=lab), patch.object(driver, action, side_effect=RuntimeError("rerun failure")):
+                with self.assertRaises(RuntimeError):
+                    exec(compile(self.cells(lab, "a")[1], "rerun_a_action", "exec"), namespace)
+                for part in ("a", "b"):
+                    self.assertFalse(self.artifact(lab, f"part_{part}.json").exists())
+
     def test_lab4_fresh_kernel_resumes_original_sessions_without_reclassification(self) -> None:
         driver = self.loaded["lab4_hosted_multi_agent"]
         driver.LABS_DIR = self.workspace
@@ -177,7 +205,7 @@ class SplitNotebookTests(unittest.TestCase):
                 }[turn["scenario"]]
                 result = packet(lob, turn["participant_id"])
                 session_packets[sid] = result
-                (sessions / f"{sid}.json").write_text(json.dumps({"packet": result}))
+                (sessions / f"{sid}.json").write_text(json.dumps({"notes": {"status": driver.PENDING, "packet": result}}))
                 driver.SERVER_LOG.write_text("compliant=False\nsending marketplace-guide back for one revision")
                 return {"status": driver.PENDING, "packet": result}, "response-offline"
             result = copy.deepcopy(session_packets[sid])
@@ -208,6 +236,18 @@ class SplitNotebookTests(unittest.TestCase):
         a = self.execute("lab4", "a")
         self.assertTrue(all("advisor" not in turn for turn in sent))
         count = len(sent)
+        live_session = sessions / f"{a['pending']['S2']['session_id']}.json"
+        original_session = live_session.read_text()
+        live_session.unlink()
+        with self.assertRaises(FileNotFoundError):
+            self.execute("lab4", "b", limit=1)
+        changed = json.loads(original_session)
+        changed["notes"]["status"] = "approved"
+        live_session.write_text(json.dumps(changed))
+        with self.assertRaises(AssertionError):
+            self.execute("lab4", "b", limit=1)
+        self.assertEqual(len(sent), count)
+        live_session.write_text(original_session)
         b = self.execute("lab4", "b")
         self.assertIsNot(a, b)
         self.assertTrue(all("message" not in turn for turn in sent[count:]))
@@ -255,9 +295,20 @@ class SplitNotebookTests(unittest.TestCase):
         self.execute("lab5", "b")
         self.assertEqual(counts, (build_mock.call_count, demo_mock.call_count))
         self.assertEqual(self.gate.RESULTS_PATH.read_bytes(), original)
+        rehearsal = self.execute("lab5", "b", limit=4)
+        self.artifact("lab5", "part_b.json").write_text('{"old_success": true}')
+        existing_promotions = self.promotion.PROMOTIONS_PATH.read_bytes()
+        with self.assertRaises(AssertionError):
+            exec(compile(self.cells("lab5", "b")[4], "unset_release_tag", "exec"), rehearsal)
+        self.assertFalse(self.artifact("lab5", "part_b.json").exists())
+        self.assertEqual(self.promotion.PROMOTIONS_PATH.read_bytes(), existing_promotions)
+        self.execute("lab5", "b")
         self.assertTrue(json.loads(self.gate.GATE_PATH.read_text())["passed"])
         self.assertFalse(json.loads(self.artifact("lab5", "regression_gate.json").read_text())["passed"])
         self.assertTrue(self.artifact("lab5", "part_b.json").is_file())
+        self.execute("lab5", "b")
+        self.assertEqual(counts, (build_mock.call_count, demo_mock.call_count))
+        self.assertEqual(self.gate.RESULTS_PATH.read_bytes(), original)
 
     def test_stretch6_publishes_prompts_in_a_and_only_workflow_in_b(self) -> None:
         driver = self.loaded["stretch6_prompt_agents"]
@@ -342,8 +393,8 @@ class SplitNotebookTests(unittest.TestCase):
         module = load(ROOT / "labs" / PARTS["stretch7"][0] / "stretch7b_skills_toolbox.py", "split_config")
         self.assertEqual(module.validate_config("", "", "")["SKILL_NAMES"], "")
         for name, url in (("box", ""), ("", "https://example.test/mcp"),
-                          ("box", "http://example.test/mcp"), ("box", "******example.test/mcp"),
-                          ("box", "https://example.test/mcp?key=value")):
+                          ("box", "http://example.test/mcp"), ("box", "https://attendee@example.test/mcp"),
+                          ("box", "https://example.test/mcp?key=value"), ("box", "https://example.test/mcp#fragment")):
             with self.subTest(url=url), self.assertRaises(ValueError):
                 module.validate_config(name, url, "")
         with self.assertRaises(ValueError):
@@ -405,6 +456,9 @@ class SplitNotebookTests(unittest.TestCase):
         self.assertEqual(batches, [True, False])
         self.assertEqual(commands, ["invocations", "responses"])
         self.assertTrue(self.artifact("stretch7", "part_b.json").is_file())
+        self.execute("stretch7", "b")
+        self.assertEqual(batches, [True, False])
+        self.assertEqual(commands, ["invocations", "responses", "responses"])
 
 
 if __name__ == "__main__":

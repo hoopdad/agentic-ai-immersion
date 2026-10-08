@@ -10,7 +10,7 @@ from pathlib import Path
 import sys
 from types import SimpleNamespace
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -63,6 +63,8 @@ class ConverterTests(unittest.TestCase):
             "lab='lab2', part='b', context=context, state={'hosted': hosted})\n"
         )
         validate_checkpoint_contract(ast.parse(source), "lab2", "b")
+        lines = source.splitlines()
+        validate_checkpoint_contract(ast.parse("\n".join([lines[0], lines[1], lines[1], lines[2]])), "lab2", "b")
         for invalid in (
             source.replace("lab='lab2'", "lab='lab3'"),
             source.replace("part='a'", "part='b'"),
@@ -88,14 +90,15 @@ class ConverterTests(unittest.TestCase):
     def test_fresh_b_kernels_restore_state_without_repeating_a_cloud_work(self):
         cases = (
             ("lab4-hosted-multi-agent-handoff", "lab4b_advisor_recovery.py", "lab4",
-             {"pending": {name: {"session_id": name} for name in ("S1", "S2", "S3")}}, "pending"),
+             {"pending": {name: {"session_id": name} for name in ("S1", "S2", "S3")},
+              "hosted": {"agent_name": "existing"}}, "pending"),
             ("lab5-operate-hosted-agents", "lab5b_release_rollback.py", "lab5",
              {"bundle": {"info": {"version": "measured"}}, "summary": {"questions": 6}}, "bundle"),
             ("stretch6-prompt-agents-and-workflows", "stretch6b_workflows_delegation.py", "stretch6",
              {"prompt_agents": {"agents": {"triage": {"agent_id": "existing", "agent_version": "3"}}}},
              "prompt_info"),
             ("stretch7-invocations-toolbox-skills", "stretch7b_skills_toolbox.py", "stretch7",
-             {"nightly": {"reviews": 3}}, "part_a"),
+             {"nightly": {"reviews": 3}, "invocations": {"agent_name": "existing"}}, "part_a"),
         )
         for directory, filename, lab, state, restored in cases:
             with self.subTest(lab=lab):
@@ -110,19 +113,34 @@ class ConverterTests(unittest.TestCase):
                     read_checkpoint=Mock(return_value=checkpoint), scope=Mock(return_value=context),
                 )
                 artifacts = ROOT / "labs/artifacts" / lab
+                files = {
+                    artifacts / "pending_sessions.json": {
+                        name: {"status": None, "packet": None} for name in ("S1", "S2", "S3")
+                    },
+                    artifacts / "hosted.json": {"agent_name": "existing"},
+                    artifacts / "invocations.json": {
+                        "agents": {"invocations": state.get("invocations")}, "sample_run": state.get("nightly"),
+                    },
+                    **{artifacts / "sessions" / f"{name}.json": {"notes": {}}
+                       for name in ("S1", "S2", "S3")},
+                }
                 helpers = SimpleNamespace(artifact_path=lambda namespace, name: ROOT / "labs/artifacts" / namespace / name)
                 driver = SimpleNamespace(
                     ENV={"current": "configuration"}, ARTIFACTS=artifacts,
+                    HOSTED_RECORD=artifacts / "hosted.json", RECORD=artifacts / "invocations.json",
                     SPECS={"triage": {}}, build=cloud, demo=cloud, publish_prompt_agents=cloud,
                 )
                 namespace = {
-                    "driver": driver, "notebook_parts": parts, "lab_helpers": helpers,
+                    "driver": driver, "notebook_parts": parts, "lab_helpers": helpers, "json": json,
                     "gate": SimpleNamespace(
                         RESULTS_PATH=artifacts / "eval_results.jsonl",
                         load_results=Mock(return_value=([{"response": "measured"}] * 6, [])),
                     ),
                 }
-                exec(action, namespace)
+                with patch.object(Path, "unlink"), patch.object(
+                    Path, "read_text", autospec=True, side_effect=lambda path, **kwargs: json.dumps(files[path]),
+                ):
+                    exec(action, namespace)
                 self.assertIn(restored, namespace)
                 parts.read_checkpoint.assert_called_once_with(
                     artifacts / "part_a.json", lab=lab, part="a", context=context,
@@ -130,11 +148,38 @@ class ConverterTests(unittest.TestCase):
                 parts.scope.assert_called_once_with(driver.ENV)
                 cloud.assert_not_called()
                 parts.read_checkpoint.side_effect = RuntimeError("Run A first.")
-                with self.assertRaisesRegex(RuntimeError, "Run A first"):
+                with patch.object(Path, "unlink"), self.assertRaisesRegex(RuntimeError, "Run A first"):
                     exec(action, {key: value for key, value in namespace.items() if key not in (
                         "part_a", "pending", "bundle", "rows", "load_errors", "prompt_info",
                     )})
                 cloud.assert_not_called()
+
+    def test_advisor_recovery_uses_durable_session_not_a_response_or_new_intake(self):
+        path = ROOT / "labs/lab4-hosted-multi-agent-handoff/lab4b_advisor_recovery.py"
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        resume = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "resume_pending")
+        namespace = {"json": json, "driver": SimpleNamespace(PENDING="pending")}
+        exec(compile(ast.Module(body=[resume], type_ignores=[]), str(path), "exec"), namespace)
+        packet = {"advisor_decision": "approve"}
+        send = Mock(side_effect=[
+            ({"status": "pending", "resume_path": "session_store"}, "new-response"),
+            ({"status": "approved", "packet": packet, "resume_path": "previous_response"}, "final-response"),
+        ])
+        restart = Mock()
+        result, paths = namespace["resume_pending"](
+            {"session_id": "persisted-session", "reply": {"status": "pending"}},
+            ["revise", "approve"], send, restart=restart,
+        )
+        self.assertIs(result, packet)
+        self.assertEqual(paths, ["session_store", "previous_response"])
+        self.assertEqual(restart.call_count, 2)
+        self.assertEqual(
+            [(json.loads(call.args[0]), call.args[1]) for call in send.call_args_list],
+            [
+                ({"session_id": "persisted-session", "advisor": "revise"}, None),
+                ({"session_id": "persisted-session", "advisor": "approve"}, "new-response"),
+            ],
+        )
 
     def test_internal_cli_cells_are_omitted_without_skip_instructions(self):
         text = (

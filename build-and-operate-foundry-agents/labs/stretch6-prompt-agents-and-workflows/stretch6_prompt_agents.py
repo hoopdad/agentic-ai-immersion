@@ -240,6 +240,9 @@ def render_workflow() -> str:
 # This cell defines publishing of attendee-scoped prompt agents and the platform workflow without publishing them yet.
 # %% Step S6.3 - Define prompt-agent and workflow publishing
 def build(project=None, overrides: dict[str, str] | None = None) -> dict:
+    resource_names.suffix(ENV, required=True)
+    helpers.require_artifact("lab3", "knowledge.json", through=3, caller="stretch6")
+    project = project or foundry_env.get_project_client()
     info = publish_prompt_agents(project=project, overrides=overrides)
     return publish_workflow(info, project=project)
 

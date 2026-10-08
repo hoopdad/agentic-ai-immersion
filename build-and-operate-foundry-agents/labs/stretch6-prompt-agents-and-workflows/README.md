@@ -21,6 +21,7 @@ kernel and run cells in order. It creates and invokes platform-managed agents.
 | 6B (35 min) | Reuse A's prompt names/IDs, create only the workflow, test routing and hosted delegation, deploy the edited Lab 3 package | `artifacts/stretch6/part_b.json` and original `agents.json`/`workflow.yaml`/handoff packet |
 
 B imports definitions without rerunning A and refuses missing, modified, or differently scoped evidence.
+Rerunning an A action invalidates both completion checkpoints; rerunning B invalidates its checkpoint until success.
 It never republishes A's prompt agents. The original `build()` remains the internal cumulative publishing API.
 The adjacent paired cell sources are `stretch6a_prompt_agents.py` and `stretch6b_workflows_delegation.py`.
 

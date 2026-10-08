@@ -21,6 +21,7 @@ not a terminal learner route.
 | 7B (25–30 min) | Read A, prepare only Responses Skills, prove first/second skill use, validate optional Toolbox configuration, Responses-only deployment | `artifacts/stretch7/part_b.json`, Skills evidence/transcript and cumulative `invocations.json` |
 
 B never replays the batch or rebuilds/deploys its host. Missing, changed, or differently scoped A evidence blocks B.
+Rerunning an A action invalidates both completion checkpoints; rerunning B invalidates its checkpoint until success.
 Blank `SKILL_NAMES` automatically includes every local workshop skill, including the newly authored second skill.
 Toolbox configuration is not a passing invocation check; unavailable/skipped preview behavior stays explicitly unverified.
 Author notebooks in `stretch7a_invocations.py` and `stretch7b_skills_toolbox.py`; the original driver preserves its cumulative API.

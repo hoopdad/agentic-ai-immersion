@@ -261,21 +261,30 @@ class ProjectSetupTests(unittest.TestCase):
         spec = importlib.util.spec_from_file_location("converter", ROOT / "tools/py_to_ipynb.py")
         converter = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(converter)
-        text = (LAB / "lab1_project_models.py").read_text(encoding="utf-8")
-        notebook = json.loads((LAB / "lab1_walkthrough.ipynb").read_text(encoding="utf-8"))
-        self.assertEqual(notebook, converter.build_notebook(text, seed="lab1_project_models"))
-        self.assertEqual(converter.validate_notebook(notebook), [])
-        self.assertEqual(converter.validate_step_ids(notebook, "1"), [])
-        for index, cell in enumerate(notebook["cells"]):
-            if cell["cell_type"] == "code":
-                self.assertGreater(index, 0)
-                self.assertEqual(notebook["cells"][index - 1]["cell_type"], "markdown")
-                self.assertIsNone(cell["execution_count"])
-                self.assertEqual(cell["outputs"], [])
-        self.assertNotIn("if __name__", text)
+        for source, name in (
+            ("lab1a_identity_project.py", "lab1a_walkthrough.ipynb"),
+            ("lab1b_models_verify.py", "lab1b_walkthrough.ipynb"),
+        ):
+            with self.subTest(source=source):
+                text = (LAB / source).read_text(encoding="utf-8")
+                notebook = json.loads((LAB / name).read_text(encoding="utf-8"))
+                self.assertEqual(notebook, converter.build_notebook(text, seed=Path(source).stem))
+                self.assertEqual(converter.validate_notebook(notebook), [])
+                self.assertEqual(converter.validate_step_ids(notebook, "1"), [])
+                for index, cell in enumerate(notebook["cells"]):
+                    if cell["cell_type"] == "code":
+                        self.assertGreater(index, 0)
+                        self.assertEqual(notebook["cells"][index - 1]["cell_type"], "markdown")
+                        self.assertIsNone(cell["execution_count"])
+                        self.assertEqual(cell["outputs"], [])
+                self.assertNotIn("if __name__", text)
 
-    def test_notebook_handoff_and_stale_smoke_regressions_offline(self) -> None:
-        notebook = json.loads((LAB / "lab1_walkthrough.ipynb").read_text(encoding="utf-8"))
+    def test_original_driver_handoff_and_stale_smoke_regressions_offline(self) -> None:
+        spec = importlib.util.spec_from_file_location("converter", ROOT / "tools/py_to_ipynb.py")
+        converter = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(converter)
+        source = LAB / "lab1_project_models.py"
+        notebook = converter.build_notebook(source.read_text(encoding="utf-8"), seed=source.stem)
         cells = ["".join(c["source"]) for c in notebook["cells"] if c["cell_type"] == "code"]
         namespace: dict = {}
         project = {"id": PROJECT_ID, "properties": {"endpoints": {

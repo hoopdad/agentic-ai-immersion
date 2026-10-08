@@ -24,7 +24,10 @@ support the notebook/CI implementation, not alternate learner commands.
 Checkpoint paths are under `artifacts/lab5/`. B never calls the model evaluators again:
 it corrupts an in-memory response copy to demonstrate a failed release, then gates the unchanged measured rows.
 Promotion is explicitly a dry run and rollback a recorded operator rehearsal, not claimed cloud activation.
+Set the proposed target and a non-placeholder release tag in B's editable notebook cell; no learner terminal command is required.
+Target environment files, approvals, and actual promotion/rollback execution belong to the optional administrator-owned workflow.
 Missing, modified, or differently scoped A artifacts stop B before release actions.
+Rerunning an A action invalidates both completion checkpoints; rerunning B invalidates its checkpoint until success.
 Edit adjacent `lab5a_tracing_evaluation.py` / `lab5b_release_rollback.py` when authoring notebooks;
 retain the original driver for the opt-in cloud pipeline.
 

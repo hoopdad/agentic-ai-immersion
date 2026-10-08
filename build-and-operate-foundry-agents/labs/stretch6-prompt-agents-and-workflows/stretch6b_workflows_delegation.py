@@ -26,6 +26,7 @@ from common import notebook_parts
 driver = lab_helpers.load_lab_module("stretch6-prompt-agents-and-workflows/stretch6_prompt_agents.py")
 
 if "__file__" not in globals():
+    lab_helpers.artifact_path("stretch6", "part_b.json").unlink(missing_ok=True)
     part_a = notebook_parts.read_checkpoint(
         lab_helpers.artifact_path("stretch6", "part_a.json"), lab="stretch6", part="a", context=notebook_parts.scope(driver.ENV),
     )
@@ -37,6 +38,7 @@ if "__file__" not in globals():
 # This cell creates only the workflow agent over A's published prompt names and runs its accepted marketplace path.
 # %% Step S6.2 - Publish and execute the workflow
 if "__file__" not in globals():
+    lab_helpers.artifact_path("stretch6", "part_b.json").unlink(missing_ok=True)
     info = driver.publish_workflow(prompt_info)
     info = driver.demo(info)
     assert info["agents"] == prompt_info["agents"], "The workflow phase changed published prompt references."
@@ -45,6 +47,7 @@ if "__file__" not in globals():
 # This cell sends an intentionally wrong routing hint and verifies the accounts branch leaves marketplace questions unresolved.
 # %% Step S6.3 - Detect a routing failure
 if "__file__" not in globals():
+    lab_helpers.artifact_path("stretch6", "part_b.json").unlink(missing_ok=True)
     case_id, header = driver.case_header({**driver.S1, "routing_hint": "accounts"})
     run = driver.run_case(driver.foundry_env.get_openai_client(), info["workflow_name"], header)
     assert not run["errors"], run["errors"]
@@ -68,6 +71,7 @@ if "__file__" not in globals():
 # This cell checks the saved tool registration and exercises the exact delegation function against the existing workflow.
 # %% Step S6.4 - Verify hosted delegation
 if "__file__" not in globals():
+    lab_helpers.artifact_path("stretch6", "part_b.json").unlink(missing_ok=True)
     import hosted_tool_snippet as hosted_tool
     source = (ROOT / "labs/lab3-hosted-knowledge-sessions/hosted/main.py").read_text(encoding="utf-8")
     assert "def run_triage_workflow(" in source, "Paste the hosted delegation function into Lab 3."
@@ -88,6 +92,7 @@ if "__file__" not in globals():
 # This cell deploys the edited Lab 3 package with its workflow reference only after routing and delegation acceptance pass.
 # %% Step S6.5 - Deploy hosted delegation
 if "__file__" not in globals():
+    lab_helpers.artifact_path("stretch6", "part_b.json").unlink(missing_ok=True)
     from deployment import bash_deploy_block
     lab3 = lab_helpers.load_lab_module("lab3-hosted-knowledge-sessions/lab3_hosted_knowledge.py")
     prepare = lab_helpers.load_lab_module("lab3-hosted-knowledge-sessions/hosted/prepare.py")

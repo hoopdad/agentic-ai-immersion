@@ -25,6 +25,9 @@ for folder in (WORKSHOP, WORKSHOP / "labs"):
 from common import foundry_env, notebook_parts
 import lab_helpers
 
+ARTIFACTS = WORKSHOP / "labs/artifacts/lab2"
+(ARTIFACTS / "part_b.json").unlink(missing_ok=True)
+INFERENCE_OK = False
 lab2 = lab_helpers.load_lab_module("lab2-hosted-agent-basics/lab2_hosted_basics.py")
 ENV = foundry_env.load_env()
 ARTIFACTS = lab2.ARTIFACTS
@@ -32,6 +35,7 @@ ARTIFACTS = lab2.ARTIFACTS
 # %% [markdown]
 # This cell rejects missing, differently scoped, changed-evidence or changed-source handoffs before any deployment.
 # %% Step 2.2 - Validate local checkpoint
+(ARTIFACTS / "part_b.json").unlink(missing_ok=True)
 part_a = notebook_parts.read_checkpoint(
     ARTIFACTS / "part_a.json", lab="lab2", part="a", context=notebook_parts.scope(ENV))
 hosted = lab_helpers.require_artifact("lab2", "hosted.json", through=2, caller="lab2B")
@@ -44,7 +48,6 @@ if (part_a["state"].get("agent_name") != lab2.AGENT_NAME
         or part_a["state"].get("hosted_source_sha256") != hashlib.sha256(
             (lab2.HOSTED_DIR / "main.py").read_bytes()).hexdigest()):
     raise RuntimeError("Lab 2A source or hosted definition changed; rerun its local acceptance cells.")
-(ARTIFACTS / "part_b.json").unlink(missing_ok=True)
 
 # %% [markdown]
 # This cell displays the exact tested agent implementation and the validated deployment command for scope and cost review.
@@ -56,6 +59,13 @@ print(inspect.getsource(lab2.call_deployed))
 # %% [markdown]
 # This cell explicitly uploads the saved source package and displays the created hosted version's status.
 # %% Step 2.4 - Deploy the hosted agent
+INFERENCE_OK = False
+(ARTIFACTS / "part_b.json").unlink(missing_ok=True)
+notebook_parts.read_checkpoint(
+    ARTIFACTS / "part_a.json", lab="lab2", part="a", context=notebook_parts.scope(ENV))
+if part_a["state"]["hosted_source_sha256"] != hashlib.sha256(
+        (lab2.HOSTED_DIR / "main.py").read_bytes()).hexdigest():
+    raise RuntimeError("Hosted source changed after checkpoint validation; rerun Lab 2A acceptance.")
 subprocess.run(["bash", "-lc", lab2.deploy_commands(ENV)], cwd=lab2.HOSTED_DIR, check=True)
 subprocess.run(["azd", "ai", "agent", "show", lab2.AGENT_NAME], cwd=lab2.HOSTED_DIR, check=True)
 
@@ -66,6 +76,8 @@ subprocess.run(["azd", "ai", "agent", "show", lab2.AGENT_NAME], cwd=lab2.HOSTED_
 #
 # This cell selects an explicitly inspected active version and verifies its Responses inference endpoint.
 # %% Step 2.5 - Invoke the active version
+INFERENCE_OK = False
+(ARTIFACTS / "part_b.json").unlink(missing_ok=True)
 DEPLOYED_VERSION = ""  # Enter the active version shown after deployment.
 assert DEPLOYED_VERSION, "Enter the active Foundry version before invoking."
 hosted = lab2.record_deployment(DEPLOYED_VERSION)
@@ -73,10 +85,14 @@ result = lab2.call_deployed(
     "Hi, this is P-1005, ZIP 84010. What is my enrollment window?", store=False)
 print(result["text"])
 assert result["text"].strip(), "The deployed agent returned an empty answer."
+INFERENCE_OK = True
 
 # %% [markdown]
 # This cell publishes deployed acceptance while preserving the original hosted.json contract consumed by Lab 3A.
 # %% Step 2.6 - Publish deployment checkpoint
+(ARTIFACTS / "part_b.json").unlink(missing_ok=True)
+if not INFERENCE_OK:
+    raise RuntimeError("Complete the deployed inference check successfully before publishing Lab 2B.")
 notebook_parts.write_checkpoint(
     ARTIFACTS / "part_b.json", lab="lab2", part="b", context=notebook_parts.scope(ENV),
     evidence=[lab2.HOSTED_RECORD],

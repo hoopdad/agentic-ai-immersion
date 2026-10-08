@@ -92,6 +92,11 @@ active-version inference pass. Keep the original `hosted.json` for Lab 3A.
 If the product source changes between halves, rerun 2A acceptance rather than
 deploying untested code. Adjacent paired Python sources are authoring inputs,
 not terminal learner alternatives.
+Acceptance/deployment reruns invalidate prior same-part success before attempting
+the operation; rerunning 2A also removes 2B's marker. A failed rerun cannot publish
+old success values from the current kernel.
+The import/setup cell clears markers immediately, before validating predecessors,
+and resets cached acceptance flags; it does not remove cloud resources.
 
 ## Troubleshooting
 

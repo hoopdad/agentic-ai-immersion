@@ -24,6 +24,11 @@ for folder in (WORKSHOP, WORKSHOP / "labs"):
 from common import foundry_env, marketplace_data, notebook_parts
 import lab_helpers
 
+ARTIFACTS = WORKSHOP / "labs/artifacts/lab2"
+(ARTIFACTS / "part_a.json").unlink(missing_ok=True)
+(ARTIFACTS / "part_b.json").unlink(missing_ok=True)
+BASELINE_OK = SPONSOR_OK = INSTRUCTION_OK = False
+TESTED_SOURCE_SHA256 = None
 lab2 = lab_helpers.load_lab_module("lab2-hosted-agent-basics/lab2_hosted_basics.py")
 ENV = foundry_env.load_env()
 ARTIFACTS = lab2.ARTIFACTS
@@ -31,6 +36,8 @@ ARTIFACTS = lab2.ARTIFACTS
 # %% [markdown]
 # This cell checks the original Lab 1 inference evidence and binds it to this kernel's project, suffix and deployments.
 # %% Step 2.2 - Validate project prerequisite
+(ARTIFACTS / "part_a.json").unlink(missing_ok=True)
+(ARTIFACTS / "part_b.json").unlink(missing_ok=True)
 project = lab_helpers.require_artifact("lab1", "project.json", through=1, caller="lab2")
 if project.get("provisioning_state") != "Succeeded" or any(
         project.get("smoke_tests", {}).get(model) != "passed" for model in ("chat", "embedding")):
@@ -45,8 +52,6 @@ checkpoint_config = {
 }
 if any(not value or value != ENV.get(key) for key, value in checkpoint_config.items()):
     raise RuntimeError("Lab 1B project checkpoint does not match the current configuration.")
-(ARTIFACTS / "part_a.json").unlink(missing_ok=True)
-(ARTIFACTS / "part_b.json").unlink(missing_ok=True)
 
 # %% [markdown]
 # This cell reads the real tool and agent implementation and contrasts authoritative participant data with model-generated prose.
@@ -62,6 +67,8 @@ assert profile, "The participant fixture must exist before asking the model."
 # %% [markdown]
 # This cell prepares only the local flat package and displays the Responses client contract that will call it.
 # %% Step 2.4 - Prepare local package
+(ARTIFACTS / "part_a.json").unlink(missing_ok=True)
+(ARTIFACTS / "part_b.json").unlink(missing_ok=True)
 hosted = lab2.build()
 print(json.dumps(hosted, indent=2))
 print(inspect.getsource(lab2.post_responses))
@@ -69,7 +76,11 @@ print(inspect.getsource(lab2.post_responses))
 # %% [markdown]
 # This cell runs the two local baseline scenarios and saves redacted transcripts without deploying.
 # %% Step 2.5 - Run local concierge scenarios
+BASELINE_OK = False
+(ARTIFACTS / "part_a.json").unlink(missing_ok=True)
+(ARTIFACTS / "part_b.json").unlink(missing_ok=True)
 lab2.demo()
+BASELINE_OK = True
 
 # %% [markdown]
 # ## YOUR TURN: add a sponsor tool
@@ -80,6 +91,9 @@ lab2.demo()
 #
 # This cell vendors your saved tool change and asserts its answer through a fresh local process.
 # %% Step 2.6 - Test the sponsor tool
+SPONSOR_OK = False
+(ARTIFACTS / "part_a.json").unlink(missing_ok=True)
+(ARTIFACTS / "part_b.json").unlink(missing_ok=True)
 lab2.build()
 server = lab2.HostedProcess().start()
 try:
@@ -89,6 +103,7 @@ try:
     print(result["text"])
     assert "Northwind" in result["text"], "The answer must name the sponsor."
     assert "$3,600" in result["text"], "The answer must use the sponsor's annual HRA amount."
+    SPONSOR_OK = True
 finally:
     server.stop()
 
@@ -100,23 +115,34 @@ finally:
 #
 # This cell starts a fresh local agent and verifies that its S1 refusal names AEP.
 # %% Step 2.7 - Test the instruction change
+INSTRUCTION_OK = False
+(ARTIFACTS / "part_a.json").unlink(missing_ok=True)
+(ARTIFACTS / "part_b.json").unlink(missing_ok=True)
 hosted = lab2.build()
+TESTED_SOURCE_SHA256 = hashlib.sha256((lab2.HOSTED_DIR / "main.py").read_bytes()).hexdigest()
 server = lab2.HostedProcess().start()
 try:
     send = lambda text, **kwargs: lab2.post_responses(lab2.LOCAL_BASE, text, **kwargs)
     turns = lab2.run_scenario("S1", lab2.SCENARIOS["S1"], send)
     lab2.write_transcripts({"S1": turns}, f"local {lab2.LOCAL_BASE}")
     assert "AEP" in turns[1]["agent"], "The recommendation refusal must name AEP."
+    INSTRUCTION_OK = True
 finally:
     server.stop()
 
 # %% [markdown]
 # This cell records local acceptance and the exact tested hosted source so a fresh Lab 2B cannot silently deploy a changed implementation.
 # %% Step 2.8 - Publish local checkpoint
+(ARTIFACTS / "part_a.json").unlink(missing_ok=True)
+(ARTIFACTS / "part_b.json").unlink(missing_ok=True)
+if not (BASELINE_OK and SPONSOR_OK and INSTRUCTION_OK):
+    raise RuntimeError("Complete all local acceptance cells successfully before publishing Lab 2A.")
+if TESTED_SOURCE_SHA256 != hashlib.sha256((lab2.HOSTED_DIR / "main.py").read_bytes()).hexdigest():
+    raise RuntimeError("Hosted source changed after acceptance; rerun the local tests before publishing.")
 notebook_parts.write_checkpoint(
     ARTIFACTS / "part_a.json", lab="lab2", part="a", context=notebook_parts.scope(ENV),
     evidence=[lab2.TRANSCRIPTS],
     state={"agent_name": hosted["agent_name"], "local_tools": "passed",
            "instruction_boundary": "passed",
-           "hosted_source_sha256": hashlib.sha256((lab2.HOSTED_DIR / "main.py").read_bytes()).hexdigest()})
+           "hosted_source_sha256": TESTED_SOURCE_SHA256})
 print("Lab 2A complete. Open lab2b_walkthrough.ipynb in a fresh kernel to deploy.")

@@ -40,11 +40,17 @@ def pending_case(key: str, scenario: dict, send) -> dict:
     assert session_path.is_file(), f"Pending session was not persisted: {session_path}"
     return {"session_id": session_id, "response_id": response_id, "reply": reply}
 
+if "__file__" not in globals():
+    (driver.ARTIFACTS / "part_a.json").unlink(missing_ok=True)
+    (driver.ARTIFACTS / "part_b.json").unlink(missing_ok=True)
+
 
 # %% [markdown]
 # This cell prepares the hosted graph and stops three classified fan-out cases at the durable advisor boundary.
 # %% Step 4.2 - Execute specialist fan-out and compliance
 if "__file__" not in globals():
+    (driver.ARTIFACTS / "part_a.json").unlink(missing_ok=True)
+    (driver.ARTIFACTS / "part_b.json").unlink(missing_ok=True)
     hosted = driver.build(standalone=False)
     pending = {}
     with driver.HostedProcess():
@@ -66,6 +72,8 @@ if "__file__" not in globals():
 # This cell proves the compliance reviewer rejects and revises the unsafe draft without sending an advisor decision.
 # %% Step 4.3 - Verify bounded compliance reflection
 if "__file__" not in globals():
+    (driver.ARTIFACTS / "part_a.json").unlink(missing_ok=True)
+    (driver.ARTIFACTS / "part_b.json").unlink(missing_ok=True)
     with driver.HostedProcess():
         compliance_case = pending_case(
             "compliance-gate", driver.SCENARIOS["S1"],
@@ -89,6 +97,8 @@ if "__file__" not in globals():
 # This cell tests model classification at the pending boundary without approving or rerunning the advisor flow.
 # %% Step 4.4 - Verify ambiguous task classification
 if "__file__" not in globals():
+    (driver.ARTIFACTS / "part_a.json").unlink(missing_ok=True)
+    (driver.ARTIFACTS / "part_b.json").unlink(missing_ok=True)
     scenario = {
         "participant_id": "P-1003", "expected_lob": "accounts",
         "message": "My card was declined when I tried to pay for a prescription.",
@@ -103,14 +113,23 @@ if "__file__" not in globals():
 # This cell records validated intermediate evidence so a fresh Lab 4B kernel can resume the original cases.
 # %% Step 4.5 - Save the orchestration handoff
 if "__file__" not in globals():
+    (driver.ARTIFACTS / "part_a.json").unlink(missing_ok=True)
+    (driver.ARTIFACTS / "part_b.json").unlink(missing_ok=True)
+    session_snapshot = {}
+    for case in pending.values():
+        session_id = case["session_id"]
+        session = json.loads((driver.ARTIFACTS / "sessions" / f"{session_id}.json").read_text(encoding="utf-8"))
+        notes = session.get("notes", {})
+        assert notes.get("status") == driver.PENDING and notes.get("packet") == case["reply"]["packet"]
+        session_snapshot[session_id] = {"status": notes["status"], "packet": notes["packet"]}
+    driver.foundry_env.save_artifact(driver.ARTIFACTS / "pending_sessions.json", session_snapshot)
     part_a = notebook_parts.write_checkpoint(
         driver.ARTIFACTS / "part_a.json", lab="lab4", part="a", context=notebook_parts.scope(driver.ENV),
         state={"hosted": hosted, "pending": pending},
         evidence=[
-            driver.HOSTED_RECORD, driver.ARTIFACTS / "pending_cases.json",
+            driver.ARTIFACTS / "pending_cases.json", driver.ARTIFACTS / "pending_sessions.json",
             driver.ARTIFACTS / "compliance_evidence.json",
             driver.ARTIFACTS / "classification_evidence.json",
-            *(driver.ARTIFACTS / "sessions" / f"{case['session_id']}.json" for case in pending.values()),
         ],
     )
     print("Lab 4A complete: specialist evidence saved; advisor approval remains pending.")

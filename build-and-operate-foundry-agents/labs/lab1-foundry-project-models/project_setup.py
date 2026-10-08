@@ -11,7 +11,7 @@ import time
 from typing import Any
 from urllib.parse import urlparse
 
-from common import resource_names
+from common import notebook_parts, resource_names
 
 API_VERSION = "2025-06-01"
 ARM = "https://management.azure.com"
@@ -203,32 +203,39 @@ def read_project_handoff(
         record = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         raise RuntimeError("Lab 1A handoff is unreadable; rerun Lab 1A.") from exc
-    if not isinstance(record, dict):
+    if not isinstance(record, dict) or not isinstance(record.get("state"), dict):
         raise RuntimeError("Lab 1A handoff must contain explicit project/context inputs.")
+    state = record["state"]
     suffix = resource_names.suffix({"MARKETPLACE_RESOURCE_SUFFIX": attendee_suffix}, required=True)
     if not subscription_id or not tenant_id:
         raise ValueError("Enter the facilitator-approved subscription and tenant from Lab 1A.")
-    context = azure_context(cli, subscription_id, tenant_id)
-    if (record.get("schema_version") != 1 or record.get("part") != "a"
-            or record.get("subscription_id", "").lower() != context["subscription_id"].lower()
-            or record.get("tenant_id", "").lower() != context["tenant_id"].lower()
-            or record.get("resource_suffix") != suffix):
-        raise RuntimeError("Lab 1A handoff is stale or belongs to another Azure context/attendee.")
-    account = verify_account(cli, context, record["resource_group"], record["account_name"])
-    expected_id = account["id"] + "/projects/" + resource_names.name(
+    account_id = (f"/subscriptions/{subscription_id}/resourceGroups/{state.get('resource_group', '')}"
+                  f"/providers/Microsoft.CognitiveServices/accounts/{state.get('account_name', '')}")
+    expected_id = account_id + "/projects/" + resource_names.name(
         "healthcare-marketplace", {"MARKETPLACE_RESOURCE_SUFFIX": suffix}, required=True)
-    if (record.get("account_resource_id", "").lower() != account["id"].lower()
-            or record.get("project_resource_id", "").lower() != expected_id.lower()):
+    approved_context = {
+        "subscription_id": subscription_id.lower(), "tenant_id": tenant_id.lower(),
+        "account_resource_id": account_id.lower(), "project_resource_id": expected_id.lower(),
+        "resource_suffix": suffix,
+    }
+    notebook_parts.read_checkpoint(path, lab="lab1", part="a", context=approved_context)
+    if (state.get("subscription_id", "").lower() != subscription_id.lower()
+            or state.get("tenant_id", "").lower() != tenant_id.lower()
+            or state.get("resource_suffix") != suffix
+            or state.get("account_resource_id", "").lower() != account_id.lower()
+            or state.get("project_resource_id", "").lower() != expected_id.lower()):
         raise RuntimeError("Lab 1A handoff escaped the approved account/project scope.")
+    context = azure_context(cli, subscription_id, tenant_id)
+    account = verify_account(cli, context, state["resource_group"], state["account_name"])
     project = cli.rest("get", expected_id)
     if (project.get("id", "").lower() != expected_id.lower()
             or project.get("tags", {}).get("marketplace-resource-suffix") != suffix
             or project.get("properties", {}).get("provisioningState") != "Succeeded"):
         raise RuntimeError("Lab 1A project is missing, not ready, or not owned by this attendee.")
     if endpoints(account, project) != (
-            record.get("project_endpoint"), record.get("azure_openai_endpoint")):
+            state.get("project_endpoint"), state.get("azure_openai_endpoint")):
         raise RuntimeError("Lab 1A endpoints changed; revalidate the project in Lab 1A.")
-    return record, context, account, project
+    return state, context, account, project
 
 
 def ensure_deployment(cli: AzureCLI, account: dict, deployment_name: str, desired: dict) -> dict:
