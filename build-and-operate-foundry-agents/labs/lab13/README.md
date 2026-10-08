@@ -5,7 +5,7 @@ This folder contains only optional Lab 13; no Skills host is prepared here.
 
 ## Prerequisites
 
-Complete [Lab 2](../lab2/README.md) for model-backed demos and deployment.
+Complete [Lab 2](../lab02/README.md) for model-backed demos and deployment.
 Labs 3-12 are not required. Deterministic fact checks alone need no model.
 Live actions still need the approved project identity, network and hosted setup.
 

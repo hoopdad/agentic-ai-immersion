@@ -21,12 +21,13 @@
 - Workshop entry point: `build-and-operate-foundry-agents/README.md` and `SETUP.md`.
 - Workshop customer collateral: `build-and-operate-foundry-agents/Datasheets/` contains editable HTML sources and rendered PDF/Word deliverables.
 - Workshop implementation: `common/` (data, environment and state), `data/` (synthetic fixtures),
-  `labs/lab1/` through `labs/lab14/` (one notebook, adjacent authoring source and README each),
+  `labs/lab01/` through `labs/lab14/` (one notebook, adjacent authoring source and README each),
   and `shared/` (reusable products and internal drivers). Paths below are relative to the workshop.
 - Labs 1-2: `shared/foundry-project-models/` creates a project in an approved existing Foundry account,
   deploys chat/embedding models, and saves the notebook configuration and `artifacts/lab1/project.json`.
-- Numbered learner entry points: `labs/labN/labN_walkthrough.ipynb` for Labs 1-14.
-  Each folder documents only its own lab. Adjacent `labN_*.py` files author each notebook.
+- Numbered learner entry points: `labs/labNN/labNN_walkthrough.ipynb` for Labs 1-14,
+  using two-digit names `lab01` through `lab14` for lexical sorting.
+  Each folder documents only its own lab. Adjacent `labNN_*.py` files author each notebook.
   `shared/README.md` maps seven reusable implementation groups to their numbered consumers;
   original combined drivers are internal helpers, not learner entry points.
 - Part handoffs: `common/notebook_parts.py` stores explicit JSON state and evidence fingerprints in
@@ -63,7 +64,8 @@
 - Offline checks: the workshop's `tools/validate_workshop.py` and `tests/`, plus `.github/workflows/workshop-validate.yml`. Validation checks notebook cells, dependency pins, self-tests, regression tests and all five hosted packages in a temporary copy.
 - Checkpoint/retry coverage: `tests/test_split_labs_1_3.py`, `test_split_labs_4_7.py`, and
   `test_notebook_parts.py` retain internal topic namespace names. `test_py_to_ipynb.py` checks
-  Labs 1-14 numbering, one-lab-per-folder layout, prerequisites, navigation and source parity. `test_project_setup.py`
+  Labs 1-14 numbering, two-digit path sorting, one-lab-per-folder layout, prerequisites,
+  navigation and source parity. `test_project_setup.py`
   covers provisioning; `test_lab4_workflow.py` covers real graph/streaming/human-approval behavior offline.
 - Cloud pipeline: `shared/operate-hosted-agents/.github/workflows/agent-ci.yml`
   is an opt-in template, not an active deployment workflow.
@@ -88,12 +90,11 @@ the parallel `infra/public-network/` root and mocked policy tests, the parent in
 migration guide and ignore rules, workshop navigation updates and `tests/test_infra_network_variants.py`.
 Provider versions and private resource addresses are unchanged; signed Windows checksums are added to locks.
 
-Baseline: `81d4c191a35d277718e3ab9706c3f61f834f56f5`.
-Pending structural changes considered: moving the fourteen learner source/notebook pairs into
-`labs/lab1/` through `labs/lab14/`, each with a focused README; moving seven reusable implementation
-groups and five hosted products into `shared/`; replacing paired guides with individual guides
-and one shared ownership guide; updating path consumers, generated notebooks, ignore rules and
-layout validation. Original internal drivers, artifact
+Baseline: `9db4b96a32238137d33261618295bb03be301d0d`.
+Pending structural changes considered: zero-padding Labs 1-9's learner folders and adjacent
+source/notebook filenames to `lab01` through `lab09`; updating links, fresh-kernel source lookup,
+authoring tables, generated notebooks and sort/layout regression checks. Labs 10-14's paths
+already use two digits. Original internal drivers, artifact
 namespaces, hosted package basenames, cloud APIs and dependency pins remain compatible.
 The workshop uses notebook-only Python 3.14 dev-container execution, attendee-scoped naming,
 Blob/Azurite or file history, and explicit acceptance before cloud actions. Generic store utilities

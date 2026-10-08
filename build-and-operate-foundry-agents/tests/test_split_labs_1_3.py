@@ -42,12 +42,12 @@ ENV = {
     "AZURE_AI_SEARCH_ENDPOINT": "https://approved.search.windows.net",
 }
 PAIRS = (
-    ("lab1", "lab1_identity_project", "lab1a"),
-    ("lab2", "lab2_models_verify", "lab1b"),
-    ("lab3", "lab3_tools_local", "lab2a"),
-    ("lab4", "lab4_deploy_invoke", "lab2b"),
-    ("lab5", "lab5_knowledge_retrieval", "lab3a"),
-    ("lab6", "lab6_sessions_resiliency", "lab3b"),
+    ("lab01", "lab01_identity_project", "lab1a"),
+    ("lab02", "lab02_models_verify", "lab1b"),
+    ("lab03", "lab03_tools_local", "lab2a"),
+    ("lab04", "lab04_deploy_invoke", "lab2b"),
+    ("lab05", "lab05_knowledge_retrieval", "lab3a"),
+    ("lab06", "lab06_sessions_resiliency", "lab3b"),
 )
 
 
@@ -78,8 +78,8 @@ class SplitNotebookTests(unittest.TestCase):
         for folder, source, stem in PAIRS:
             with self.subTest(notebook=stem):
                 text = (ROOT / "labs" / folder / f"{source}.py").read_text()
-                number = source.split("_")[0].removeprefix("lab")
-                nb = json.loads((ROOT / "labs" / folder / f"lab{number}_walkthrough.ipynb").read_text())
+                number = str(int(source.split("_")[0].removeprefix("lab")))
+                nb = json.loads((ROOT / "labs" / folder / f"lab{int(number):02d}_walkthrough.ipynb").read_text())
                 self.assertEqual(nb, build_notebook(text, seed=source))
                 self.assertEqual(validate_notebook(nb), [])
                 self.assertEqual(validate_step_ids(nb, number), [])

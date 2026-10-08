@@ -5,7 +5,7 @@ This folder contains only Lab 10.
 
 ## Prerequisites
 
-Complete [Lab 9](../lab9/README.md). Keep the original measured files unchanged.
+Complete [Lab 9](../lab09/README.md). Keep the original measured files unchanged.
 Actual cloud releases additionally require administrator-managed target settings,
 OIDC and protected environments; they are not performed by this notebook.
 

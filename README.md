@@ -100,7 +100,7 @@ agentic-ai-immersion-day/
 │   ├── data/                                   # synthetic participants, sponsors, plans, knowledge, golden questions
 │   ├── tools/py_to_ipynb.py                    # script -> notebook converter
 │   ├── shared/                                 # reusable products, provisioning and operating helpers
-│   └── labs/lab1/ ... labs/lab14/                # one documented learner lab per numbered folder
+│   └── labs/lab01/ ... labs/lab14/                # one documented learner lab per numbered folder
 │
 ├── 🧩 byouc/                                   # Bring Your Own Use Case
 │   ├── Agentic_UseCase_Spec.md                # Use case spec template (Markdown)
@@ -489,7 +489,7 @@ around one use case, the Healthcare Marketplace Concierge, with optional Labs 11
 container, `.env` names, pinned requirements and RBAC script; extends the `hosted-agents/` and `AgentOps/`
 patterns. Fourteen sequentially numbered notebooks document their prerequisites and
 reuse validated checkpoints, resources and product code. Start with
-[Lab 1](build-and-operate-foundry-agents/labs/lab1/lab1_walkthrough.ipynb).
+[Lab 1](build-and-operate-foundry-agents/labs/lab01/lab01_walkthrough.ipynb).
 Synthetic data only.
 
 📖 [Lab sequence guide](build-and-operate-foundry-agents/README.md) • [Use case](build-and-operate-foundry-agents/USE-CASE.md) • [Setup](build-and-operate-foundry-agents/SETUP.md)

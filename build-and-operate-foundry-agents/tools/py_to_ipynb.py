@@ -1,8 +1,8 @@
 """py_to_ipynb: stdlib-only converter from a `# %%` cell script to a Jupyter notebook.
 
 Usage:
-    python tools/py_to_ipynb.py labs/lab5/lab5_knowledge_retrieval.py --name lab5_walkthrough
-    python tools/py_to_ipynb.py <script.py> [-o <notebook.ipynb>] [--name lab6_walkthrough]
+    python tools/py_to_ipynb.py labs/lab05/lab05_knowledge_retrieval.py --name lab05_walkthrough
+    python tools/py_to_ipynb.py <script.py> [-o <notebook.ipynb>] [--name lab06_walkthrough]
     python tools/py_to_ipynb.py --check <notebook.ipynb>      # validate an existing notebook
 
 Rules:
@@ -297,7 +297,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("script", type=Path, help="a # %%%% cell script, or a .ipynb when --check is used")
     parser.add_argument("-o", "--output", type=Path, default=None, help="notebook path (default: next to the script)")
-    parser.add_argument("--name", default=None, help="notebook stem, for example lab5_walkthrough")
+    parser.add_argument("--name", default=None, help="notebook stem, for example lab05_walkthrough")
     parser.add_argument("--check", action="store_true", help="validate an existing .ipynb instead of converting")
     parser.add_argument("--keep-script-semantics", action="store_true",
                         help="do not rewrite Path(__file__) or guard the __main__ block")

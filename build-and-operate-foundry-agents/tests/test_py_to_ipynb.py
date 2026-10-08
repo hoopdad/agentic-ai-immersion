@@ -26,11 +26,11 @@ from py_to_ipynb import (  # noqa: E402
 from validate_workshop import LAB_DEPENDENCIES, WALKTHROUGHS, validate_checkpoint_contract  # noqa: E402
 
 INTERNAL_DRIVERS = (
-    ("foundry-project-models/lab1_project_models.py", "lab1_walkthrough.ipynb", "1"),
-    ("hosted-agent-basics/lab2_hosted_basics.py", "lab2_walkthrough.ipynb", "2"),
-    ("hosted-knowledge-sessions/lab3_hosted_knowledge.py", "lab3_walkthrough.ipynb", "3"),
-    ("hosted-multi-agent-handoff/lab4_hosted_multi_agent.py", "lab4_walkthrough.ipynb", "4"),
-    ("operate-hosted-agents/lab5_operate.py", "lab5_walkthrough.ipynb", "5"),
+    ("foundry-project-models/lab1_project_models.py", "lab01_walkthrough.ipynb", "1"),
+    ("hosted-agent-basics/lab2_hosted_basics.py", "lab02_walkthrough.ipynb", "2"),
+    ("hosted-knowledge-sessions/lab3_hosted_knowledge.py", "lab03_walkthrough.ipynb", "3"),
+    ("hosted-multi-agent-handoff/lab4_hosted_multi_agent.py", "lab04_walkthrough.ipynb", "4"),
+    ("operate-hosted-agents/lab5_operate.py", "lab05_walkthrough.ipynb", "5"),
     ("prompt-agents-and-workflows/stretch6_prompt_agents.py", "stretch6_walkthrough.ipynb", "S6"),
     ("invocations-toolbox-skills/stretch7_invocations.py", "stretch7_walkthrough.ipynb", "S7"),
 )
@@ -55,14 +55,27 @@ def notebook_action(source: str) -> ast.Module:
 
 
 class ConverterTests(unittest.TestCase):
+    def test_two_digit_learner_paths_sort_in_numeric_order(self):
+        expected_folders = [f"lab{number:02d}" for number in range(1, 15)]
+        folders = sorted(path.name for path in (ROOT / "labs").iterdir()
+                         if path.is_dir() and re.fullmatch(r"lab\d+", path.name))
+        self.assertEqual(folders, expected_folders)
+        notebooks = sorted((ROOT / "labs").glob("lab*/*.ipynb"), key=lambda path: path.name)
+        self.assertEqual([path.name for path in notebooks],
+                         [f"lab{number:02d}_walkthrough.ipynb" for number in range(1, 15)])
+        for folder in folders:
+            sources = list((ROOT / "labs" / folder).glob("*.py"))
+            self.assertEqual(len(sources), 1)
+            self.assertRegex(sources[0].name, rf"^{folder}_[a-z_]+\.py$")
+
     def test_each_numbered_folder_owns_exactly_one_documented_lab(self):
-        self.assertEqual(list(WALKTHROUGHS), [f"lab{number}" for number in range(1, 15)])
+        self.assertEqual(list(WALKTHROUGHS), [f"lab{number:02d}" for number in range(1, 15)])
         for folder, parts in WALKTHROUGHS.items():
             with self.subTest(folder=folder):
                 self.assertEqual(len(parts), 1)
                 source, notebook, number, _, _ = parts[0]
                 directory = ROOT / "labs" / folder
-                self.assertEqual(folder, f"lab{number}")
+                self.assertEqual(folder, f"lab{int(number):02d}")
                 self.assertEqual([path.name for path in directory.glob("*.ipynb")], [notebook])
                 self.assertEqual([path.name for path in directory.glob("*.py")], [source])
                 guide = (directory / "README.md").read_text(encoding="utf-8")
@@ -82,8 +95,8 @@ class ConverterTests(unittest.TestCase):
                 number = int(prefix)
                 path = ROOT / "labs" / source
                 notebook_path = path.with_name(notebook_name)
-                self.assertEqual(path.stem.split("_")[0], f"lab{number}")
-                self.assertEqual(notebook_name, f"lab{number}_walkthrough.ipynb")
+                self.assertEqual(path.stem.split("_")[0], f"lab{number:02d}")
+                self.assertEqual(notebook_name, f"lab{number:02d}_walkthrough.ipynb")
                 notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
                 introduction = "".join(notebook["cells"][0]["source"])
                 self.assertTrue(introduction.startswith(f"# Lab {number}:"))
@@ -130,7 +143,7 @@ class ConverterTests(unittest.TestCase):
 
     def test_fresh_b_kernels_restore_state_without_repeating_a_cloud_work(self):
         cases = (
-            ("lab8", "lab8_advisor_recovery.py", "lab4",
+            ("lab08", "lab08_advisor_recovery.py", "lab4",
              {"pending": {name: {"session_id": name} for name in ("S1", "S2", "S3")},
               "hosted": {"agent_name": "existing"}, "tested_sources": {"hosted": "synthetic-fingerprint"}}, "pending"),
             ("lab10", "lab10_release_rollback.py", "lab5",
@@ -197,7 +210,7 @@ class ConverterTests(unittest.TestCase):
                 cloud.assert_not_called()
 
     def test_advisor_recovery_uses_durable_session_not_a_response_or_new_intake(self):
-        path = ROOT / "labs/lab8/lab8_advisor_recovery.py"
+        path = ROOT / "labs/lab08/lab08_advisor_recovery.py"
         tree = ast.parse(path.read_text(encoding="utf-8"))
         resume = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "resume_pending")
         namespace = {"json": json, "driver": SimpleNamespace(PENDING="pending")}

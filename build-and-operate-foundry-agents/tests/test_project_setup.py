@@ -267,8 +267,8 @@ class ProjectSetupTests(unittest.TestCase):
         converter = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(converter)
         for source, name in (
-            ("lab1_identity_project.py", "lab1_walkthrough.ipynb"),
-            ("lab2_models_verify.py", "lab2_walkthrough.ipynb"),
+            ("lab01_identity_project.py", "lab01_walkthrough.ipynb"),
+            ("lab02_models_verify.py", "lab02_walkthrough.ipynb"),
         ):
             with self.subTest(source=source):
                 folder = ROOT / "labs" / source.split("_")[0]
@@ -276,7 +276,8 @@ class ProjectSetupTests(unittest.TestCase):
                 notebook = json.loads((folder / name).read_text(encoding="utf-8"))
                 self.assertEqual(notebook, converter.build_notebook(text, seed=Path(source).stem))
                 self.assertEqual(converter.validate_notebook(notebook), [])
-                self.assertEqual(converter.validate_step_ids(notebook, Path(source).stem.split("_")[0][3:]), [])
+                number = str(int(Path(source).stem.split("_")[0][3:]))
+                self.assertEqual(converter.validate_step_ids(notebook, number), [])
                 for index, cell in enumerate(notebook["cells"]):
                     if cell["cell_type"] == "code":
                         self.assertGreater(index, 0)

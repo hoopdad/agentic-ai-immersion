@@ -5,7 +5,7 @@ This folder contains only optional Lab 11; no workflow agent is created here.
 
 ## Prerequisites
 
-Complete [Lab 6](../lab6/README.md) for the knowledge/hosted checkpoints and
+Complete [Lab 6](../lab06/README.md) for the knowledge/hosted checkpoints and
 verified configuration. Labs 7-10 are not required. Confirm permissions and
 availability for the selected Foundry agent surface.
 

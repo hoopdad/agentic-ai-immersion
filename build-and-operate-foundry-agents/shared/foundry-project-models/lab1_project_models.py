@@ -9,7 +9,7 @@
 # This lab does not configure Standard Agent capability hosts or grant RBAC.
 #
 # This original combined source is retained for internal regression compatibility.
-# Learners use `lab1_walkthrough.ipynb` then `lab2_walkthrough.ipynb` in Python 3.14;
+# Learners use `lab01_walkthrough.ipynb` then `lab02_walkthrough.ipynb` in Python 3.14;
 # do not use Run All before reviewing discovery and the deployment plan.
 # Existing Azure CLI login is reused; device login is requested only when credentials are unavailable.
 #

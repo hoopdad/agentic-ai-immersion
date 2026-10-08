@@ -1,7 +1,7 @@
 # Shared workshop implementation
 
 This is reusable product and internal helper code, not a second learner lab
-sequence. Each learner folder under [`labs/lab1` through `labs/lab14`](../labs/README.md)
+sequence. Each learner folder under [`labs/lab01` through `labs/lab14`](../labs/README.md)
 contains exactly one notebook, adjacent authoring source and lab-specific README.
 
 | Shared implementation | Learner consumers |

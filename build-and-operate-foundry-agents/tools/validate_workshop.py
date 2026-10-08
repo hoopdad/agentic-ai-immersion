@@ -16,41 +16,41 @@ from py_to_ipynb import build_notebook, validate_cell_descriptions, validate_ste
 ROOT = Path(__file__).resolve().parents[1]
 REPO = ROOT.parent
 INTERNAL_DRIVERS = {
-    "foundry-project-models": ("lab1_project_models.py", "lab1_walkthrough.ipynb", "1", "lab1"),
-    "hosted-agent-basics": ("lab2_hosted_basics.py", "lab2_walkthrough.ipynb", "2", "lab2"),
-    "hosted-knowledge-sessions": ("lab3_hosted_knowledge.py", "lab3_walkthrough.ipynb", "3", "lab3"),
-    "hosted-multi-agent-handoff": ("lab4_hosted_multi_agent.py", "lab4_walkthrough.ipynb", "4", "lab4"),
-    "operate-hosted-agents": ("lab5_operate.py", "lab5_walkthrough.ipynb", "5", "lab5"),
+    "foundry-project-models": ("lab1_project_models.py", "lab01_walkthrough.ipynb", "1", "lab1"),
+    "hosted-agent-basics": ("lab2_hosted_basics.py", "lab02_walkthrough.ipynb", "2", "lab2"),
+    "hosted-knowledge-sessions": ("lab3_hosted_knowledge.py", "lab03_walkthrough.ipynb", "3", "lab3"),
+    "hosted-multi-agent-handoff": ("lab4_hosted_multi_agent.py", "lab04_walkthrough.ipynb", "4", "lab4"),
+    "operate-hosted-agents": ("lab5_operate.py", "lab05_walkthrough.ipynb", "5", "lab5"),
     "prompt-agents-and-workflows": ("stretch6_prompt_agents.py", "stretch6_walkthrough.ipynb", "S6", "stretch6"),
     "invocations-toolbox-skills": ("stretch7_invocations.py", "stretch7_walkthrough.ipynb", "S7", "stretch7"),
 }
 WALKTHROUGHS = {
-    "lab1": (
-        ("lab1_identity_project.py", "lab1_walkthrough.ipynb", "1", "lab1", "a"),
+    "lab01": (
+        ("lab01_identity_project.py", "lab01_walkthrough.ipynb", "1", "lab1", "a"),
     ),
-    "lab2": (
-        ("lab2_models_verify.py", "lab2_walkthrough.ipynb", "2", "lab1", "b"),
+    "lab02": (
+        ("lab02_models_verify.py", "lab02_walkthrough.ipynb", "2", "lab1", "b"),
     ),
-    "lab3": (
-        ("lab3_tools_local.py", "lab3_walkthrough.ipynb", "3", "lab2", "a"),
+    "lab03": (
+        ("lab03_tools_local.py", "lab03_walkthrough.ipynb", "3", "lab2", "a"),
     ),
-    "lab4": (
-        ("lab4_deploy_invoke.py", "lab4_walkthrough.ipynb", "4", "lab2", "b"),
+    "lab04": (
+        ("lab04_deploy_invoke.py", "lab04_walkthrough.ipynb", "4", "lab2", "b"),
     ),
-    "lab5": (
-        ("lab5_knowledge_retrieval.py", "lab5_walkthrough.ipynb", "5", "lab3", "a"),
+    "lab05": (
+        ("lab05_knowledge_retrieval.py", "lab05_walkthrough.ipynb", "5", "lab3", "a"),
     ),
-    "lab6": (
-        ("lab6_sessions_resiliency.py", "lab6_walkthrough.ipynb", "6", "lab3", "b"),
+    "lab06": (
+        ("lab06_sessions_resiliency.py", "lab06_walkthrough.ipynb", "6", "lab3", "b"),
     ),
-    "lab7": (
-        ("lab7_specialist_orchestration.py", "lab7_walkthrough.ipynb", "7", "lab4", "a"),
+    "lab07": (
+        ("lab07_specialist_orchestration.py", "lab07_walkthrough.ipynb", "7", "lab4", "a"),
     ),
-    "lab8": (
-        ("lab8_advisor_recovery.py", "lab8_walkthrough.ipynb", "8", "lab4", "b"),
+    "lab08": (
+        ("lab08_advisor_recovery.py", "lab08_walkthrough.ipynb", "8", "lab4", "b"),
     ),
-    "lab9": (
-        ("lab9_tracing_evaluation.py", "lab9_walkthrough.ipynb", "9", "lab5", "a"),
+    "lab09": (
+        ("lab09_tracing_evaluation.py", "lab09_walkthrough.ipynb", "9", "lab5", "a"),
     ),
     "lab10": (
         ("lab10_release_rollback.py", "lab10_walkthrough.ipynb", "10", "lab5", "b"),
@@ -184,8 +184,8 @@ def main() -> None:
     numbers = [int(prefix) for parts in WALKTHROUGHS.values() for _, _, prefix, _, _ in parts]
     if numbers != list(range(1, 15)):
         raise ValueError("Learner notebooks must be numbered consecutively from Lab 1 through Lab 14.")
-    if list(WALKTHROUGHS) != [f"lab{number}" for number in numbers]:
-        raise ValueError("Each learner folder must be named lab1 through lab14.")
+    if list(WALKTHROUGHS) != [f"lab{number:02d}" for number in numbers]:
+        raise ValueError("Each learner folder must be named lab01 through lab14.")
     # The original callable drivers retain the cumulative artifact prerequisites.
     for directory, (script_name, _, _, lab) in INTERNAL_DRIVERS.items():
         source = ROOT / "shared" / directory / script_name
@@ -215,9 +215,9 @@ def main() -> None:
         for predecessor in LAB_DEPENDENCIES[int(prefix)]:
             if not re.search(rf"\bLab {predecessor}\b", introduction):
                 raise ValueError(f"{path}: missing documented prerequisite Lab {predecessor}")
-        if source.stem.split("_", 1)[0] != f"lab{prefix}" \
-                or notebook_name != f"lab{prefix}_walkthrough.ipynb":
-            raise ValueError(f"{path}: source and notebook names must use Lab {prefix}")
+        if source.stem.split("_", 1)[0] != f"lab{int(prefix):02d}" \
+                or notebook_name != f"lab{int(prefix):02d}_walkthrough.ipynb":
+            raise ValueError(f"{path}: source and notebook filenames must use two-digit lab numbers")
         if any(number != prefix for number in re.findall(r"\bStep (\d+)\.", script)):
             raise ValueError(f"{path}: step references must use this lab's number, {prefix}")
         tree = ast.parse(script, filename=str(source))

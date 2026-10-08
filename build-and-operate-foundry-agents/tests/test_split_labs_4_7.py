@@ -30,8 +30,8 @@ def load(path: Path, name: str):
 
 converter = load(ROOT / "tools/py_to_ipynb.py", "split_4_7_converter")
 PARTS = {
-    "lab4": ("hosted-multi-agent-handoff", "lab7_specialist_orchestration", "lab8_advisor_recovery", "lab4_hosted_multi_agent"),
-    "lab5": ("operate-hosted-agents", "lab9_tracing_evaluation", "lab10_release_rollback", "lab5_operate"),
+    "lab4": ("hosted-multi-agent-handoff", "lab07_specialist_orchestration", "lab08_advisor_recovery", "lab4_hosted_multi_agent"),
+    "lab5": ("operate-hosted-agents", "lab09_tracing_evaluation", "lab10_release_rollback", "lab5_operate"),
     "stretch6": ("prompt-agents-and-workflows", "lab11_prompt_agents", "lab12_workflows_delegation", "stretch6_prompt_agents"),
     "stretch7": ("invocations-toolbox-skills", "lab13_invocations", "lab14_skills_toolbox", "stretch7_invocations"),
 }
@@ -108,7 +108,7 @@ class SplitNotebookTests(unittest.TestCase):
                     expected = converter.build_notebook(source.read_text(encoding="utf-8"), seed=stem)
                     actual = json.loads(source.with_name(f"{stem.split('_')[0]}_walkthrough.ipynb").read_text())
                     self.assertEqual(actual, expected)
-                    prefix = stem.split("_")[0].removeprefix("lab")
+                    prefix = str(int(stem.split("_")[0].removeprefix("lab")))
                     self.assertEqual(converter.validate_step_ids(actual, prefix), [])
                     self.assertEqual(converter.validate_cell_descriptions(actual), [])
                     self.assertNotIn("%run", source.read_text())

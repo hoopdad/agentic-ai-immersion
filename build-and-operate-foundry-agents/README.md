@@ -26,15 +26,15 @@ learner run path.
 
 | # | Notebook | Outcome | Evidence passed onward |
 |---|---|---|---|
-| 1 | [Identity and project](labs/lab1/lab1_walkthrough.ipynb) | Create a project in an existing admin-supplied Foundry account | `artifacts/lab1/part_a.json` |
-| 2 | [Models and verification](labs/lab2/lab2_walkthrough.ipynb) | Provision chat and embedding deployments, verify access, persist downstream settings | `artifacts/lab1/part_b.json`, `project.json` and project/model configuration in the repository-root `.env` |
-| 3 | [Tools and local testing](labs/lab3/lab3_walkthrough.ipynb) | Build a typed-tool concierge with shared compliance instructions and test locally | `artifacts/lab2/part_a.json` |
-| 4 | [Deploy and invoke](labs/lab4/lab4_walkthrough.ipynb) | Deploy and inspect an immutable version | `artifacts/lab2/part_b.json`, `hosted.json`, transcripts |
-| 5 | [Knowledge and retrieval](labs/lab5/lab5_walkthrough.ipynb) | Build governed Foundry IQ knowledge | `artifacts/lab3/part_a.json`, `knowledge.json` |
-| 6 | [Sessions and resiliency](labs/lab6/lab6_walkthrough.ipynb) | Prove conversation continuity after a local restart; distinguish files from shared Blob history | `artifacts/lab3/part_b.json`, `hosted.json`, sessions |
-| 7 | [Specialist orchestration](labs/lab7/lab7_walkthrough.ipynb) | Fan out to specialists and bound compliance reflection | `artifacts/lab4/part_a.json` |
-| 8 | [Advisor approval and recovery](labs/lab8/lab8_walkthrough.ipynb) | Pause for advisor approval across HTTP turns and recover pending state | `artifacts/lab4/part_b.json`, `handoff_packets/`, `hosted.json` |
-| 9 | [Tracing and evaluation](labs/lab9/lab9_walkthrough.ipynb) | Trace and evaluate once, preserving measured results | `artifacts/lab5/part_a.json`, `eval_report.md`, `evaluation_bundle.json`, `pipeline.md` |
+| 1 | [Identity and project](labs/lab01/lab01_walkthrough.ipynb) | Create a project in an existing admin-supplied Foundry account | `artifacts/lab1/part_a.json` |
+| 2 | [Models and verification](labs/lab02/lab02_walkthrough.ipynb) | Provision chat and embedding deployments, verify access, persist downstream settings | `artifacts/lab1/part_b.json`, `project.json` and project/model configuration in the repository-root `.env` |
+| 3 | [Tools and local testing](labs/lab03/lab03_walkthrough.ipynb) | Build a typed-tool concierge with shared compliance instructions and test locally | `artifacts/lab2/part_a.json` |
+| 4 | [Deploy and invoke](labs/lab04/lab04_walkthrough.ipynb) | Deploy and inspect an immutable version | `artifacts/lab2/part_b.json`, `hosted.json`, transcripts |
+| 5 | [Knowledge and retrieval](labs/lab05/lab05_walkthrough.ipynb) | Build governed Foundry IQ knowledge | `artifacts/lab3/part_a.json`, `knowledge.json` |
+| 6 | [Sessions and resiliency](labs/lab06/lab06_walkthrough.ipynb) | Prove conversation continuity after a local restart; distinguish files from shared Blob history | `artifacts/lab3/part_b.json`, `hosted.json`, sessions |
+| 7 | [Specialist orchestration](labs/lab07/lab07_walkthrough.ipynb) | Fan out to specialists and bound compliance reflection | `artifacts/lab4/part_a.json` |
+| 8 | [Advisor approval and recovery](labs/lab08/lab08_walkthrough.ipynb) | Pause for advisor approval across HTTP turns and recover pending state | `artifacts/lab4/part_b.json`, `handoff_packets/`, `hosted.json` |
+| 9 | [Tracing and evaluation](labs/lab09/lab09_walkthrough.ipynb) | Trace and evaluate once, preserving measured results | `artifacts/lab5/part_a.json`, `eval_report.md`, `evaluation_bundle.json`, `pipeline.md` |
 | 10 | [Release and rollback](labs/lab10/lab10_walkthrough.ipynb) | Gate the measured results; rehearse promotion and rollback without deployment | `artifacts/lab5/part_b.json`, `gate_result.json`, `release_plan.json` |
 | 11 | [Prompt agents](labs/lab11/lab11_walkthrough.ipynb) | Compare platform-managed prompt ownership with hosted code | `artifacts/stretch6/part_a.json` |
 | 12 | [Workflows and delegation](labs/lab12/lab12_walkthrough.ipynb) | Compare workflow ownership and delegate from the concierge | `artifacts/stretch6/part_b.json`, `agents.json`, handoff packet |
@@ -45,7 +45,7 @@ Follow Labs 1-14 using the [prerequisite table](labs/README.md#sequence-and-arti
 Labs 9 and 11 branch from Lab 6; Lab 13 needs only Lab 2, so optional topics need
 not replay unrelated work. Each notebook can start in a fresh kernel and restores
 validated predecessor evidence instead of repeating provisioning or evaluation.
-Each folder `labs/lab1` through `labs/lab14` holds exactly one walkthrough,
+Each folder `labs/lab01` through `labs/lab14` holds exactly one walkthrough,
 its adjacent authoring source and its own README. Reusable product code and
 internal helpers live outside learner folders in [`shared/`](shared/README.md).
 Existing `artifacts/lab1` through `lab5`,
