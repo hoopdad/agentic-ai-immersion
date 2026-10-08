@@ -1,0 +1,60 @@
+{
+    "name": "Agentic AI Immersion Day",
+    "dockerComposeFile": "compose.yaml",
+    "service": "workshop",
+    "workspaceFolder": "/workspaces/agentic-ai-immersion",
+    
+    "features": {
+        "ghcr.io/devcontainers/features/azure-cli:1": {},
+        "ghcr.io/devcontainers/features/github-cli:1": {},
+        "ghcr.io/devcontainers/features/powershell:1": {},
+        "ghcr.io/azure/azure-dev/azd:latest": {}
+    },
+    
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "ms-toolsai.jupyter",
+                "ms-toolsai.jupyter-keymap",
+                "ms-toolsai.jupyter-renderers",
+                "ms-azuretools.vscode-azurefunctions",
+                "ms-azuretools.vscode-docker",
+                "GitHub.copilot",
+                "GitHub.copilot-chat",
+                "ms-vscode.azure-account",
+                "redhat.vscode-yaml",
+                "ms-python.black-formatter"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "/usr/local/bin/python",
+                "python.terminal.activateEnvironment": true,
+                "jupyter.askForKernelRestart": false,
+                "editor.formatOnSave": true,
+                "python.formatting.provider": "none",
+                "[python]": {
+                    "editor.defaultFormatter": "ms-python.black-formatter"
+                }
+            }
+        }
+    },
+    
+    "postCreateCommand": "bash .devcontainer/bootstrap.sh",
+    
+    "remoteUser": "vscode",
+    "shutdownAction": "stopCompose",
+    
+    "forwardPorts": [8888, 8088],
+    
+    "portsAttributes": {
+        "8088": {
+            "label": "Local hosted agent",
+            "onAutoForward": "notify"
+        },
+        "8888": {
+            "label": "Jupyter",
+            "onAutoForward": "notify"
+        }
+    }
+}

@@ -1,0 +1,86 @@
+# Azure placement and operator
+subscription_id         = "<azure-subscription-guid>"
+tenant_id               = "<microsoft-entra-tenant-guid>"
+location                = "eastus2"
+operator_principal_id   = "<operator-object-guid>"
+operator_principal_type = "User"
+
+# Naming and tags
+name_prefix     = "marketplace"
+resource_suffix = "abc123"
+environment     = "workshop"
+tags = {
+  owner       = "workshop-team"
+  cost-center = "training"
+}
+
+# Microsoft Foundry project
+foundry_project_name         = "marketplace"
+foundry_project_display_name = "Build and Operate Foundry Agents"
+foundry_project_description  = "Private Microsoft Foundry project for the Build and Operate Foundry Agents workshop."
+capability_host_name         = "caphostproj"
+
+# Set these only when validating an existing deployment whose names do not
+# follow this root's naming convention.
+# validation_resource_group_name  = "existing-resource-group"
+# validation_foundry_account_name = "existing-foundry-account"
+
+# Private network. The agent subnet must be /27 or larger; /24 is recommended.
+virtual_network_address_space          = "192.168.0.0/16"
+agent_subnet_address_prefix            = "192.168.0.0/24"
+private_endpoint_subnet_address_prefix = "192.168.1.0/24"
+
+# Data services
+storage_account_sku             = "Standard_LRS"
+marketplace_blob_container_name = "marketplace-history"
+search_sku                      = "basic"
+search_semantic_search_sku      = "free"
+search_replica_count            = 1
+search_partition_count          = 1
+cosmos_free_tier_enabled        = false
+cosmos_zone_redundant           = false
+
+# Monitoring
+application_insights_retention_in_days    = 30
+application_insights_daily_data_cap_in_gb = 1
+
+# Confirm every model, version, SKU, and capacity in the selected region before
+# applying. The map keys are Terraform identifiers; deployment_name is what the
+# workshop uses at runtime.
+model_deployments = {
+  gpt_5_6_sol = {
+    deployment_name = "gpt-5.6-sol"
+    model_name      = "gpt-5.6-sol"
+    model_version   = "2026-07-09"
+    model_format    = "OpenAI"
+    sku_name        = "GlobalStandard"
+    capacity        = 1
+  }
+  gpt_5_4_mini = {
+    deployment_name = "gpt-5.4-mini"
+    model_name      = "gpt-5.4-mini"
+    model_version   = "2026-03-17"
+    model_format    = "OpenAI"
+    sku_name        = "GlobalStandard"
+    capacity        = 1
+  }
+  gpt_5_4_nano = {
+    deployment_name = "gpt-5.4-nano"
+    model_name      = "gpt-5.4-nano"
+    model_version   = "2026-03-17"
+    model_format    = "OpenAI"
+    sku_name        = "GlobalStandard"
+    capacity        = 1
+  }
+  text_embedding_3_large = {
+    deployment_name = "text-embedding-3-large"
+    model_name      = "text-embedding-3-large"
+    model_version   = "1"
+    model_format    = "OpenAI"
+    sku_name        = "GlobalStandard"
+    capacity        = 1
+  }
+}
+
+chat_model_deployment_key      = "gpt_5_4_mini"
+embedding_model_deployment_key = "text_embedding_3_large"
