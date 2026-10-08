@@ -18,7 +18,7 @@ follow the numbered [Lab 1-14 prerequisite table](../README.md#sequence-and-arti
 | `lab3/knowledge.json`, `hosted.json`, `sessions/` | Lab 5 builds knowledge; Lab 6 records continuity/deployment | Labs 7, 9 and 11 |
 | `lab4/handoff_packets/`, `hosted.json`, `sessions/` | Lab 8 | Human handoff review; optional Lab 9 metadata |
 | `lab5/eval_report.md`, `gate_result.json`, `pipeline.md` | Labs 9-10 | Release review and promotion gates |
-| `stretch6/agents.json`, `handoff_packets/` | Lab 12 | Hosted workflow delegation |
+| `stretch6/agents.json`, `source_evidence.json`, `handoff_packets/` | Lab 12 | Pinned Foundry prompt references, MAF source fingerprints and in-process hosted delegation; no workflow-agent reference |
 | `stretch7/invocations.json`, `claim_reviews/`, `skills_transcript.md` | Labs 13-14 | Structured review and tool-use inspection |
 
 Reopen the producing notebook and rerun required checkpoint cells to regenerate

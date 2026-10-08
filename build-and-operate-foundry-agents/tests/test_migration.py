@@ -542,8 +542,8 @@ class DeploymentTests(unittest.TestCase):
                 "Evaluate the Framework-built agent",
             ),
             "prompt-agents-and-workflows/stretch6_prompt_agents.py": (
-                "`PromptAgentDefinition`; YAML workflow",
-                "Hosted `@tool` bridge, not a new graph",
+                "`PromptAgentDefinition`; versioned prompt agents",
+                "`FoundryAgent`; `WorkflowBuilder`; async hosted `@tool`",
             ),
             "invocations-toolbox-skills/stretch7_invocations.py": (
                 "Invocations; optional Toolbox",

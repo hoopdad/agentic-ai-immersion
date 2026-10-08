@@ -19,7 +19,7 @@ Verified shape (BRIEF-shared 5d, base repo hosted-agents/benefits-advisor-respon
     ResponsesHostServer(agent).run()              # POST /responses, port 8088 locally
 
 This file deliberately has no Redis history and no workflow tool. Labs 5-6 adds the knowledge base and the
-message store; Labs 7-8 adds the multi-agent workflow; Labs 11-12 adds delegation to a platform workflow agent.
+message store; Labs 7-8 adds the multi-agent workflow; Labs 11-12 adds a MAF graph over Foundry prompt agents.
 """
 
 # %% Imports and path setup

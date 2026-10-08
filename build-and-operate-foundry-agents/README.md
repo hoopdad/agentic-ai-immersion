@@ -2,7 +2,7 @@
 
 A notebook-first workshop for healthcare marketplace engineers building the
 **Healthcare Marketplace Concierge** on Microsoft Foundry. Labs 1-10 build
-one cumulative solution; optional Labs 11-14 compare platform-managed agents and
+one cumulative solution; optional Labs 11-14 connect platform-managed agents to MAF workflows and explore
 additional hosted capabilities. All participant data is synthetic.
 
 Start with [SETUP.md](SETUP.md), read the [use case](USE-CASE.md), and follow the
@@ -37,7 +37,7 @@ learner run path.
 | 9 | [Tracing and evaluation](labs/lab09/lab09_walkthrough.ipynb) | Trace and evaluate once, preserving measured results | `artifacts/lab5/part_a.json`, `eval_report.md`, `evaluation_bundle.json`, `pipeline.md` |
 | 10 | [Release and rollback](labs/lab10/lab10_walkthrough.ipynb) | Gate the measured results; rehearse promotion and rollback without deployment | `artifacts/lab5/part_b.json`, `gate_result.json`, `release_plan.json` |
 | 11 | [Prompt agents](labs/lab11/lab11_walkthrough.ipynb) | Compare platform-managed prompt ownership with hosted code | `artifacts/stretch6/part_a.json` |
-| 12 | [Workflows and delegation](labs/lab12/lab12_walkthrough.ipynb) | Compare workflow ownership and delegate from the concierge | `artifacts/stretch6/part_b.json`, `agents.json`, handoff packet |
+| 12 | [MAF workflows and delegation](labs/lab12/lab12_walkthrough.ipynb) | Build a Python MAF graph over pinned prompt agents and run it inside the concierge | `artifacts/stretch6/part_b.json`, `agents.json`, handoff packet |
 | 13 | [Invocations](labs/lab13/lab13_walkthrough.ipynb) | Contrast structured Invocations with Responses | `artifacts/stretch7/part_a.json`, `invocations.json`, claim reviews |
 | 14 | [Skills and Toolbox](labs/lab14/lab14_walkthrough.ipynb) | Load governed Skills and optionally attach Toolbox | `artifacts/stretch7/part_b.json`, skills transcript |
 
@@ -66,7 +66,7 @@ explicit notebook actions, not dev-container bootstrap or offline CI actions.
 | 5-6 | Search indexes, knowledge sources, MCP authentication, governed citations and external message history |
 | 7-8 | `WorkflowBuilder`, fan-out/fan-in, structured packets, bounded reflection, deterministic routing and human approval |
 | 9-10 | OpenTelemetry, model-judged quality, deterministic safety checks, fail-closed gates and release ownership |
-| 11-12 | `PromptAgentDefinition`, client tool execution, declarative workflows and delegated ownership |
+| 11-12 | `PromptAgentDefinition`, pinned `FoundryAgent` connections, conditional MAF `WorkflowBuilder` edges and async hosted delegation |
 | 13-14 | `InvocationsHostServer`, deterministic facts with bounded model explanations, progressive-disclosure Skills and optional MCP Toolbox |
 
 ## State and guardrails

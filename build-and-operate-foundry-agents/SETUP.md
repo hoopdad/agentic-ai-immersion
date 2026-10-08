@@ -54,6 +54,13 @@ reach its private endpoints. Do not enable public access to bypass a blocked pat
 | Application Insights connected to the learner project, with approved ingestion access | Labs 9-10 | Telemetry administrator |
 | OIDC and protected GitHub Environments | Optional Labs 9-10 cloud pipeline | Release administrator |
 | Foundry Toolbox endpoint and access | Optional Labs 13-14 preview | Project administrator |
+| Project access for prompt-agent publishing and invocation; Azure AI User for the concierge identity | Optional Labs 11-12 | Project administrator |
+
+Lab 12 uses Microsoft Agent Framework from the existing root lock. It reuses
+Lab 11's versioned prompt agents, Lab 6's knowledge and its existing hosted
+concierge. No Foundry YAML workflow, separate workflow agent, additional model
+or new hosted service must be enabled or provisioned. MAF orchestration runs in
+the notebook first and then inside the concierge container.
 
 ## 3. Notebook inputs and downstream persistence
 

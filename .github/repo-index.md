@@ -38,6 +38,12 @@
   while Lab 13 requires only Lab 2.
 - Labs 5-6 conversation history: Azure Blob/Azurite or files; shared storage utilities retain optional backend implementations, but Redis is not a learner prerequisite or default.
 - Labs 5-6 Search configuration: `shared/hosted-knowledge-sessions/knowledge_base.py` resolves underlying model identities separately from attendee-scoped deployment aliases.
+- Labs 11-12: `shared/prompt-agents-and-workflows/stretch6_prompt_agents.py` publishes Foundry
+  prompt definitions; `triage_workflow.py` connects pinned `FoundryAgent` versions in a Python MAF graph.
+  Conditional `WorkflowBuilder` edges route to marketplace, accounts or both sequentially; only handoff
+  yields the final validated packet. Lab 12 displays the graph, streams executor events and packages
+  it with `triage_agents.json` inside the existing Lab 6 concierge via an async tool. There is no YAML
+  workflow agent or separate hosted service. The copied graph/references are Git-ignored deployment inputs.
 - Hosted model resilience: `common/model_resilience.py` provides visible, retry-header-aware Agent Framework
   throttling retries and consistent failed Responses payload handling for Labs 3-8 and 13-14.
 - Workshop resource lifecycle: `common/resource_names.py` applies one attendee suffix to every created
@@ -90,16 +96,17 @@ the parallel `infra/public-network/` root and mocked policy tests, the parent in
 migration guide and ignore rules, workshop navigation updates and `tests/test_infra_network_variants.py`.
 Provider versions and private resource addresses are unchanged; signed Windows checksums are added to locks.
 
-Baseline: `9db4b96a32238137d33261618295bb03be301d0d`.
-Pending structural changes considered: zero-padding Labs 1-9's learner folders and adjacent
-source/notebook filenames to `lab01` through `lab09`; updating links, fresh-kernel source lookup,
-authoring tables, generated notebooks and sort/layout regression checks. Labs 10-14's paths
-already use two digits. Original internal drivers, artifact
-namespaces, hosted package basenames, cloud APIs and dependency pins remain compatible.
+Integration baseline: `bdc877cc5283e04b2564955007d08cc6972e571d` (parent sync and network PR merged).
+Enhancement replay baseline: `e5eec2a` (two-digit Labs 1-14 and shared implementation preserved).
+Pending structural changes considered: adding `shared/prompt-agents-and-workflows/triage_workflow.py`,
+removing its legacy `marketplace_triage_workflow.yaml`, and replacing Lab 12's Foundry workflow-agent
+publication with notebook/container-local MAF orchestration over Lab 11's pinned prompt versions.
+Updated Lab 11 handoff teaching, Lab 12 authoring/notebook, hosted delegation, source evidence and regression
+coverage. Numbered paths, artifact namespaces and dependency pins remain unchanged.
 The workshop uses notebook-only Python 3.14 dev-container execution, attendee-scoped naming,
 Blob/Azurite or file history, and explicit acceptance before cloud actions. Generic store utilities
 may retain Redis support, but Redis is not a workshop prerequisite.
-Private Standard Agent infrastructure, read-only troubleshooting scripts and customer datasheets
+Both Standard Agent network variants, read-only troubleshooting scripts and customer datasheets
 remain in their indexed locations. Labs 7-8 emit final workflow output only from the advisor
 coordinator; streaming specialist updates are intermediate. No live Azure outcome is established
 by offline validation.

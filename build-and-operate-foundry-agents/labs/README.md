@@ -2,7 +2,7 @@
 
 One [Healthcare Marketplace use case](../USE-CASE.md), one synthetic data set,
 one cumulative solution. Labs 1-10 progress from project/model setup to
-operating hosted agents; optional Labs 11-14 compare platform-managed ownership
+operating hosted agents; optional Labs 11-14 connect platform-managed prompts to MAF orchestration
 and additional protocols/tools.
 
 Use the repository Python 3.14 dev container. Open the `.ipynb` listed below,
@@ -45,7 +45,7 @@ terminal or interactive-cell learner entry points. Runtime files such as
 | 9 | [Tracing and evaluation](lab09/lab09_walkthrough.ipynb) / [Guide](lab09/README.md) | Lab 6; telemetry permissions | Tracing and measured evaluation baseline | `artifacts/lab5/part_a.json`, `eval_report.md`, `evaluation_bundle.json`, `pipeline.md` |
 | 10 | [Release and rollback](lab10/lab10_walkthrough.ipynb) / [Guide](lab10/README.md) | Lab 9 | Release gate, promotion and rollback rehearsal | `artifacts/lab5/part_b.json`, `gate_result.json`, `release_plan.json` |
 | 11 | [Prompt agents](lab11/lab11_walkthrough.ipynb) / [Guide](lab11/README.md) | Lab 6 | Platform prompt agents | `artifacts/stretch6/part_a.json` |
-| 12 | [Workflows and delegation](lab12/lab12_walkthrough.ipynb) / [Guide](lab12/README.md) | Lab 11 | Platform workflows and hosted delegation | `artifacts/stretch6/part_b.json`, `agents.json`, `handoff_packets/S1.json` |
+| 12 | [MAF workflows and delegation](lab12/lab12_walkthrough.ipynb) / [Guide](lab12/README.md) | Lab 11 | Python MAF graph over pinned prompt agents and in-process hosted delegation | `artifacts/stretch6/part_b.json`, `agents.json`, `handoff_packets/S1.json` |
 | 13 | [Invocations](lab13/lab13_walkthrough.ipynb) / [Guide](lab13/README.md) | Lab 2 | Structured denied-claim reviews | `artifacts/stretch7/part_a.json`, `invocations.json`, `claim_reviews/` |
 | 14 | [Skills and Toolbox](lab14/lab14_walkthrough.ipynb) / [Guide](lab14/README.md) | Lab 13 | Skills and optional Toolbox | `artifacts/stretch7/part_b.json`, `skills_transcript.md` |
 
@@ -58,7 +58,7 @@ restore kernel state. Changed inputs or source require fresh acceptance evidence
 Labs 9 and 11 reuse Lab 6's concierge and knowledge rather than requiring Lab 8.
 Lab 8's packet metadata is optional evaluation context, not required input.
 Lab 13 depends only on Lab 2's verified configuration; it does not require the
-operations report or platform workflow.
+operations report or MAF workflow.
 
 Artifact directories `lab1` through `lab5`, `stretch6` and `stretch7` retain the
 seven original topic namespaces. Their `part_a.json` and `part_b.json` files
@@ -107,12 +107,13 @@ files to bypass prerequisite gates.
 - Fail closed on malformed evidence or a safety violation before promotion.
 - Inspect version promotion, rollback and an opt-in OIDC cloud pipeline with protected environments.
 
-### Labs 11-12: Platform-managed agents
+### Labs 11-12: Foundry prompt agents with MAF workflows
 
-- Create versioned `PromptAgentDefinition` and declarative workflow definitions.
-- Explain why client-side function tools need a caller, while platform workflows need pre-fetched facts.
-- Inspect workflow-action routing and delegate from the hosted concierge.
-- Choose by ownership and lifecycle, not an assumed maturity or cost advantage.
+- Create versioned `PromptAgentDefinition` agents, then connect `FoundryAgent` to their exact versions.
+- Build readable Python `@executor` steps and conditional `WorkflowBuilder` edges.
+- Distinguish Foundry-managed knowledge tools from Python functions executed by MAF.
+- Stream executor events and produce one validated final advisor packet.
+- Run the same graph inside the existing hosted concierge; no YAML workflow or separate workflow service.
 
 ### Labs 13-14: Invocations, Skills and Toolbox
 

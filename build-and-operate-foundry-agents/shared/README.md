@@ -11,7 +11,7 @@ contains exactly one notebook, adjacent authoring source and lab-specific README
 | `hosted-knowledge-sessions/` | Labs 5-6, 9 and 12: knowledge-enabled concierge and durable history |
 | `hosted-multi-agent-handoff/` | Labs 7-8: specialists, workflow and advisor recovery |
 | `operate-hosted-agents/` | Labs 9-10: evaluation, release gates and optional administrator pipeline |
-| `prompt-agents-and-workflows/` | Labs 11-12: prompt/workflow definitions and hosted integration |
+| `prompt-agents-and-workflows/` | Labs 11-12: Foundry prompt definitions, `triage_workflow.py` MAF graph and async hosted integration |
 | `invocations-toolbox-skills/` | Labs 13-14: separate batch/Responses products and governed skill collection |
 
 The original combined drivers remain callable implementation helpers. Importing
@@ -22,6 +22,11 @@ notebooks and edit the original product files named by the lab guide.
 flat hosted packages. Those generated copies, credentials, deployment state and
 caches are ignored and never hand-edited or committed. Hosted requirements are
 minimal subsets of the root dependency lock.
+
+Lab 12 also packages its MAF graph and pinned prompt references as
+`hosted-knowledge-sessions/hosted/triage_workflow.py` and `triage_agents.json`.
+These are generated copies ignored by Git but included in deployment, not a
+second hosted service. Edit the graph in `prompt-agents-and-workflows/` only.
 
 Runtime evidence stays in `labs/artifacts/` under its stable internal topic
 namespaces, not here. Notebook handoffs validate current scope and fingerprints

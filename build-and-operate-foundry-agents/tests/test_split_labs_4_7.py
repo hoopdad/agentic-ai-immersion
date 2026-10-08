@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 from contextlib import ExitStack
+import ast
+import asyncio
 import copy
 import importlib.util
 import json
@@ -11,7 +13,7 @@ import sys
 import tempfile
 from types import SimpleNamespace
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -24,7 +26,10 @@ def load(path: Path, name: str):
     spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
     sys.modules[name] = module
-    spec.loader.exec_module(module)
+    code = compile(path.read_text(encoding="utf-8"), str(path), "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
+    result = eval(code, module.__dict__)
+    if asyncio.iscoroutine(result):
+        asyncio.run(result)
     return module
 
 
@@ -97,8 +102,13 @@ class SplitNotebookTests(unittest.TestCase):
             code = code.replace('KNOWN_GOOD_VERSION = ""', 'KNOWN_GOOD_VERSION = "2"')
             code = code.replace('KNOWN_GOOD_REVISION = ""', 'KNOWN_GOOD_REVISION = "offline-reviewed-revision"')
             code = code.replace('RELEASE_TAG = ""', 'RELEASE_TAG = "healthcare-marketplace-concierge-test-offline"')
-            exec(compile(code, f"{lab}{part}_cell", "exec"), namespace)
+            self.execute_cell(code, namespace)
         return namespace
+
+    def execute_cell(self, code: str, namespace: dict) -> None:
+        result = eval(compile(code, "notebook_cell", "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT), namespace)
+        if asyncio.iscoroutine(result):
+            asyncio.run(result)
 
     def test_generated_notebooks_are_narrow_ordered_and_clean(self) -> None:
         for lab, (folder, a, b, _) in PARTS.items():
@@ -371,7 +381,7 @@ class SplitNotebookTests(unittest.TestCase):
         self.assertFalse(self.artifact("lab5", "part_a.json").exists())
         self.assertFalse(self.artifact("lab5", "part_b.json").exists())
 
-    def test_stretch6_publishes_prompts_in_a_and_only_workflow_in_b(self) -> None:
+    def test_stretch6_publishes_prompts_in_a_and_runs_maf_without_publication_in_b(self) -> None:
         driver = self.loaded["stretch6_prompt_agents"]
         project = MagicMock()
         creations = []
@@ -392,25 +402,34 @@ class SplitNotebookTests(unittest.TestCase):
         self.execute("stretch6", "a")
         self.assertTrue(all(kind == "PromptAgentDefinition" for _, kind in creations))
         before = len(creations)
-        def baseline(info):
+        async def baseline(info):
             foundry_env.save_artifact(self.artifact("stretch6", "handoff_packets", "S1.json"), {"observed": True})
             return info
         self.stack.enter_context(patch.object(driver, "demo", side_effect=baseline))
-        wrong_packet = packet("accounts")
+        wrong_packet = packet("accounts", "P-1001")
         wrong_packet.pop("packet_attempts")
         wrong_packet["open_questions"] = ["Confirm the marketplace question."]
-        self.stack.enter_context(patch.object(driver, "run_case", return_value={
-            "errors": [], "actions": [{"action_id": action} for action in ("triage", "accounts", "compliance", "handoff")],
-            "messages": [json.dumps(wrong_packet)],
-        }))
-        hosted_tool = load(ROOT / "shared" / PARTS["stretch6"][0] / "hosted_tool_snippet.py", "hosted_tool_snippet")
-        self.stack.enter_context(patch.object(hosted_tool, "load_workflow_reference", return_value={"workflow_name": driver.WORKFLOW}))
+        self.stack.enter_context(patch.object(driver, "case_header", return_value=("CASE-offline", "offline header")))
+        self.stack.enter_context(patch.object(driver, "run_case", new=AsyncMock(return_value={
+            "actions": [{"action_id": action} for action in ("triage", "accounts", "compliance", "handoff")],
+            "packet": wrong_packet,
+        })))
         delegation_packet = packet("marketplace", "P-1005")
         delegation_packet.pop("packet_attempts")
         delegation_packet["case_id"] = "hosted-gate-P-1005"
-        self.stack.enter_context(patch.object(hosted_tool, "run_triage_workflow", return_value={
+        hosted_tool = SimpleNamespace(run_triage_workflow=AsyncMock(return_value={
             "status": "completed", "packet": delegation_packet,
         }))
+        self.modules["main"] = hosted_tool
+        self.stack.enter_context(patch.object(driver, "source_fingerprints", return_value={"graph": "offline-fingerprint"}))
+        self.stack.enter_context(patch("shutil.copy2"))
+        save = foundry_env.save_artifact
+        self.stack.enter_context(patch.object(
+            foundry_env, "save_artifact",
+            side_effect=lambda path, data: save(
+                self.workspace / "triage_agents.json" if Path(path).name == "triage_agents.json" else path, data,
+            ),
+        ))
         import deployment
         self.stack.enter_context(patch.object(deployment, "bash_deploy_block", return_value="true"))
         main_path = ROOT / "shared/hosted-knowledge-sessions/hosted/main.py"
@@ -425,14 +444,19 @@ class SplitNotebookTests(unittest.TestCase):
         )
         self.modules["prepare"] = SimpleNamespace(vendor=lambda: {})
         b = self.execute("stretch6", "b")
-        self.assertEqual(creations[before:], [(driver.WORKFLOW, "WorkflowAgentDefinition")])
+        self.assertEqual(creations[before:], [])
         self.assertEqual(b["info"]["agents"], b["prompt_info"]["agents"])
+        self.assertEqual(b["info"]["runtime"], "microsoft-agent-framework")
         self.assertTrue(self.artifact("stretch6", "part_b.json").is_file())
-        with patch.object(hosted_tool, "run_triage_workflow", return_value={"status": "failed"}):
+        with patch.object(driver, "source_fingerprints", return_value={"graph": "changed"}):
             with self.assertRaises(AssertionError):
-                exec(compile(self.cells("stretch6", "b")[3], "failed_delegation_rerun", "exec"), b)
+                self.execute_cell(self.cells("stretch6", "b")[-1], b)
+        self.assertFalse(self.artifact("stretch6", "part_b.json").exists())
+        with patch.object(hosted_tool, "run_triage_workflow", new=AsyncMock(return_value={"status": "failed"})):
+            with self.assertRaises(AssertionError):
+                self.execute_cell(self.cells("stretch6", "b")[3], b)
         with self.assertRaises(AssertionError):
-            exec(compile(self.cells("stretch6", "b")[-1], "publish_after_failed_delegation", "exec"), b)
+            self.execute_cell(self.cells("stretch6", "b")[-1], b)
         self.assertFalse(self.artifact("stretch6", "part_b.json").exists())
 
     def test_stretch7_preserves_batch_record_and_skills_config_is_safe(self) -> None:

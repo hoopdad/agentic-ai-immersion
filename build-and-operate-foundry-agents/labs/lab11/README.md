@@ -23,8 +23,9 @@ Publishing versions and executing turns are explicit paid Azure actions.
 5. Publish prompt names/IDs and current acceptance evidence.
 
 The [shared implementation](../../shared/prompt-agents-and-workflows/stretch6_prompt_agents.py)
-uses `PromptAgentDefinition`, `FunctionTool` and `MCPTool`. A client executes
-Python function tools; a platform workflow cannot execute arbitrary caller code.
+uses `PromptAgentDefinition`, `FunctionTool` and `MCPTool`. Foundry owns the
+versioned prompt instructions, model and knowledge MCP configuration. A client
+executes Python function tools; Lab 12 supplies those implementations through MAF.
 Choose ownership/lifecycle deliberately, not an assumed maturity or cost ladder.
 Regulated instructions still need a human owner and review.
 
@@ -33,7 +34,8 @@ Regulated instructions still need a human owner and review.
 `../artifacts/stretch6/part_a.json`, `prompt_agents.json`, tool and portal evidence
 bind the published references to the current scope.
 
-[Lab 12](../lab12/README.md) reuses these agents without republishing them.
+[Lab 12](../lab12/README.md) connects `FoundryAgent` to these exact versions in a
+Microsoft Agent Framework Python workflow, without republishing them.
 Failed retries cannot restore an old acceptance result.
 
 ## Authoring

@@ -1,15 +1,23 @@
 # %% [markdown]
-# # Lab 12: Workflows and hosted delegation
+# # Lab 12: Microsoft Agent Framework workflows and hosted delegation
 #
 # **Prerequisites:** Lab 11.
 #
-# Start a fresh kernel after Lab 11 and reuse its existing prompt-agent names and IDs.
-# Create the workflow only, verify routing, and connect the hosted concierge to the published workflow.
-# Workflow turns and hosted deployment call Azure services and may incur charges.
+# Start a fresh kernel after Lab 11 and reuse its existing prompt-agent names and versions.
+# MAF owns the Python graph; Foundry still owns the prompt definitions, model and knowledge tools.
+# First run the graph in this notebook, then package it inside the existing Lab 6 concierge.
+# No Foundry workflow agent, YAML definition, new model or extra hosted service is needed.
+# Graph construction is local. Prompt-agent turns and hosted deployment call Azure and may incur charges.
 #
-# This cell loads Lab 11's published references and workflow definitions without republishing prompt agents.
+# Read [MAF workflow concepts](https://learn.microsoft.com/en-us/agent-framework/concepts/workflows/?pivots=programming-language-python).
+#
+# This cell loads Lab 11's checkpoint without republishing prompt agents or calling Azure.
 # %% Step 12.1 - Load existing prompt-agent references
+# ruff: noqa: F704
+# Jupyter supports top-level await; this file is notebook authoring input, not a terminal driver.
 from pathlib import Path
+import inspect
+import shutil
 import subprocess
 import sys
 
@@ -26,6 +34,7 @@ import lab_helpers
 from common import notebook_parts
 
 driver = lab_helpers.load_lab_module("prompt-agents-and-workflows/stretch6_prompt_agents.py")
+import triage_workflow
 
 if "__file__" not in globals():
     lab_helpers.artifact_path("stretch6", "part_b.json").unlink(missing_ok=True)
@@ -38,14 +47,36 @@ if "__file__" not in globals():
     assert all(reference.get("agent_id") and reference.get("agent_version") for reference in prompt_info["agents"].values())
 
 # %% [markdown]
-# This cell creates only the workflow agent over Lab 11's published prompt names and runs its accepted marketplace path.
-# %% Step 12.2 - Publish and execute the workflow
+# ## Read the graph, then run it
+#
+# A `TriageCase` carries the original facts, route and drafts between steps.
+# Each `@executor` is one step: it calls a pinned `FoundryAgent`, records the result,
+# and uses `ctx.send_message(case)` to forward that case along an edge.
+# `WorkflowBuilder.add_edge(..., condition=...)` chooses the next specialist from the route.
+# Only handoff uses `ctx.yield_output(packet)`; intermediate drafts are not final answers.
+#
+# The paths are `triage -> marketplace -> compliance -> handoff`,
+# `triage -> accounts -> compliance -> handoff`, or
+# `triage -> marketplace -> accounts -> compliance -> handoff` for both areas.
+# Both specialists run sequentially here to keep the graph easy to follow;
+# Labs 7-8 already teach parallel fan-out/fan-in.
+#
+# Inspect the displayed source in `../../shared/prompt-agents-and-workflows/triage_workflow.py`.
+# `run_case` connects `FoundryAgent` to Lab 11's exact `agent_version` and supplies the
+# already-declared Python function tools. Foundry executes the knowledge MCP tool;
+# MAF executes local functions in this notebook (later, inside the concierge container).
+# `store=False` avoids creating durable model transcripts for these one-shot case runs.
+#
+# This cell displays the real graph and streams executor completion events while running the S1 marketplace case.
+# %% Step 12.2 - Inspect and execute the MAF graph
 if "__file__" not in globals():
     lab_helpers.artifact_path("stretch6", "part_b.json").unlink(missing_ok=True)
     accepted.pop("workflow", None)
-    info = driver.publish_workflow(prompt_info)
-    info = driver.demo(info)
-    assert info["agents"] == prompt_info["agents"], "The workflow phase changed published prompt references."
+    print(inspect.getsource(triage_workflow.TriageCase))
+    print(inspect.getsource(triage_workflow.build_workflow))
+    info = driver.prepare_workflow(prompt_info)
+    info = await driver.demo(info)
+    assert info["agents"] == prompt_info["agents"], "The graph changed published prompt references."
     accepted["workflow"] = True
 
 # %% [markdown]
@@ -56,14 +87,16 @@ if "__file__" not in globals():
     accepted.pop("routing", None)
     assert accepted.get("workflow"), "Complete the current workflow gate before testing routing."
     case_id, header = driver.case_header({**driver.S1, "routing_hint": "accounts"})
-    run = driver.run_case(driver.foundry_env.get_openai_client(), info["workflow_name"], header)
-    assert not run["errors"], run["errors"]
+    run = await driver.run_case(info, header, driver.ENV["FOUNDRY_PROJECT_ENDPOINT"])
     problems = driver.validate_action_order(
         run["actions"], ("triage", "accounts", "compliance", "handoff"), forbidden=("marketplace",)
     )
     assert not problems, problems
-    packet = driver.extract_packet(run["messages"])
-    assert packet and packet.get("open_questions"), "Wrong routing must leave the marketplace questions open."
+    packet = run["packet"]
+    assert packet.get("open_questions"), "Wrong routing must leave the marketplace questions open."
+    assert not driver.validate_packet(packet, expected={
+        "case_id": case_id, "participant_id": driver.S1["participant_id"], "lob": "accounts",
+    })
     driver.foundry_env.save_artifact(lab_helpers.artifact_path("stretch6", "routing_evidence.json"), {
         "case_id": case_id, "expected_failure_observed": True, "actions": run["actions"],
     })
@@ -72,23 +105,30 @@ if "__file__" not in globals():
 # %% [markdown]
 # ## YOUR TURN: wire hosted delegation
 #
-# Paste the marked block and instruction from `../../shared/prompt-agents-and-workflows/hosted_tool_snippet.py` into Labs 5-6 `../../shared/hosted-knowledge-sessions/hosted/main.py`
+# Paste the marked async block from `../../shared/prompt-agents-and-workflows/hosted_tool_snippet.py` into Labs 5-6 `../../shared/hosted-knowledge-sessions/hosted/main.py`
 # and add `run_triage_workflow` to `FUNCTION_TOOLS` (a list item or `.append`).
-# Keep the existing hosted package: delegation is a tool boundary, not another hosted service.
+# Add its handoff instruction to `ROLE_INSTRUCTIONS`, before `INSTRUCTIONS` is assembled.
+# Keep the existing hosted package: the tool runs the same Python graph in the concierge process.
+# It calls the pinned prompt agents, not a platform workflow endpoint.
 #
-# This cell checks the saved tool registration and exercises the exact delegation function against the existing workflow.
+# The next cell packages only the graph source and non-secret prompt references beside `main.py`.
+# The container's managed identity needs Azure AI User on the project; no credential files are copied.
+# Keep the `case_id` and `participant_id` header lines so the packet can be checked against its input.
+#
+# This cell packages the graph and prompt references, then awaits the actual saved concierge delegation tool.
 # %% Step 12.4 - Verify hosted delegation
 if "__file__" not in globals():
     lab_helpers.artifact_path("stretch6", "part_b.json").unlink(missing_ok=True)
     accepted.pop("delegation", None)
     assert accepted.get("routing"), "Complete the current routing gate before hosted delegation."
-    import hosted_tool_snippet as hosted_tool
-    source = (ROOT / "shared/hosted-knowledge-sessions/hosted/main.py").read_text(encoding="utf-8")
+    hosted_dir = ROOT / "shared/hosted-knowledge-sessions/hosted"
+    source = (hosted_dir / "main.py").read_text(encoding="utf-8")
     assert "def run_triage_workflow(" in source, "Paste the hosted delegation function into Labs 5-6."
     assert driver.function_tool_is_registered(source, "run_triage_workflow"), "Register the delegation tool."
-    hosted_tool.WORKFLOW = hosted_tool.load_workflow_reference()
-    hosted_tool._openai_client = None
-    result = hosted_tool.run_triage_workflow(
+    shutil.copy2(ROOT / "shared/prompt-agents-and-workflows/triage_workflow.py", hosted_dir / "triage_workflow.py")
+    driver.foundry_env.save_artifact(hosted_dir / "triage_agents.json", info)
+    hosted_tool = lab_helpers.load_lab_module("hosted-knowledge-sessions/hosted/main.py")
+    result = await hosted_tool.run_triage_workflow(
         "TRIAGE CASE hosted-gate-P-1005\ncase_id: hosted-gate-P-1005\nparticipant_id: P-1005\n"
         'participant_message: "Which ACA plan should I pick?"\nfacts: participant requested a licensed advisor'
     )
@@ -97,31 +137,40 @@ if "__file__" not in globals():
         "case_id": "hosted-gate-P-1005", "participant_id": "P-1005", "lob": "marketplace",
     })
     driver.foundry_env.save_artifact(lab_helpers.artifact_path("stretch6", "delegation_evidence.json"), result)
+    tested_sources = driver.source_fingerprints()
+    driver.foundry_env.save_artifact(lab_helpers.artifact_path("stretch6", "source_evidence.json"), tested_sources)
     accepted["delegation"] = True
 
 # %% [markdown]
-# This cell deploys the edited Labs 5-6 package with its workflow reference only after routing and delegation acceptance pass.
+# The graph will run inside the existing concierge container after this deployment.
+# Prompt references remain pinned; editing a prompt later requires repeating Labs 11-12.
+# A local tool PASS is not evidence that a deployed container can authenticate or invoke the agents.
+#
+# This cell deploys the edited Labs 5-6 package only after graph, routing and delegation acceptance pass.
 # %% Step 12.5 - Deploy hosted delegation
 if "__file__" not in globals():
     lab_helpers.artifact_path("stretch6", "part_b.json").unlink(missing_ok=True)
     accepted.pop("deployment", None)
     assert all(accepted.get(key) for key in ("workflow", "routing", "delegation")), "Complete every current Lab 12 gate before deployment."
+    assert driver.source_fingerprints() == tested_sources, "Graph, prompt references or concierge source changed; rerun the Lab 12 gates."
     from deployment import bash_deploy_block
     lab3 = lab_helpers.load_lab_module("hosted-knowledge-sessions/lab3_hosted_knowledge.py")
     prepare = lab_helpers.load_lab_module("hosted-knowledge-sessions/hosted/prepare.py")
     prepare.vendor()
-    hosted = lab_helpers.require_artifact("lab3", "hosted.json", through=3, caller="stretch6b")
-    settings = {**hosted.get("env_for_container", {}), "MARKETPLACE_WORKFLOW_AGENT_NAME": info["workflow_name"]}
+    hosted = driver.require_hosted_concierge()
+    settings = dict(hosted.get("env_for_container", {}))
+    settings.pop("MARKETPLACE_WORKFLOW_AGENT_NAME", None)
+    settings.pop("MARKETPLACE_WORKFLOW_AGENT_VERSION", None)
     command = bash_deploy_block(lab3.HOSTED_DIR, lab3.AGENT_NAME, "responses", driver.ENV, settings, check_package=True)
     subprocess.run(["bash", "-lc", command], cwd=lab3.HOSTED_DIR, check=True)
     subprocess.run(["azd", "ai", "agent", "show", lab3.AGENT_NAME], cwd=lab3.HOSTED_DIR, check=True)
     accepted["deployment"] = True
     part_b = notebook_parts.write_checkpoint(
         lab_helpers.artifact_path("stretch6", "part_b.json"), lab="stretch6", part="b", context=notebook_parts.scope(driver.ENV),
-        state={"workflow": info, "delegation": result, "accepted": accepted},
+        state={"workflow": info, "delegation": result, "accepted": accepted, "tested_sources": tested_sources},
         evidence=[
             lab_helpers.artifact_path("stretch6", "agents.json"),
-            lab_helpers.artifact_path("stretch6", "workflow.yaml"),
+            lab_helpers.artifact_path("stretch6", "source_evidence.json"),
             lab_helpers.artifact_path("stretch6", "handoff_packets", "S1.json"),
             lab_helpers.artifact_path("stretch6", "routing_evidence.json"),
             lab_helpers.artifact_path("stretch6", "delegation_evidence.json"),

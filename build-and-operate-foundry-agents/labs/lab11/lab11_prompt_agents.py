@@ -4,7 +4,8 @@
 # **Prerequisites:** Lab 6.
 #
 # Publish prompt agents and run a client-side function-tool turn before inspecting instructions in the portal.
-# No workflow agent is created in this lab; Lab 12 reuses these names and identifiers.
+# No workflow agent is created in this lab; Lab 12 uses `FoundryAgent` to connect to these exact versions
+# inside a Microsoft Agent Framework Python graph. The model and knowledge tools remain managed by Foundry.
 # Publishing versions and executing turns call Azure services and may incur charges.
 #
 # This cell loads prompt-agent definitions without running the original publishing or workflow exercises.
@@ -101,7 +102,7 @@ if "__file__" not in globals():
     accepted["portal"] = True
 
 # %% [markdown]
-# This cell checkpoints the published prompt references and observed tool and portal evidence for a fresh workflow kernel.
+# This cell checkpoints prompt versions and observed evidence for a fresh MAF workflow kernel in Lab 12.
 # %% Step 11.5 - Save prompt-agent references
 if "__file__" not in globals():
     lab_helpers.artifact_path("stretch6", "part_a.json").unlink(missing_ok=True)

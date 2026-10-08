@@ -1,190 +1,254 @@
+"""Real MAF graph execution with offline agent responses; no Azure calls."""
 from __future__ import annotations
 
 import importlib.util
 import json
+from pathlib import Path
 import sys
 import tempfile
-import unittest
-from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+import unittest
+from unittest.mock import AsyncMock, MagicMock, patch
 
 HERE = Path(__file__).resolve().parent
-
-
-def load_module(name: str, filename: str):
-    spec = importlib.util.spec_from_file_location(name, HERE / filename)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-stretch6 = load_module("stretch6_prompt_agents_offline", "stretch6_prompt_agents.py")
-hosted = load_module("hosted_tool_snippet_offline", "hosted_tool_snippet.py")
+sys.path.insert(0, str(HERE.parents[1]))
+sys.path.insert(0, str(HERE))
+import triage_workflow as workflow
+import stretch6_prompt_agents as prompts
+import hosted_tool_snippet as hosted
 
 
 def valid_packet(**overrides):
     packet = {
-        "case_id": "S1-20260930-P-1001",
-        "participant_id": "P-1001",
-        "lob": "marketplace",
-        "summary": "The participant wants neutral plan education and enrollment timing.",
-        "participant_goals": ["Compare plan costs neutrally."],
+        "case_id": "S1-offline", "participant_id": "P-1001", "lob": "marketplace",
+        "summary": "The participant wants neutral plan education.",
+        "participant_goals": ["Understand plan costs."],
         "facts_gathered": [{"fact": "AEP applies.", "source": "get_enrollment_window"}],
-        "options_discussed": ["ACA Silver and ACA Gold features"],
-        "open_questions": ["Confirm the cardiologist network with the carrier."],
-        "recommended_next_step_for_advisor": "Review the neutral comparison with the participant.",
-        "compliance_flags": [],
-        "created_at": "2026-09-30T12:00:00+00:00",
+        "options_discussed": ["Neutral plan features"],
+        "open_questions": ["Confirm the doctor network with the carrier."],
+        "recommended_next_step_for_advisor": "Review the participant's questions.",
+        "compliance_flags": [], "created_at": "2026-10-06T12:00:00+00:00",
     }
-    packet.update(overrides)
-    return packet
+    return {**packet, **overrides}
 
 
-class WorkflowRenderingTests(unittest.TestCase):
-    def test_rendered_workflow_has_expected_agents_and_order(self):
-        text = stretch6.render_workflow()
-        parsed = stretch6.parse_workflow(text)
-        actions = parsed["trigger"]["actions"]
-        ids = [action["id"] for action in actions]
-        self.assertLess(ids.index("triage"), ids.index("route_marketplace"))
-        self.assertLess(ids.index("route_marketplace"), ids.index("compliance"))
-        self.assertLess(ids.index("compliance"), ids.index("handoff"))
-        self.assertIn(f"name: {stretch6.MARKETPLACE}", text)
-        self.assertNotIn("{marketplace}", text)
+HEADER = "TRIAGE CASE S1-offline\ncase_id: S1-offline\nparticipant_id: P-1001\nparticipant_message: Compare plan costs.\nfacts: AEP applies."
 
-    def test_notebook_publishes_agents_before_first_exercise(self):
-        source = (HERE / "stretch6_prompt_agents.py").read_text(encoding="utf-8")
-        first_exercise = source.index("## YOUR TURN")
-        publish_cell = source.index('if "__file__" not in globals():\n    _info = build()\n    demo(_info)')
-        self.assertLess(publish_cell, first_exercise)
 
-    def test_marketplace_case_does_not_include_unrequested_account_facts(self):
-        _case_id, header = stretch6.case_header(stretch6.S1)
+def offline_agents(route="marketplace", packet=None):
+    replies = {
+        "triage": f"ROUTE: {route}\nINTENT: Neutral education.",
+        "marketplace": "Marketplace education [KB-MKT-002].",
+        "accounts": "Accounts education [KB-ACC-001].",
+        "compliance": "COMPLIANCE REVIEW\nverdict: pass\nrevised_reply: Neutral education for an advisor.",
+        "handoff": json.dumps(packet or valid_packet(lob=route)),
+    }
+    return {role: SimpleNamespace(run=AsyncMock(return_value=SimpleNamespace(text=text)))
+            for role, text in replies.items()}
+
+
+class GraphTests(unittest.IsolatedAsyncioTestCase):
+    async def test_real_graph_runs_all_routes_once_with_one_final_packet(self):
+        for route, expected in (
+            ("marketplace", ["triage", "marketplace", "compliance", "handoff"]),
+            ("accounts", ["triage", "accounts", "compliance", "handoff"]),
+            ("both", ["triage", "marketplace", "accounts", "compliance", "handoff"]),
+        ):
+            with self.subTest(route=route):
+                agents = offline_agents(route)
+                run = await workflow.run_workflow(workflow.build_workflow(agents), HEADER)
+                self.assertEqual([action["action_id"] for action in run["actions"]], expected)
+                self.assertEqual(run["packet"]["lob"], route)
+                for role, agent in agents.items():
+                    self.assertEqual(agent.run.await_count, int(role in expected))
+                handoff_input = agents["handoff"].run.call_args.args[0]
+                self.assertIn(HEADER, handoff_input)
+                self.assertIn("COMPLIANCE REVIEW", handoff_input)
+                self.assertIn("Marketplace education" if route != "accounts" else "NO_MARKETPLACE_QUESTION", handoff_input)
+                self.assertIn("Accounts education" if route != "marketplace" else "NO_ACCOUNTS_QUESTION", handoff_input)
+
+    async def test_bad_route_stops_before_specialists(self):
+        agents = offline_agents("unknown")
+        with self.assertRaisesRegex(Exception, "ROUTE"):
+            await workflow.run_workflow(workflow.build_workflow(agents), HEADER)
+        agents["marketplace"].run.assert_not_awaited()
+        agents["accounts"].run.assert_not_awaited()
+        agents["handoff"].run.assert_not_awaited()
+
+    async def test_failed_agent_does_not_emit_a_success_packet(self):
+        agents = offline_agents()
+        agents["compliance"].run.side_effect = RuntimeError("offline service failure")
+        with self.assertRaisesRegex(Exception, "offline service failure"):
+            await workflow.run_workflow(workflow.build_workflow(agents), HEADER)
+        agents["handoff"].run.assert_not_awaited()
+
+    async def test_packet_validation_prevents_final_output(self):
+        for packet in (
+            valid_packet(case_id="changed"),
+            valid_packet(participant_id="P-9999"),
+            valid_packet(lob="accounts"),
+            valid_packet(options_discussed="not a list"),
+            valid_packet(summary="Call 801-555-0100"),
+            valid_packet(unexpected=True),
+        ):
+            with self.subTest(packet=packet), self.assertRaisesRegex(Exception, "packet rejected"):
+                await workflow.run_workflow(workflow.build_workflow(offline_agents(packet=packet)), HEADER)
+
+    async def test_each_run_has_fresh_case_state(self):
+        for participant_id in ("P-1001", "P-1005"):
+            agents = offline_agents(packet=valid_packet(participant_id=participant_id))
+            run = await workflow.run_workflow(
+                workflow.build_workflow(agents), HEADER.replace("P-1001", participant_id),
+            )
+            self.assertEqual(run["packet"]["participant_id"], participant_id)
+
+    async def test_pinned_prompt_versions_and_local_tools_are_reused_without_publication(self):
+        info = {
+            "runtime": "microsoft-agent-framework", "graph_sha256": workflow.SOURCE_SHA256,
+            "roles": {role: f"prompt-{role}" for role in workflow.ROLES},
+            "agents": {f"prompt-{role}": {"agent_version": str(index + 1)}
+                       for index, role in enumerate(workflow.ROLES)},
+        }
+        agents = offline_agents()
+        credential = MagicMock()
+        credential.__aenter__ = AsyncMock(return_value=credential)
+        credential.__aexit__ = AsyncMock()
+        project = MagicMock()
+        project.__aenter__ = AsyncMock(return_value=project)
+        project.__aexit__ = AsyncMock()
+        contexts = []
+
+        def connect(**kwargs):
+            context = MagicMock()
+            role = kwargs["agent_name"].removeprefix("prompt-")
+            context.__aenter__ = AsyncMock(return_value=agents[role])
+            context.__aexit__ = AsyncMock()
+            contexts.append(context)
+            return context
+
+        with (
+            patch.object(workflow, "DefaultAzureCredential", return_value=credential),
+            patch.object(workflow, "AIProjectClient", return_value=project),
+            patch.object(workflow, "FoundryAgent", side_effect=connect) as foundry_agent,
+        ):
+            run = await workflow.run_case(info, HEADER, "https://offline.test/project")
+        self.assertEqual(run["packet"]["case_id"], "S1-offline")
+        project.agents.create_version.assert_not_called()
+        for call in foundry_agent.call_args_list:
+            name = call.kwargs["agent_name"]
+            self.assertEqual(call.kwargs["agent_version"], info["agents"][name]["agent_version"])
+            self.assertEqual(call.kwargs["default_options"], {"store": False})
+        calls = {call.kwargs["agent_name"]: call.kwargs for call in foundry_agent.call_args_list}
+        self.assertEqual(
+            {tool.__name__ for tool in calls["prompt-marketplace"]["tools"]},
+            {"search_plans", "compare_plans", "get_enrollment_window"},
+        )
+        self.assertEqual(
+            {tool.__name__ for tool in calls["prompt-accounts"]["tools"]},
+            {"get_hra_account", "get_claim_status", "list_eligible_expenses"},
+        )
+        for context in contexts:
+            context.__aexit__.assert_awaited_once()
+        project.__aexit__.assert_awaited_once()
+        credential.__aexit__.assert_awaited_once()
+
+    async def test_legacy_workflow_reference_fails_before_cloud_access(self):
+        with patch.object(workflow, "DefaultAzureCredential") as credential, self.assertRaisesRegex(ValueError, "legacy"):
+            await workflow.run_case({"workflow_name": "old-yaml-workflow"}, HEADER, "https://offline.test")
+        credential.assert_not_called()
+
+    async def test_changed_graph_rejects_stale_references_before_cloud_access(self):
+        info = {
+            "runtime": "microsoft-agent-framework", "graph_sha256": "old-source",
+            "roles": {role: f"prompt-{role}" for role in workflow.ROLES},
+        }
+        with patch.object(workflow, "DefaultAzureCredential") as credential, self.assertRaisesRegex(ValueError, "graph changed"):
+            await workflow.run_case(info, HEADER, "https://offline.test")
+        credential.assert_not_called()
+        info["graph_sha256"] = workflow.SOURCE_SHA256
+        with patch.object(Path, "read_bytes", return_value=b"edited after import"), \
+                patch.object(workflow, "DefaultAzureCredential") as credential, \
+                self.assertRaisesRegex(ValueError, "graph changed"):
+            await workflow.run_case(info, HEADER, "https://offline.test")
+        credential.assert_not_called()
+
+
+class DefinitionTests(unittest.TestCase):
+    def test_marketplace_case_excludes_unrequested_account_facts(self):
+        _, header = prompts.case_header(prompts.S1)
         self.assertIn("routing_hint: marketplace", header)
         self.assertNotIn('"hra_account"', header)
         self.assertNotIn('"claims"', header)
+        self.assertIn("hra_account", prompts.gather_facts("P-1001", include_accounts=True))
 
-    def test_account_case_includes_requested_account_facts(self):
-        facts = stretch6.gather_facts("P-1001", include_accounts=True)
-        self.assertIn("hra_account", facts)
-        self.assertIn("claims", facts)
-
-    def test_broken_router_scenario_overrides_the_routing_hint(self):
-        _case_id, header = stretch6.case_header({**stretch6.S1, "routing_hint": "accounts"})
+    def test_wrong_hint_is_preserved_for_the_routing_exercise(self):
+        _, header = prompts.case_header({**prompts.S1, "routing_hint": "accounts"})
         self.assertIn("routing_hint: accounts", header)
-        self.assertNotIn("routing_hint: marketplace", header)
+
+    def test_prepare_workflow_preserves_prompt_references_without_azure_calls(self):
+        info = {"agents": {name: {"agent_version": "3"} for name in prompts.SPECS}}
+        with patch.object(prompts.foundry_env, "save_artifact"), patch.object(prompts.foundry_env, "get_project_client") as project:
+            prepared = prompts.prepare_workflow(info)
+        self.assertEqual(prepared["agents"], info["agents"])
+        self.assertEqual(prepared["runtime"], "microsoft-agent-framework")
+        self.assertNotIn("workflow_name", prepared)
+        project.assert_not_called()
 
     def test_hosted_tool_registration_accepts_list_item_or_append(self):
-        in_list = "FUNCTION_TOOLS = [first_tool, run_triage_workflow]"
-        appended = "FUNCTION_TOOLS = [first_tool]\nFUNCTION_TOOLS.append(run_triage_workflow)"
-        missing = "FUNCTION_TOOLS = [first_tool]"
-        self.assertTrue(stretch6.function_tool_is_registered(in_list, "run_triage_workflow"))
-        self.assertTrue(stretch6.function_tool_is_registered(appended, "run_triage_workflow"))
-        self.assertFalse(stretch6.function_tool_is_registered(missing, "run_triage_workflow"))
+        self.assertTrue(prompts.function_tool_is_registered("FUNCTION_TOOLS = [run_triage_workflow]", "run_triage_workflow"))
+        self.assertTrue(prompts.function_tool_is_registered("FUNCTION_TOOLS.append(run_triage_workflow)", "run_triage_workflow"))
+        self.assertFalse(prompts.function_tool_is_registered("FUNCTION_TOOLS = [other_tool]", "run_triage_workflow"))
 
+    def test_duplicate_or_missing_case_identity_is_rejected(self):
+        for header in ("participant_id: P-1001", HEADER + "\ncase_id: other"):
+            with self.assertRaises(ValueError):
+                workflow.case_from_header(header)
 
-class PacketTests(unittest.TestCase):
-    def test_extracts_fenced_packet_from_last_message(self):
+    def test_fenced_packet_is_accepted(self):
         packet = valid_packet()
-        messages = ["not JSON", f"```json\n{json.dumps(packet)}\n```"]
-        self.assertEqual(stretch6.extract_packet(messages), packet)
-        self.assertEqual(hosted._extract_packet(messages[-1]), packet)
-
-    def test_validation_rejects_structure_safety_and_stable_field_changes(self):
-        packet = valid_packet(
-            participant_id="P-9999",
-            facts_gathered=[{"fact": "Call 801-555-0100", "source": "participant statement", "extra": "no"}],
-            options_discussed="Plan A",
-            unexpected=True,
-        )
-        problems = stretch6.validate_packet(packet, expected={"participant_id": "P-1001", "lob": "marketplace"})
-        self.assertTrue(any("unexpected fields" in problem for problem in problems))
-        self.assertTrue(any("options_discussed must be a list" in problem for problem in problems))
-        self.assertTrue(any("facts_gathered[0]" in problem for problem in problems))
-        self.assertTrue(any("PII pattern" in problem for problem in problems))
-        self.assertTrue(any("participant_id must remain" in problem for problem in problems))
+        self.assertEqual(workflow.extract_packet([f"```json\n{json.dumps(packet)}\n```"]), packet)
 
 
-class ReferenceLoadingTests(unittest.TestCase):
-    def test_environment_reference_wins(self):
-        reference = hosted.load_workflow_reference(
-            {"MARKETPLACE_WORKFLOW_AGENT_NAME": "env-workflow", "MARKETPLACE_WORKFLOW_AGENT_VERSION": "7"},
-            [],
-        )
-        self.assertEqual(reference["workflow_name"], "env-workflow")
-        self.assertEqual(reference["source"], "environment")
-
-    def test_invalid_file_is_skipped_before_valid_artifact(self):
-        with tempfile.TemporaryDirectory() as temp:
-            invalid = Path(temp) / "invalid.json"
-            valid = Path(temp) / "agents.json"
-            invalid.write_text("{", encoding="utf-8")
-            valid.write_text(json.dumps({"workflow_name": "artifact-workflow", "workflow_version": "3"}), encoding="utf-8")
-            reference = hosted.load_workflow_reference({}, [invalid, valid])
-        self.assertEqual(reference["workflow_name"], "artifact-workflow")
-        self.assertEqual(reference["workflow_version"], "3")
-
-
-class HostedUnavailableTests(unittest.TestCase):
-    def test_unavailable_reference_returns_explicit_status_without_client_call(self):
-        with patch.object(hosted, "WORKFLOW", None), patch.object(hosted, "openai_client") as client:
-            result = hosted.run_triage_workflow("case")
+class HostedToolTests(unittest.IsolatedAsyncioTestCase):
+    async def test_missing_packaged_references_returns_explicit_unavailable(self):
+        with patch.object(hosted, "__file__", str(HERE / "missing-package/main.py")), patch.object(hosted, "run_case") as run:
+            result = await hosted.run_triage_workflow(HEADER)
         self.assertEqual(result["status"], "unavailable")
-        self.assertIn("not available", result["error"])
-        client.assert_not_called()
+        run.assert_not_called()
 
-
-class OrderingTests(unittest.TestCase):
-    class Item:
-        def __init__(self, item_type, **data):
-            self.type = item_type
-            self._data = {"type": item_type, **data}
-            for key, value in data.items():
-                setattr(self, key, value)
-
-        def model_dump(self):
-            return self._data
-
-    def test_mocked_stream_deduplicates_actions_and_validates_order(self):
-        events = []
-        for action_id in stretch6.EXPECTED_S1_ACTIONS:
-            item = self.Item("workflow_action", action_id=action_id, kind="InvokeAzureAgent", status="in_progress")
-            events.append(SimpleNamespace(type="response.output_item.added", item=item))
-            done = self.Item("workflow_action", action_id=action_id, kind="InvokeAzureAgent", status="completed")
-            events.append(SimpleNamespace(type="response.output_item.done", item=done))
-        packet = valid_packet()
-        message = self.Item("message", content=[SimpleNamespace(text=json.dumps(packet))])
-        events.append(SimpleNamespace(type="response.output_item.done", item=message))
-        conversations = SimpleNamespace(
-            create=lambda: SimpleNamespace(id="conversation-1"),
-            delete=lambda **_kwargs: None,
+    async def test_pasted_tool_runs_with_only_flat_package_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            package = Path(directory)
+            text = (HERE / "hosted_tool_snippet.py").read_text()
+            block = text.split("# ---- paste from here into hosted/main.py ----\n")[1].split("# ---- paste until here ----")[0]
+            main = package / "main.py"
+            main.write_text(
+                "import json\nimport os\nfrom pathlib import Path\nfrom typing import Annotated\n"
+                "from agent_framework import tool\nfrom pydantic import Field\n" + block,
+            )
+            (package / "triage_agents.json").write_text(json.dumps({"runtime": "microsoft-agent-framework", "roles": {}}))
+            spec = importlib.util.spec_from_file_location("flat_maf_main", main)
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            with patch.object(module, "run_case", new=AsyncMock(return_value={
+                "packet": valid_packet(), "actions": [{"action_id": "handoff"}],
+            })) as run, patch.dict("os.environ", {"FOUNDRY_PROJECT_ENDPOINT": "https://offline.test"}):
+                result = await module.run_triage_workflow(HEADER)
+        self.assertEqual(result["status"], "completed")
+        self.assertEqual(result["runtime"], "microsoft-agent-framework")
+        run.assert_awaited_once_with(
+            {"runtime": "microsoft-agent-framework", "roles": {}}, HEADER, "https://offline.test",
         )
-        responses = SimpleNamespace(create=lambda **_kwargs: iter(events))
-        run = stretch6.run_case(SimpleNamespace(conversations=conversations, responses=responses), "workflow", "header")
-        self.assertEqual([action["action_id"] for action in run["actions"]], list(stretch6.EXPECTED_S1_ACTIONS))
-        self.assertEqual(stretch6.validate_action_order(run["actions"], stretch6.EXPECTED_S1_ACTIONS), [])
-        self.assertEqual(run["errors"], [])
 
-    def test_ordering_reports_missing_and_forbidden_actions(self):
-        actions = [{"action_id": "triage"}, {"action_id": "accounts"}, {"action_id": "handoff"}]
-        problems = stretch6.validate_action_order(actions, stretch6.EXPECTED_S1_ACTIONS, forbidden=("accounts",))
-        self.assertTrue(any("marketplace" in problem for problem in problems))
-        self.assertTrue(any("unexpected workflow action accounts" in problem for problem in problems))
-
-    def test_demo_raises_when_workflow_reports_an_error(self):
-        info = {"workflow_name": "workflow", "workflow_version": "1"}
-        failed_run = {"conversation_id": "conversation-1", "actions": [], "messages": [], "errors": ["workflow failed"]}
-        with (
-            patch.object(stretch6.foundry_env, "get_openai_client", return_value=object()),
-            patch.object(stretch6, "case_header", return_value=("S1-20260930-P-1001", "header")),
-            patch.object(stretch6, "run_case", return_value=failed_run),
-            patch.object(stretch6.helpers, "artifact_path", return_value=Path("agents.json")),
-            patch.object(stretch6.foundry_env, "save_artifact"),
-            self.assertRaisesRegex(RuntimeError, "workflow failed"),
-        ):
-            stretch6.demo(info)
+    async def test_runtime_failure_is_not_returned_as_completed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)
+            (path / "triage_agents.json").write_text("{}")
+            with patch.object(hosted, "__file__", str(path / "main.py")), \
+                    patch.object(hosted, "run_case", new=AsyncMock(side_effect=RuntimeError("agent failed"))), \
+                    patch.dict("os.environ", {"FOUNDRY_PROJECT_ENDPOINT": "https://offline.test"}), \
+                    self.assertRaisesRegex(RuntimeError, "agent failed"):
+                await hosted.run_triage_workflow(HEADER)
 
 
 if __name__ == "__main__":

@@ -485,7 +485,7 @@ Agent Framework code that Foundry builds into a container, versions and scales. 
 artifacts (Labs 1-2 project + models -> Labs 3-4 basics -> Labs 5-6 knowledge + sessions ->
 Labs 7-8 multi-agent handoff with human approval -> Labs 9-10 operate/evaluate/CI)
 around one use case, the Healthcare Marketplace Concierge, with optional Labs 11-14
-(prompt agents & workflow agents; Invocations protocol, Toolbox and Skills). Reuses this repo's dev
+(Foundry prompt agents with Microsoft Agent Framework workflows; Invocations protocol, Toolbox and Skills). Reuses this repo's dev
 container, `.env` names, pinned requirements and RBAC script; extends the `hosted-agents/` and `AgentOps/`
 patterns. Fourteen sequentially numbered notebooks document their prerequisites and
 reuse validated checkpoints, resources and product code. Start with
