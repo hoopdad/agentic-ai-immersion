@@ -1,2 +1,0 @@
-# Shared Python 3.14 workstation lock; paths resolve relative to this file.
--r ../../requirements.txt
