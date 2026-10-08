@@ -1,7 +1,7 @@
 """Healthcare Marketplace synthetic systems of record: pure-Python access to data/*.json.
 
 Every agent (Agent Framework @tool functions in the hosted containers, Foundry Agent Service FunctionTools in
-Stretch 5) calls these functions. There are no Azure calls here, so this module runs anywhere:
+Labs 11-12) calls these functions. There are no Azure calls here, so this module runs anywhere:
 
     python common/marketplace_data.py        # self-test over the S1 / S2 / S3 scenarios
 

@@ -22,15 +22,10 @@ def main() -> None:
         if shutil.which(command) is None:
             raise RuntimeError(f"Missing command: {command}. Rebuild the dev container.")
     for name in ("agent_framework", "agent_framework_foundry_hosting", "azure.ai.projects",
-                 "azure.ai.evaluation", "azure.search.documents", "redis", "mcp", "yaml", "jupyter"):
+                 "azure.ai.evaluation", "azure.search.documents", "mcp", "yaml", "jupyter"):
         importlib.import_module(name)
     env = foundry_env.load_env()
     resource_names.suffix(env, required=True)
-    redis_url = env["MARKETPLACE_REDIS_URL"]
-    if foundry_env.is_local_redis_url(redis_url):
-        import redis
-        if not redis.Redis.from_url(redis_url).ping():
-            raise RuntimeError("The dev-container Redis companion did not respond to PING.")
     extensions = subprocess.check_output(["azd", "extension", "list"], text=True)
     if "azure.ai.agents" not in extensions:
         raise RuntimeError("Run: azd extension install azure.ai.agents")

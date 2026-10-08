@@ -307,13 +307,13 @@ run_one_nb.py
 # Cumulative workshop runtime state and regenerated hosted packages.
 build-and-operate-foundry-agents/labs/artifacts/*
 !build-and-operate-foundry-agents/labs/artifacts/README.md
-build-and-operate-foundry-agents/labs/**/hosted*/common/
-build-and-operate-foundry-agents/labs/**/hosted*/data/
-build-and-operate-foundry-agents/labs/**/hosted*/skills/
-build-and-operate-foundry-agents/labs/**/hosted*/.vendored
-build-and-operate-foundry-agents/labs/**/hosted*/.vendored.json
-build-and-operate-foundry-agents/labs/**/hosted*/azure.yaml
-build-and-operate-foundry-agents/labs/**/hosted*/agent.yaml
-build-and-operate-foundry-agents/labs/**/hosted*/agent.manifest.yaml
+build-and-operate-foundry-agents/shared/**/hosted*/common/
+build-and-operate-foundry-agents/shared/**/hosted*/data/
+build-and-operate-foundry-agents/shared/**/hosted*/skills/
+build-and-operate-foundry-agents/shared/**/hosted*/.vendored
+build-and-operate-foundry-agents/shared/**/hosted*/.vendored.json
+build-and-operate-foundry-agents/shared/**/hosted*/azure.yaml
+build-and-operate-foundry-agents/shared/**/hosted*/agent.yaml
+build-and-operate-foundry-agents/shared/**/hosted*/agent.manifest.yaml
 build-and-operate-foundry-agents/**/.env*
 !build-and-operate-foundry-agents/**/.env*.example

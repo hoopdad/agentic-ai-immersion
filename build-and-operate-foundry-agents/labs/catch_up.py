@@ -1,21 +1,22 @@
-"""catch_up.py: recreate the artifacts for labs 1..K so a learner can start any lab fresh.
+"""catch_up.py: internal automation to recreate artifacts for topic groups 2..K.
 
-Runs on: the learner workstation (az login, .env filled). It imports each lab's driver module by file name and
+Runs on: a configured workstation or CI runner (az login, .env filled). Labs 1-2 project/model setup is explicit;
+this helper never provisions a Foundry account or project. It imports each lab's driver module by file name and
 calls its build() (the creation work), never its demo() (the scenario runs), so it is the minimum that makes the
 next lab's `require_artifact` pass.
 
-    python catch_up.py --through 2         labs 1 and 2 (hosted basics record, knowledge base, vendored hosted/)
-    python catch_up.py --through 4         + lab 3 record + lab 4 operate.json, pipeline.md and a short evaluation
-    python catch_up.py --through 6         + stretch 5 prompt agents and workflow, stretch 6 invocations record
-    python catch_up.py --only 4            one lab only (its inputs must already exist)
+    python catch_up.py --through 3         groups lab2 and lab3 (hosted basics record, knowledge, vendored hosted/)
+    python catch_up.py --through 5         + lab4 record + lab5 operate.json, pipeline.md and a short evaluation
+    python catch_up.py --through 7         + stretch6 prompt/workflow agents and stretch7 invocations record
+    python catch_up.py --only 5            one artifact group only (its inputs must already exist)
 
-Lab folders and main files (exact names from the sequence brief):
-    1  lab1-hosted-agent-basics/lab1_hosted_basics.py                 build()
-    2  lab2-hosted-knowledge-sessions/lab2_hosted_knowledge.py        build(skip_connection=False)
-    3  lab3-hosted-multi-agent-handoff/lab3_hosted_multi_agent.py     build()
-    4  lab4-operate-hosted-agents/lab4_operate.py                     build() then demo(limit=6, skip judges)
-    5  stretch5-prompt-agents-and-workflows/stretch5_prompt_agents.py build()
-    6  stretch6-invocations-toolbox-skills/stretch6_invocations.py    build()
+Topic folders and internal drivers (group numbers are not learner lab numbers):
+    2  hosted-agent-basics/lab2_hosted_basics.py                 build()
+    3  hosted-knowledge-sessions/lab3_hosted_knowledge.py        build(skip_connection=False)
+    4  hosted-multi-agent-handoff/lab4_hosted_multi_agent.py     build()
+    5  operate-hosted-agents/lab5_operate.py                     build() then demo(limit=6, skip judges)
+    6  prompt-agents-and-workflows/stretch6_prompt_agents.py build()
+    7  invocations-toolbox-skills/stretch7_invocations.py    build()
 Each step is wrapped in try/except: a missing module, a missing role or a network error prints a friendly message
 and the script continues to the next lab so you can see everything that still needs attention.
 """
@@ -31,12 +32,12 @@ sys.path.insert(0, str(LABS_DIR))
 import lab_helpers as helpers  # noqa: E402
 
 STEPS = {
-    1: ("lab1-hosted-agent-basics/lab1_hosted_basics.py", "artifacts/lab1/hosted.json"),
-    2: ("lab2-hosted-knowledge-sessions/lab2_hosted_knowledge.py", "artifacts/lab2/knowledge.json, hosted.json"),
-    3: ("lab3-hosted-multi-agent-handoff/lab3_hosted_multi_agent.py", "artifacts/lab3/hosted.json"),
-    4: ("lab4-operate-hosted-agents/lab4_operate.py", "artifacts/lab4/operate.json, pipeline.md, eval_report.md"),
-    5: ("stretch5-prompt-agents-and-workflows/stretch5_prompt_agents.py", "artifacts/stretch5/agents.json"),
-    6: ("stretch6-invocations-toolbox-skills/stretch6_invocations.py", "artifacts/stretch6/invocations.json"),
+    2: ("hosted-agent-basics/lab2_hosted_basics.py", "artifacts/lab2/hosted.json"),
+    3: ("hosted-knowledge-sessions/lab3_hosted_knowledge.py", "artifacts/lab3/knowledge.json, hosted.json"),
+    4: ("hosted-multi-agent-handoff/lab4_hosted_multi_agent.py", "artifacts/lab4/hosted.json"),
+    5: ("operate-hosted-agents/lab5_operate.py", "artifacts/lab5/operate.json, pipeline.md, eval_report.md"),
+    6: ("prompt-agents-and-workflows/stretch6_prompt_agents.py", "artifacts/stretch6/agents.json"),
+    7: ("invocations-toolbox-skills/stretch7_invocations.py", "artifacts/stretch7/invocations.json"),
 }
 
 
@@ -57,9 +58,9 @@ def run_step(n: int, skip_connection: bool = False) -> bool:
         print(f"{label} SKIP: {relative_file} has no build() function")
         return False
     try:
-        if n == 2:
+        if n == 3:
             module.build(skip_connection=skip_connection)
-        elif n == 4:
+        elif n == 5:
             bundle = module.build(skip_judges=True)
             module.demo(bundle, limit=6)         # six golden questions, custom evaluators only: fast and deterministic
         else:
@@ -79,9 +80,9 @@ def run_step(n: int, skip_connection: bool = False) -> bool:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--through", type=int, choices=sorted(STEPS), help="recreate artifacts for labs 1..K")
-    parser.add_argument("--only", type=int, choices=sorted(STEPS), help="run one lab's build() only")
-    parser.add_argument("--skip-connection", action="store_true", help="lab 2: skip the ARM project connection PUT")
+    parser.add_argument("--through", type=int, choices=sorted(STEPS), help="recreate artifacts for topic groups 2..K (not project setup)")
+    parser.add_argument("--only", type=int, choices=sorted(STEPS), help="run one topic group's build() only")
+    parser.add_argument("--skip-connection", action="store_true", help="knowledge group: skip the ARM project connection PUT")
     parser.add_argument("--trace", action="store_true", help="print full tracebacks on failure")
     args = parser.parse_args()
     if args.only:

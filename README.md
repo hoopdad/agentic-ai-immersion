@@ -99,7 +99,8 @@ agentic-ai-immersion-day/
 │   ├── common/                                 # marketplace_data, foundry_env, guardrails, session_store, message_store
 │   ├── data/                                   # synthetic participants, sponsors, plans, knowledge, golden questions
 │   ├── tools/py_to_ipynb.py                    # script -> notebook converter
-│   └── labs/                                   # lab1-hosted-agent-basics ... stretch6-invocations-toolbox-skills
+│   ├── shared/                                 # reusable products, provisioning and operating helpers
+│   └── labs/lab01/ ... labs/lab14/                # one documented learner lab per numbered folder
 │
 ├── 🧩 byouc/                                   # Bring Your Own Use Case
 │   ├── Agentic_UseCase_Spec.md                # Use case spec template (Markdown)
@@ -479,13 +480,17 @@ python -m pytest tests/unit tests/integration -q
 ### 🏥 Phase 6: Build and Operate Foundry Agents (individual health insurance marketplace)
 **Location:** `build-and-operate-foundry-agents/`
 
-A one-day, pro-code lab sequence for engineers building benefits-marketplace agents on **Microsoft Foundry Hosted Agents**:
-Agent Framework code that Foundry builds into a container, versions and scales. Four core labs chain
-artifacts (Lab 1 basics -> Lab 2 knowledge + sessions -> Lab 3 multi-agent handoff with human approval ->
-Lab 4 operate/evaluate/CI) around one use case, the Healthcare Marketplace Concierge, plus two stretch
-labs (prompt agents & workflow agents; Invocations protocol, Toolbox and Skills). Reuses this repo's dev
+A notebook-only lab sequence for engineers building benefits-marketplace agents on **Microsoft Foundry Hosted Agents**:
+Agent Framework code that Foundry builds into a container, versions and scales. Labs 1-10 chain
+artifacts (Labs 1-2 project + models -> Labs 3-4 basics -> Labs 5-6 knowledge + sessions ->
+Labs 7-8 multi-agent handoff with human approval -> Labs 9-10 operate/evaluate/CI)
+around one use case, the Healthcare Marketplace Concierge, with optional Labs 11-14
+(Foundry prompt agents with Microsoft Agent Framework workflows; Invocations protocol, Toolbox and Skills). Reuses this repo's dev
 container, `.env` names, pinned requirements and RBAC script; extends the `hosted-agents/` and `AgentOps/`
-patterns. Synthetic data only.
+patterns. Fourteen sequentially numbered notebooks document their prerequisites and
+reuse validated checkpoints, resources and product code. Start with
+[Lab 1](build-and-operate-foundry-agents/labs/lab01/lab01_walkthrough.ipynb).
+Synthetic data only.
 
 📖 [Lab sequence guide](build-and-operate-foundry-agents/README.md) • [Use case](build-and-operate-foundry-agents/USE-CASE.md) • [Setup](build-and-operate-foundry-agents/SETUP.md)
 

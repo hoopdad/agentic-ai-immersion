@@ -1,4 +1,4 @@
-"""Session map for resilient clients and hosted agents (shared by Lab 1 and Lab 4).
+"""Session map for resilient clients and hosted agents (shared by Labs 3-4 and Labs 9-10).
 
 A SessionRecord is the small piece of state a client must never lose: which Foundry conversation (Prompt
 Agents) or which message-store key (Hosted Agents) belongs to a participant session. Keep it outside the
@@ -16,7 +16,7 @@ No Azure or redis import happens at module import time; each backend imports its
 
 Usage:
     from common import session_store
-    store = session_store.get_session_store(ARTIFACTS / "lab1" / "sessions")
+    store = session_store.get_session_store(ARTIFACTS / "lab2" / "sessions")
     rec = store.get(session_id) or session_store.SessionRecord.new(session_id, agent_name="healthcare-marketplace-concierge")
     rec.conversation_id = conversation.id
     store.put(rec.touch())
@@ -277,7 +277,7 @@ def get_session_store(default_dir: Path | str) -> SessionStore:
 
 
 def describe(store: SessionStore) -> str:
-    """One line for lab logs: `file (artifacts/lab1/sessions)`, `redis (redis://...)`, `cosmos (...)`."""
+    """One line for lab logs: `file (artifacts/lab2/sessions)`, `redis (redis://...)`, `cosmos (...)`."""
     kind = getattr(store, "kind", type(store).__name__)
     target = getattr(store, "directory", None) or getattr(store, "url", None) or getattr(store, "endpoint", "")
     return f"{kind} ({target})"

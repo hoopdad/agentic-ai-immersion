@@ -35,7 +35,6 @@ DEFAULTS: dict[str, str] = {
     "TENANT_ID": "",
     "APPLICATIONINSIGHTS_CONNECTION_STRING": "",
     "MARKETPLACE_TODAY": "2026-10-06",
-    "MARKETPLACE_REDIS_URL": "redis://redis:6379/0",
     "MARKETPLACE_BLOB_STORAGE_URL": "",
     "MARKETPLACE_BLOB_STORAGE_CONTAINER": "marketplace-history",
     "MARKETPLACE_AZURITE_CONNECTION_STRING": "",
@@ -112,7 +111,7 @@ def require(env: dict[str, str], *keys: str) -> None:
     missing = [k for k in keys if not env.get(k)]
     if missing:
         raise RuntimeError(f"Missing environment variable(s): {', '.join(missing)}. "
-                           f"Copy .env.example to .env in the base repo root and fill them in (see SETUP.md).")
+                           f"Run Lab 2's setup notebook and its prerequisites or populate this lab's configuration cell (see SETUP.md).")
 
 
 def is_local_redis_url(value: str) -> bool:
@@ -185,8 +184,8 @@ def load_artifact(path: Path | str) -> Any:
     """
     path = Path(path)
     if not path.is_file():
-        raise FileNotFoundError(f"Artifact {path} not found. Run the earlier lab, or `python catch_up.py --through N` "
-                                f"from the labs folder to recreate artifacts for labs 1..N.")
+        raise FileNotFoundError(f"Artifact {path} not found. Run the earlier walkthrough notebooks "
+                                f"in sequence to recreate their checkpoint artifacts.")
     text = path.read_text(encoding="utf-8")
     if path.suffix == ".json":
         return json.loads(text)

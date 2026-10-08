@@ -2,144 +2,89 @@
 
 ## 1. Open the repository dev container
 
-Use the repository-level dev container, not a separate workshop container. Docker Desktop
-(Linux containers) and the VS Code Dev Containers extension are required locally.
-GitHub Codespaces is an alternative when your organization's policy and Azure network allow it.
+Use the repository-level Python 3.14 dev container, not a separate workshop
+environment. Locally, Docker Desktop (Linux containers) and the VS Code Dev
+Containers extension are required. GitHub Codespaces is supported when your
+organization's policy and Azure network allow it.
 
 1. Open the repository root and select **Dev Containers: Reopen in Container**.
-2. Wait for bootstrap to finish. It installs the root Python 3.14 dependency lock, the
-   `azure.ai.agents` azd extension and checks the learner toolchain.
-3. Select `/usr/local/bin/python` as the notebook kernel. Use a **Bash** terminal.
-4. Copy `.env.example` to `.env` at the repository root, fill in the project settings, and set
-   `MARKETPLACE_RESOURCE_SUFFIX` to a short value unique to you, such as `jd-4821`.
-5. Sign in inside the container; host credentials are not mounted:
+2. Wait for bootstrap to finish installing the root dependency lock and toolchain.
+3. Open [Lab 1](labs/lab01/lab01_walkthrough.ipynb) beneath this workshop.
+4. Select **Select Kernel > Python Environments > `/usr/local/bin/python`**.
+5. Edit the notebook's setup inputs using values supplied by your administrator,
+   then run its authentication, provisioning, verification and persistence cells in order.
 
-```bash
-cd /workspaces/agentic-ai-immersion
-cp -n .env.example .env
-az login --use-device-code --tenant '<tenant-id>'
-az account set --subscription '<subscription-id>'
-azd config set auth.useAzCliAuth true
-python build-and-operate-foundry-agents/tools/preflight.py
-cd build-and-operate-foundry-agents
-```
+No extra virtual environment, manual `.env` copy, terminal driver or standalone
+test helper is part of the learner path. Do not select a Windows interpreter or
+a native-setup environment. If bootstrap or kernel selection fails, inspect the
+Dev Containers setup output and ask the facilitator to repair the repository
+environment before continuing.
 
-The shared permission setup remains PowerShell 7, which is installed in the container.
-Use `pwsh -File ../scripts/setup-permissions.ps1` with the parameters documented in the
-[repository setup guide](../README.md). Do not grant roles or alter networking without approval.
+## 2. Administrator prerequisites
 
-### Notebook kernel and bootstrap recovery
+Lab 1 creates a **project inside an existing Foundry account**, not a new account
+or a complete enterprise network. The administrator supplies the account,
+subscription, tenant, resource group, allowed region, approved network path and
+permissions to create the project and model deployments. Confirm model
+availability and quota before the session.
 
-No additional virtual environment is required inside the dev container. Choose **Select Kernel >
-Python Environments > `/usr/local/bin/python`**. Do not select a Windows interpreter or a venv
-left over from a native setup.
+After Lab 1 creates the learner project, the administrator must confirm that
+**that new project** is enabled for hosted agents and its identity has the required
+resource access before Labs 3-4. Creating a project does not copy another project's
+RBAC, connections or Standard Agent capability host; private Standard Agent
+environments require the project-scoped configuration described in
+[`infra/README.md`](infra/README.md). Lab 2's model smoke tests do not verify it.
+The approved account must be `AIServices` with project management enabled;
+model deployments are account-level resources used through the learner project.
 
-If VS Code reports that `ipykernel` is missing, check the Dev Containers setup output: the container
-can be running even when its package bootstrap failed. From the container's Bash terminal:
+Shared permission administration remains valid: an authorized administrator
+uses `scripts/setup-permissions.ps1` and its documented parameters in the
+[repository setup guide](../README.md). This is permission setup, not an
+alternative way to execute a lab. Never change roles or networking without approval.
 
-```bash
-cd /workspaces/agentic-ai-immersion
-bash .devcontainer/bootstrap.sh
-python -c "import sys, ipykernel; print(sys.executable, ipykernel.__version__)"
-```
+For a private workshop environment, administrators can follow
+[`infra/README.md`](infra/README.md). Learner kernels must already be able to
+reach its private endpoints. Do not enable public access to bypass a blocked path.
 
-After bootstrap succeeds, reselect the interpreter or reload the VS Code window. The bootstrap
-script must have LF line endings in the working tree; `.devcontainer/.gitattributes` enforces LF
-for Git checkouts, and offline validation rejects carriage returns. The shared dependency lock
-uses platform markers for Windows-only notebook packages so Linux skips them.
-
-### Local history stores and agent networking
-
-Compose starts Redis and the Azurite Blob emulator without publishing their ports to the host.
-`.env.example` sets `MARKETPLACE_REDIS_URL=redis://redis:6379/0` for optional generic shared-store
-configurations and the Lab 4 infrastructure template; Labs 2 and 3 and Stretch 6 do not use it.
-Lab 2 uses Azure Blob/Azurite or local files for message history, and Lab 3 uses a file-backed session map.
-Azurite is available for optional local Blob-backend testing; Lab 2's README has its connection
-string. Named Compose volumes retain both services' data across container restarts.
-
-The local agent listens on port 8088; VS Code forwards it for host/browser use. Notebooks
-inside the dev container call `http://localhost:8088` directly.
-
-**Do not deploy local Redis or Azurite connection strings to Foundry.** The deployment helper
-omits both. For Lab 2, Azure Blob is optional: set `MARKETPLACE_BLOB_STORAGE_URL` to an existing
-account and container, and grant the hosted identity Storage Blob Data Contributor. Without Blob
-configured, Lab 2 uses container-local files and does not claim continuity across replicas.
-Other labs may use an Azure-reachable shared Redis endpoint.
-
-### Working directories and runtimes
-
-Open each walkthrough in its lab folder. Notebook paths assume that folder is the kernel's
-working directory. Alternatively, from this workshop folder:
-
-```bash
-cd labs/lab1-hosted-agent-basics
-python -m jupyter lab lab1_walkthrough.ipynb
-```
-
-Notebooks and driver scripts run in the learner dev container. `hosted/main.py` runs there
-for local tests; Foundry separately builds and runs the deployed package.
-Every hosted `prepare.py` vendors shared code/data before upload. Run deployment commands only
-from the printed Bash block; printing alone never deploys.
-
-Environment loading preserves exported variables, then reads the repository-root `.env`,
-the workshop `.env`, and the current directory `.env`, in that precedence order.
-Keep shared learner configuration in the repository root.
-
-### Optional native setup
-
-The supported workshop path is the dev container. For native Python 3.14 development, install
-the root `requirements.txt`, Azure CLI, azd and its `azure.ai.agents` extension yourself.
-The deployment command generators target Bash; run them in Linux/WSL or the dev container.
-Do not paste Linux container paths into a Windows PowerShell terminal.
-
-## 2. Environment variables
-
-| Variable | Used by | Example shape (no real values here) | Notes |
-|---|---|---|---|
-| `FOUNDRY_PROJECT_ENDPOINT` | all | `https://<account>.services.ai.azure.com/api/projects/<project>` | Foundry portal, project Overview page. Required by every lab |
-| `AZURE_AI_MODEL_DEPLOYMENT_NAME` | all | `gpt-5.4-mini` | Chat model deployment name. Default `gpt-5.4-mini` |
-| `FOUNDRY_MODEL` | hosted agents | `gpt-5.4-mini` | Agent Framework model name; defaults to `AZURE_AI_MODEL_DEPLOYMENT_NAME` |
-| `EMBEDDING_MODEL_DEPLOYMENT_NAME` | Lab 2 | `text-embedding-3-large` | 3072 dimensions; the index schema assumes this model |
-| `AZURE_AI_SEARCH_ENDPOINT` | Lab 2 | `https://<search>.search.windows.net` | Basic tier or above, semantic ranker enabled |
-| `AZURE_OPENAI_ENDPOINT` | Lab 2, Lab 4 judges | `https://<account>.openai.azure.com/` | Only the resource host is used; `/openai/...` suffixes are stripped |
-| `PROJECT_RESOURCE_ID` | Lab 2 (project connection PUT), every `azd ai agent init` | `/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.CognitiveServices/accounts/<account>/projects/<project>` | ARM id of the project |
-| `TENANT_ID` | all | `<guid>` | Passed to `AzureCliCredential(tenant_id=...)` and `az login --tenant` |
-| `APPLICATIONINSIGHTS_CONNECTION_STRING` | Lab 4, hosted agents | `InstrumentationKey=...;IngestionEndpoint=...` | Optional on the workstation (Lab 4 fetches it from the project when blank). On the hosted agent it is set with `azd env set` and turns the container's tracing on |
-| `MARKETPLACE_TODAY` | all | `2026-10-06` | Workshop "today" for enrollment-window answers. See section 9 |
-| `MARKETPLACE_KB_MCP_URL` | Lab 2 hosted agent, Lab 4, CI | `https://<search>.search.windows.net/knowledgebases/healthcare-marketplace-kb/mcp?api-version=2025-11-01-Preview` | The knowledge base MCP endpoint. Written to `artifacts/lab2/knowledge.json` by Lab 2; the lab passes it to the local `main.py`; `azd env set MARKETPLACE_KB_MCP_URL ...` for the container |
-| `MARKETPLACE_BLOB_STORAGE_URL` | Lab 2 hosted agent (conversation history) | `https://<account>.blob.core.windows.net` | Optional existing account URL. Uses DefaultAzureCredential and the existing `MARKETPLACE_BLOB_STORAGE_CONTAINER`; Blob takes precedence for conversation history |
-| `MARKETPLACE_BLOB_STORAGE_CONTAINER` | Lab 2 hosted agent (conversation history) | `marketplace-history` | Existing Blob container. The lab does not create cloud storage resources |
-| `MARKETPLACE_AZURITE_CONNECTION_STRING` | Lab 2 local Blob tests | Azurite connection string | Local emulator only; never sent to Foundry |
-| `MARKETPLACE_REDIS_URL` | Optional generic shared-store configuration; Lab 4 infrastructure template | `redis://redis:6379/0` locally; `rediss://<name>.<region>.redis.azure.net:10000/0` for Azure Managed Redis | Labs 2 and 3 and Stretch 6 do not use this setting |
-| `MARKETPLACE_RESOURCE_SUFFIX` | every created resource | `jd-4821` | Required, unique per attendee, 1-16 lowercase letters/numbers/hyphens. Every workshop-created Azure resource ends with this suffix |
-| `MARKETPLACE_SESSION_TTL_SECONDS` | Redis and Blob message stores | `604800` | Idle message-history expiry, default 7 days |
-| `MARKETPLACE_HOSTED_PORT` | local `main.py` | `8088` | Only for running two local replicas in the Lab 2 YOUR TURN |
-| `MARKETPLACE_WORKFLOW_AGENT_NAME` | Stretch 5 hosted tool | `healthcare-marketplace-triage-workflow` | Lets the hosted agent find the workflow agent without the artifacts file |
-| `MARKETPLACE_SESSION_DIR` | Lab 3 hosted agent (local) | `labs/artifacts/lab3/sessions` | File-backed session map; the Lab 3 driver sets it so pending packets are visible next to the artifacts |
-| `MARKETPLACE_INVOCATIONS_PATH` | Stretch 6 client | `/invocations` | Path the local `InvocationsHostServer` serves (VERIFY); `test_local.py` also tries `/invoke` and `/` |
-| `SKILL_NAMES` | Stretch 6 skills agent | `hra-reimbursement-rules` | Comma list of `skills/<name>/SKILL.md` to embed; unset embeds every skill in the folder |
-| `TOOLBOX_NAME`, `TOOLBOX_MCP_URL` | Stretch 6 skills agent (preview) | `agent-tools`, `https://.../mcp` | Foundry Toolbox with web_search + code_interpreter over MCP; unset disables the toolbox, the agent still runs |
-| `MARKETPLACE_AGENT_NAME` | Stretch 6 skills agent | `healthcare-marketplace-concierge-hosted` | Override the agent name when you do not want the skills build to become a new version of the concierge |
-
-`MARKETPLACE_*` variables hold no secrets. Every lab README lists the ones it reads.
-
-## 3. Model deployments
-
-Deploy in the Foundry project, in a region that offers Agent Service, Foundry IQ and evaluations (the base
-repo datasheet lists tested regions):
-
-| Deployment | Purpose | Notes |
+| Shared prerequisite | Needed by | Owner |
 |---|---|---|
-| `gpt-5.4-mini` (or the name you put in `AZURE_AI_MODEL_DEPLOYMENT_NAME`) | every agent, the evaluators' grader model, the label_model criteria | Global Standard, 100K+ TPM for a room of 20. Raise quota before the day |
-| `text-embedding-3-large` | knowledge indexes (Lab 2) | 3072 dimensions |
-| (no other deployments) | | The hosted agents and the evaluation judges share `gpt-5.4-mini` |
+| Existing Foundry account, approved model quota and creation permissions | Labs 1-2 | Account administrator |
+| Azure AI Search with managed identity, semantic ranker and Foundry IQ support | Labs 5-6 and later knowledge consumers | Search administrator |
+| Existing Blob account/container, if shared history is requested | Optional Labs 5-6 shared history | Storage administrator |
+| Application Insights connected to the learner project, with approved ingestion access | Labs 9-10 | Telemetry administrator |
+| OIDC and protected GitHub Environments | Optional Labs 9-10 cloud pipeline | Release administrator |
+| Foundry Toolbox endpoint and access | Optional Labs 13-14 preview | Project administrator |
+| Project access for prompt-agent publishing and invocation; Azure AI User for the concierge identity | Optional Labs 11-12 | Project administrator |
 
-The hosted agents in Labs 1-3 and Stretch 6 retry model 429 responses up to five times, honor Azure's
-`retry-after-ms` or `retry-after` header, and log any request/token limit and remaining-budget headers returned by
-the service. A quota increase can take several minutes to propagate; if throttling persists after the retries,
-compare those runtime headers with the deployment's quota allocation in Foundry.
+Lab 12 uses Microsoft Agent Framework from the existing root lock. It reuses
+Lab 11's versioned prompt agents, Lab 6's knowledge and its existing hosted
+concierge. No Foundry YAML workflow, separate workflow agent, additional model
+or new hosted service must be enabled or provisioned. MAF orchestration runs in
+the notebook first and then inside the concierge container.
 
-## 4. Azure resources and connections
+## 3. Notebook inputs and downstream persistence
+
+Enter approved account context in Lab 1 and model/downstream configuration in
+Lab 2's editable input cell; later walkthroughs provide
+their own relevant exercise inputs. Lab 2 resolves and writes downstream
+configuration to the repository-root `.env`. That file remains the persistence
+contract, not a manual prerequisite to copy or populate first. Do not commit
+`.env`, tokens, local deployment state or executed notebook outputs.
+
+| Configuration | Meaning |
+|---|---|
+| Tenant, subscription, resource group and existing Foundry account | Approved management scope and authentication context |
+| Unique attendee suffix | Project/resource names derive from this value; retain the same suffix across labs |
+| Chat deployment and embedding deployment choices | Names, supported model versions and capacity used by agents and retrieval |
+| `FOUNDRY_PROJECT_ENDPOINT`, `PROJECT_RESOURCE_ID`, `AZURE_OPENAI_ENDPOINT` | Resolved endpoints and project ARM identity persisted for downstream notebooks |
+| `AZURE_AI_MODEL_DEPLOYMENT_NAME`, `EMBEDDING_MODEL_DEPLOYMENT_NAME` | Provisioned deployment names; retrieval assumes `text-embedding-3-large` with 3072 dimensions |
+| `AZURE_AI_SEARCH_ENDPOINT` | Administrator-supplied Lab 2 input used by Lab 5; not inferred by account discovery |
+| `APPLICATIONINSIGHTS_CONNECTION_STRING` | Optional administrator-supplied Lab 2 input used by Lab 9, or resolved from the project connection |
+| `MARKETPLACE_RESOURCE_SUFFIX` | Attendee resource isolation persisted by Labs 1-2 |
+| `MARKETPLACE_TODAY` | Scenario date, defaulting to `2026-10-06`; change in notebook configuration only when an exercise needs a different date |
+| Optional Blob account URL and container | Existing shared message-history service for Labs 5-6, using Entra credentials |
+
+### Administrator infrastructure variants
 
 To provision a complete workshop environment instead of using existing shared
 resources, choose a Terraform variant in [`infra/README.md`](infra/README.md):
@@ -159,212 +104,184 @@ resources, choose a Terraform variant in [`infra/README.md`](infra/README.md):
   they have no native source-IP allowlist. This variant is not network-isolated.
 
 Run Terraform from the selected variant directory, not the `infra/` root. Both
-variants expose the workshop environment variables in section 2; keep their
+variants expose the same downstream workshop configuration contract; keep their
 state and local tfvars separate. Review the selected variant's networking and
 hosted-agent limitations before deployment.
 
-| Resource | Needed by | Setup |
+Search, optional Blob and telemetry settings are editable Lab 2 inputs supplied
+by the facilitator, not resources provisioned or reliably discovered by Labs 1-2.
+Blank optional inputs preserve existing values; rerun the setup inputs and
+publication cells after the facilitator supplies a missing value.
+Knowledge MCP endpoints and agent/version references are produced by the
+notebooks and passed through checkpoint artifacts. They are not values learners
+must invent. Optional Toolbox configuration belongs in Lab 14's editable inputs.
+Do not deploy Azurite's local emulator settings to Foundry.
+
+## 4. Project and model setup: Labs 1-2
+
+Lab 1 authenticates and creates or resolves the project. Lab 2 reuses that
+project, provisions chat and embedding deployments, verifies readiness and
+persists their settings. Lab 2's `artifacts/lab1/project.json` checkpoint records project/model references
+and successful chat/3072-dimensional embedding smoke checks.
+Review the selected model/version, deployment names and capacity before the
+provisioning cell. Account permissions and quota do not become available merely
+because a notebook input is filled in.
+
+| Deployment | Purpose | Teaching constraint |
 |---|---|---|
-| Foundry account + project | all | Create the project first; copy `FOUNDRY_PROJECT_ENDPOINT` and `PROJECT_RESOURCE_ID` |
-| azd + `azure.ai.agents` extension | Labs 1 to 4, S6 (every hosted deploy) | `azd config set auth.useAzCliAuth true`, `azd extension install azure.ai.agents`. Deployer needs Foundry Project Manager on the project |
-| Azure AI Search with Foundry IQ | Lab 2 (and every later lab through `MARKETPLACE_KB_MCP_URL`) | Enable system-assigned managed identity on the search service. Semantic ranker: free or standard |
-| Project connection to the Foundry IQ knowledge base | Lab 2 | Created by the lab code with an ARM PUT on `{PROJECT_RESOURCE_ID}/connections/healthcare-marketplace-kb-connection` (authType ProjectManagedIdentity, category RemoteTool). Needs a role that can write connections (Azure AI Owner or Contributor on the account) |
-| Redis | Optional generic shared-store configurations; Lab 4 infrastructure template | Locally the dev-container Redis companion service and `MARKETPLACE_REDIS_URL=redis://redis:6379/0`. Azure: Azure Managed Redis with Entra auth (`rediss://`). Not required by Labs 2 or 3 or Stretch 6 |
-| Azure Blob Storage | Optional Lab 2 shared conversation history | Use an existing account and container, set `MARKETPLACE_BLOB_STORAGE_URL`; the lab does not provision storage resources |
-| Application Insights | Lab 4 and the hosted agents' tracing | Connect it to the project (Foundry portal: project, Tracing, connect) so `telemetry.get_application_insights_connection_string()` works; set the complete connection string in the root `.env` and, for deployment, on the hosted agent with `azd env set`. Confirm publishing permissions and network access below before Lab 4 |
-| GitHub repository with Environments `dev`, `test`, `prod` and an Entra app with OIDC federated credentials | Lab 4 pipeline (optional on the day) | See `labs/lab4-operate-hosted-agents/infra/README.md` |
-| Foundry Toolbox (preview) | Stretch 6 skills agent, optional | Create a Toolbox with `web_search` and `code_interpreter` in the project (base repo `AgentOps/src/tools/toolbox_config.py` pattern), set `TOOLBOX_NAME` and `TOOLBOX_MCP_URL` on the hosted agent. Region-limited; skip if unavailable |
+| Configured chat deployment, such as `gpt-5.4-mini` | Agent reasoning and evaluation judges | A room shares quota; plan capacity with the administrator rather than assuming a fixed allocation works everywhere |
+| `text-embedding-3-large` | Labs 5-6 retrieval indexes | 3072 dimensions; changing the model requires matching the index schema |
 
-## 5. RBAC
+Model throttling retries honor Azure retry headers. If repeated 429s persist,
+inspect runtime limit headers and the deployment allocation with the administrator.
+A quota change can take time to propagate.
 
-Run the base repo RBAC script first, then confirm these. Propagation takes 5 to 15 minutes; the most common
-"it does not work" on the day is a role that was assigned 3 minutes ago.
+## 5. Identity and RBAC
 
-| Principal | Scope | Role | Why |
-|---|---|---|---|
-| Attendee (user) | Foundry account or project | Azure AI User (minimum) or Azure AI Developer | Create agents, conversations, evals |
-| Attendee | Foundry project | Azure AI Owner or Contributor (Lab 2 only) | ARM PUT of the project connection |
-| Attendee (deployer) | Foundry project | Foundry Project Manager | `azd ai agent init` / `azd up` of a hosted agent (every lab); one proctor can deploy for the room |
-| Attendee | Azure AI Search service | Search Service Contributor + Search Index Data Contributor | Create indexes, knowledge sources, knowledge base; upload documents |
-| Attendee | Application Insights | Monitoring Reader (or Reader) | Read traces in the portal |
-| Local publishing identity selected by `DefaultAzureCredential` (usually the attendee's Azure CLI user) | Destination Application Insights resource | Monitoring Metrics Publisher | Publish Lab 4 notebook and local hosted-server telemetry; Owner alone does not grant this data-plane permission |
-| Deployed hosted agent identity (when tracing is enabled) | Destination Application Insights resource | Monitoring Metrics Publisher | Publish telemetry from the deployed container |
-| Project managed identity | Azure AI Search service | Search Index Data Reader | Agent calls the knowledge base MCP endpoint through the connection |
-| Search service managed identity | Foundry account | Cognitive Services OpenAI User AND Cognitive Services User | Vectorizer and knowledge base answer synthesis call the models |
-| Invokers of a hosted agent | Foundry project | Foundry Agent Consumer or Foundry User | Call the deployed Responses endpoint (`hosted/test_local.py --deployed`) |
-| Hosted agent managed identity | Foundry project | Azure AI User | `FoundryChatClient` model calls from the container |
-| Hosted agent managed identity | Azure AI Search service | Search Index Data Reader | `MCPStreamableHTTPTool` to the knowledge base (Lab 2 onwards) |
-| Hosted agent managed identity | Azure Managed Redis (test/prod) | Redis data access policy (Entra) | only when a deployment explicitly configures the generic Redis backend |
-| Hosted agent managed identity (optional Lab 2 Blob backend) | Azure Storage account/container | Storage Blob Data Contributor | read/write Lab 2 conversation-history blobs |
-| Attendee | Azure OpenAI / Foundry account | Cognitive Services OpenAI User | Lab 4 judges (`azure-ai-evaluation`) and Lab 2 embeddings |
-| Hosted agent managed identity (`healthcare-marketplace-concierge-hosted`, skills version) | Foundry project / Toolbox | Access to the Toolbox MCP endpoint (VERIFY the exact role) | `MCPStreamableHTTPTool` calls to web_search / code_interpreter (Stretch 6, preview) |
+Local notebooks reuse Azure CLI sign-in, and hosted model clients use
+`DefaultAzureCredential`; deployed containers use their dedicated agent identity. Management-plane provisioning,
+data-plane inference, Search retrieval and telemetry publishing are separate
+permissions. Allow propagation before retesting.
 
-### Lab 4 tracing prerequisites
-
-Before running a traced evaluation or Step 4.11, verify:
-
-- **Publishing permission:** the identity selected by `DefaultAzureCredential` has **Monitoring Metrics Publisher**
-  on the destination Application Insights resource or an inherited scope. For local runs this is usually the
-  Azure CLI signed-in user; for a deployed hosted agent, grant it to the agent identity as well.
-- **Owner is not sufficient:** Owner grants management-plane access, but telemetry ingestion requires the
-  data-plane `Microsoft.Insights/Telemetry/Write` action. Reader, Monitoring Reader, and Foundry roles also do not
-  replace the publishing role. The shared permission script does not assign this Application Insights role.
-- **Assignment and propagation:** with approval, use **Application Insights > Access control (IAM) > Add role
-  assignment > Monitoring Metrics Publisher**, select the publishing identity, and allow RBAC propagation.
-  Ask the resource administrator if you cannot assign roles.
-- **Connection and network:** use the complete connection string from the resource's **Overview** in the root
-  `.env`. If public ingestion is disabled, the dev container needs the approved private network path, private
-  DNS, and Azure Monitor Private Link Scope access. Publishing permissions do not bypass network restrictions;
-  do not enable public ingestion simply to bypass an error.
-- **Fresh verification:** restart the notebook kernel after configuration changes, rerun Steps 4.1-4.6 and
-  Step 4.11, then match its printed trace ID in Application Insights > Logs. Older records and a local PASS
-  message do not establish that the current run was ingested.
-
-## 6. Python packages
-
-Python 3.14 (the repository dev-container interpreter). The base repo's pinned requirements cover `azure-ai-projects` 2.x, `openai`,
-`azure-identity`, `azure-monitor-opentelemetry`, `python-dotenv`, `pydantic`, `requests`, `httpx`.
-
-| Where | File | Contents |
+| Principal | Scope | Required access |
 |---|---|---|
-| Workstation (notebooks, driver scripts, running `main.py` locally) | `labs/requirements.txt` (`python -m pip install -r labs/requirements.txt`) | Delegates to the repository root `requirements.txt`; no second workstation lock |
-| Container (each hosted agent) | `labs/labN-*/hosted/requirements.txt` | minimal explicit pins: `agent-framework`, `agent-framework-foundry`, `agent-framework-foundry-hosting`, `azure-ai-projects`, `azure-identity`, `python-dotenv`, plus `httpx`, `redis` (not in Lab 2), and `azure-monitor-opentelemetry` where used. Never `agent-framework[foundry]` |
-| Tools | `azd` + `azure.ai.agents` extension, Docker Desktop (dev container, local Redis and Azurite) | |
+| Learner creating the project/models | Existing Foundry account and approved management scope | Administrator-approved project/model creation rights |
+| Learner developing agents | Foundry project | Azure AI User or Azure AI Developer, as appropriate |
+| Learner creating the Labs 5-6 project connection | Foundry account/project | Connection-write permission, such as Azure AI Owner or Contributor at the appropriate scope |
+| Hosted deployer | Foundry project | Foundry Project Manager |
+| Hosted invoker | Foundry project | Foundry Agent Consumer or Foundry User |
+| Learner creating knowledge resources | Search service | Search Service Contributor and Search Index Data Contributor |
+| Project and hosted agent identities retrieving knowledge | Search service | Search Index Data Reader |
+| Search managed identity invoking embeddings/answer synthesis | Foundry account | Cognitive Services OpenAI User and Cognitive Services User |
+| Hosted agent invoking the model | Foundry project | Azure AI User |
+| Learner running embedding calls/evaluation judges | Foundry account | Cognitive Services OpenAI User |
+| Hosted agent using optional shared Blob history | Existing Blob account/container | Storage Blob Data Contributor |
+| Telemetry reader | Application Insights | Monitoring Reader or Reader |
+| Local and deployed telemetry publishers | Application Insights | Monitoring Metrics Publisher |
 
-`common/marketplace_data.py`, `common/guardrails.py`, `common/session_store.py` and `common/message_store.py` need
-nothing beyond the standard library for their self-tests, which is how they run on a laptop with no Azure packages.
-Notebooks are generated from the scripts with `python tools/py_to_ipynb.py <script.py>`; nbformat is not required.
+Toolbox access is preview-specific: verify the endpoint's required role and
+token audience with its administrator rather than assuming model access grants
+tool access.
 
-## 7. Five-minute verification
+### Lab 9 tracing prerequisites
 
-Run from the base repo root inside the dev container, after `az login --tenant $TENANT_ID`.
+- Confirm **Monitoring Metrics Publisher** for the identity selected locally by
+  `DefaultAzureCredential` and for the deployed agent when tracing its container.
+  **Owner alone is insufficient:** ingestion needs the data-plane
+  `Microsoft.Insights/Telemetry/Write` action. The shared permission script does
+  not assign this Application Insights publishing role.
+- Use the complete connection string in notebook configuration and confirm
+  Application Insights is actually connected to the project.
+- With private ingestion, verify the approved network path, private DNS and
+  Azure Monitor Private Link Scope access. Permissions do not bypass network rules.
+- After changes, restart the kernel, rerun prerequisite and tracing cells, and
+  match the newly printed trace ID in Application Insights > Logs. A local PASS
+  or an older portal record is not evidence of current Azure ingestion.
 
-```bash
-cd build-and-operate-foundry-agents
+## 6. Notebook execution and recovery
 
-# 1. Data and helpers, no Azure needed. Expect "ALL CHECKS PASSED" and two "PASS" lines.
-python common/marketplace_data.py
-python common/session_store.py
-python common/message_store.py
+Open each numbered walkthrough in its matching two-digit `labs/labNN` folder, read that
+folder's README and run prerequisite cells
+first. Follow the [Labs 1-14 dependency table](labs/README.md#sequence-and-artifact-chain);
+each notebook starts in a fresh kernel and restores validated predecessor
+metadata rather than rerunning provisioning or evaluation work.
+The notebook manages local servers on port 8088, readiness probes, package
+preparation and process cleanup. Foundry separately builds and runs the uploaded
+Python product package. Deployment is an explicit notebook action; review its
+target before running it and wait for an `active` version before invocation.
 
-# 2. Environment variables resolved (blank values are printed as "(blank)").
-python common/foundry_env.py
+If an earlier artifact is missing, return to its producing notebook and rerun
+the checkpoint cells. If a server or kernel fails, inspect the saved local log,
+stop only the identified process through the notebook's lifecycle controls,
+then rerun the preparation and readiness cells. Restart kernels after changing
+persisted configuration so a stale environment does not mask the change.
 
-# 3. Foundry project reachable with your identity (lists model deployments and agents).
-python - <<'EOF'
-import sys; sys.path.insert(0, ".")
-from common import foundry_env
-project = foundry_env.get_project_client()
-print("deployments:", [d.name for d in project.deployments.list()])
-openai_client = foundry_env.get_openai_client(project)
-r = openai_client.responses.create(model=foundry_env.model_name(), input="Reply with the single word ready.")
-print("model says:", r.output_text)
-EOF
+## 7. Facilitator readiness rehearsal
 
-# 4. Search endpoint reachable (Lab 2 only).
-python - <<'EOF'
-import sys; sys.path.insert(0, ".")
-from common import foundry_env
-from azure.search.documents.indexes import SearchIndexClient
-env = foundry_env.load_env()
-client = SearchIndexClient(env["AZURE_AI_SEARCH_ENDPOINT"], foundry_env.get_credential())
-print("indexes:", [i for i in client.list_index_names()])
-EOF
-```
+Rehearse the notebooks on the exact room account and network; offline CI does
+not prove any of these live outcomes.
 
-```bash
-# 5. Hosted agent toolchain (Labs 1 to 4).
-azd version && azd extension list | grep azure.ai.agents
-python -c "import agent_framework, agent_framework_foundry_hosting; print('agent framework ok')"
-```
+- [ ] Dev-container bootstrap and Python 3.14 kernel selection succeed.
+- [ ] Lab 1 authenticates and creates/resolves the project; Lab 2 provisions both models,
+      verifies access and writes downstream configuration.
+- [ ] Roles and approved network paths are effective for learner, project,
+      Search and hosted agent identities.
+- [ ] Lab 3 passes local safety checks; Lab 4 deploys a version and invokes it when active.
+- [ ] Labs 5-6 produce cited knowledge answers and local restart continuity; shared
+      history claims are made only when Blob/Azurite gates actually exercise that backend.
+- [ ] Labs 7-8 produce pending, revised and approved packets and demonstrate
+      file-backed local restart recovery without claiming replica continuity.
+- [ ] Labs 9-10 write evaluation and gate evidence; a new trace ID is visible in
+      the correct telemetry resource.
+- [ ] Optional preview exercises are available in the selected region or clearly skipped.
+- [ ] Synthetic source data is unchanged and generated artifacts remain uncommitted.
 
-Expected: step 1 ends with `ALL CHECKS PASSED` and `PASS`; step 3 prints your deployment names and `model says: ready`
-(or a close variant); step 4 prints a list, possibly empty. A 401 or 403 in step 3 or 4 is RBAC or the wrong
-tenant; see the troubleshooting table in every lab README.
+## 8. Reproducible workshop date
 
+The default workshop date `2026-10-06` is nine
+days before Medicare AEP opens; the notebooks propagate it to local and hosted
+agents so enrollment-window answers are comparable across learners. Use editable
+notebook configuration when an exercise calls for another date.
 
-Hosted folders build without Azure. Expect "wrote artifacts/lab1/hosted.json", "...lab3/hosted.json", and three claim packets:
-
-```bash
-python labs/lab1-hosted-agent-basics/lab1_hosted_basics.py --skip-demo
-python labs/lab3-hosted-multi-agent-handoff/lab3_hosted_multi_agent.py --skip-demo --standalone
-python labs/stretch6-invocations-toolbox-skills/stretch6_invocations.py --offline
-python labs/stretch6-invocations-toolbox-skills/hosted-invocations/test_local.py --offline
-```
-
-### Agent names used by these labs
-
-| Agent | Lab | Protocol | Folder |
-|---|---|---|---|
-| `healthcare-marketplace-concierge-hosted-<suffix>` | 1 (v1), 2 (v2), S6 skills build (optional new version) | responses | `lab1-hosted-agent-basics/hosted/`, `lab2-hosted-knowledge-sessions/hosted/`, `stretch6-.../hosted-responses-skills/` |
-| `healthcare-marketplace-triage-hosted-<suffix>` | 3 | responses | `lab3-hosted-multi-agent-handoff/hosted/` |
-| `healthcare-marketplace-claims-review-invocations-<suffix>` | S6 | invocations | `stretch6-.../hosted-invocations/` |
-
-## 8. Proctor smoke test, the day before
-
-Do this on the exact room account and network you will use. Tick every line.
-
-- [ ] `az login --tenant <TENANT_ID>` works on the room laptops and in the dev container; no MFA prompt loops.
-- [ ] `.env` at the base repo root has every variable in section 2 filled, `MARKETPLACE_TODAY` included.
-- [ ] Model quota: `gpt-5.4-mini` at 100K+ TPM, `text-embedding-3-large` deployed. Run the section 7 snippet.
-- [ ] RBAC table (section 5) applied at least 30 minutes ago; project managed identity and search identity
-      roles verified in the portal, not assumed.
-- [ ] Application Insights connected to the project; a test trace shows up in the portal.
-- [ ] Local and deployed telemetry publishers have Monitoring Metrics Publisher on the destination Application
-      Insights resource; Owner access is not being mistaken for ingestion permission.
-- [ ] The room/dev-container network can reach the allowed ingestion path, including private DNS and Azure Monitor
-      Private Link Scope access when public ingestion is disabled.
-- [ ] `cd labs && python catch_up.py --through 2`, then `python lab2-hosted-knowledge-sessions/lab2_hosted_knowledge.py --demo-only`:
-      `continuity check: OK` with two pids and a [KB-MKT-001] citation in turn 2.
-- [ ] One proctor has deployed `healthcare-marketplace-concierge-hosted` with `azd up` on the room project and
-      `python labs/lab2-hosted-knowledge-sessions/hosted/test_local.py --deployed` prints `PASS`; the version shows
-      `active` in the portal. Note how long the first build took.
-- [ ] `azd` login and the `azure.ai.agents` extension install on the room network without a proxy error.
-- [ ] Docker Desktop runs the dev container and `redis:7-alpine` on the room laptops if using the base repo's Redis thread example or a generic Redis-backed store.
-- [ ] `python labs/lab4-operate-hosted-agents/lab4_operate.py --limit 3 --skip-judges` passes and a
-      `marketplace.golden_question` span shows up in Application Insights.
-- [ ] Remote attendees: the recording and screen share show the terminal font at a readable size; the
-      Foundry portal tabs you will click through are bookmarked.
-- [ ] `data/` is untouched (`git status` clean) so every table shows the same numbers on every laptop.
-- [ ] A throwaway `healthcare-marketplace-concierge-unsafe` agent (the "break the guardrail on purpose" YOUR TURN) has been
-      created and deleted once, so you know how the model behaves without the compliance block.
-
-## 9. MARKETPLACE_TODAY
-
-Enrollment windows depend on the date. The labs read `MARKETPLACE_TODAY` (ISO date) through `common/marketplace_data.py` so
-every attendee gets the same answer regardless of the real date. The default `2026-10-06` is nine days before
-the Annual Enrollment Period opens, which makes the S1 answer "AEP opens October 15" with an SEP reminder.
-
-| `MARKETPLACE_TODAY` | S1 Evelyn (Medicare, MA) | S3 Rosa (pre-Medicare) |
+| Date | S1 Evelyn | S3 Rosa |
 |---|---|---|
-| `2026-10-06` (default) | SEP-possible, next window AEP 2026-10-15 to 2026-12-07 | SEP-possible, next window ACA OEP 2026-11-01 |
-| `2026-10-20` | AEP | SEP-possible |
-| `2026-11-15` | AEP | OEP (ACA open enrollment) |
-| `2027-02-10` | OEP (MA open enrollment) | SEP-possible |
-| `2027-09-01` | SEP-possible | IEP (turns 65 on 2027-11-20) |
+| `2026-10-06` | SEP possible; next AEP October 15–December 7 | SEP possible; next ACA OEP November 1 |
+| `2026-10-20` | AEP | SEP possible |
+| `2026-11-15` | AEP | ACA OEP |
+| `2027-02-10` | MA OEP | SEP possible |
+| `2027-09-01` | SEP possible | IEP for the November 20, 2027 birthday |
 
-Set it in `.env` or inline: `MARKETPLACE_TODAY=2026-10-20 python labs/lab2-hosted-knowledge-sessions/lab2_hosted_knowledge.py --demo-only`.
-The hosted `main.py` reads it too (`azd env set MARKETPLACE_TODAY ...` for the container). Tests and demos that need a
-fixed answer pass `today="..."` to `get_enrollment_window` directly.
+## 9. Clean up workshop resources
 
-## 10. Clean up workshop resources
+Review attendee-scoped resources with the facilitator before approving any
+notebook deletion action. Keep the exact attendee suffix and project scope
+visible; never broaden deletion to the room without administrator approval.
+The shared account, Search service, telemetry resource, storage and resource
+group are administrator-owned. Review project/model ownership separately:
+Labs 1-2 provision them, while agent/knowledge cleanup must not be assumed to
+delete them automatically.
 
-Cleanup never deletes the shared Foundry project, model deployments, Search service, Redis service,
-or resource group. It targets only agents, evaluations, indexes, knowledge sources, the knowledge
-base, and the project connection created by this workshop. Every command is a dry run unless
-`--execute` is present.
+## 10. Internal authoring and offline CI
 
-Preview and then delete only resources ending in your configured suffix:
+Authors maintain adjacent Python cell sources and regenerate walkthroughs;
+learners run the `.ipynb` files. Standalone helper self-tests, package preparation
+checks and the root offline workflow are implementation validation, not extra
+learner setup steps. The root dependency lock remains authoritative, with
+matching minimal hosted-runtime pins. Offline results make no live Azure claim.
+
+The seven original drivers remain internal callable helpers under `shared/`,
+alongside reusable product code. Authors edit the
+fourteen adjacent numbered cell sources below and regenerate their paired notebooks;
+do not convert the original drivers into learner notebooks.
+
+| Directory under `labs/` | Adjacent source → notebook |
+|---|---|
+| `lab01` | `lab01_identity_project.py` → `lab01_walkthrough.ipynb` |
+| `lab02` | `lab02_models_verify.py` → `lab02_walkthrough.ipynb` |
+| `lab03` | `lab03_tools_local.py` → `lab03_walkthrough.ipynb` |
+| `lab04` | `lab04_deploy_invoke.py` → `lab04_walkthrough.ipynb` |
+| `lab05` | `lab05_knowledge_retrieval.py` → `lab05_walkthrough.ipynb` |
+| `lab06` | `lab06_sessions_resiliency.py` → `lab06_walkthrough.ipynb` |
+| `lab07` | `lab07_specialist_orchestration.py` → `lab07_walkthrough.ipynb` |
+| `lab08` | `lab08_advisor_recovery.py` → `lab08_walkthrough.ipynb` |
+| `lab09` | `lab09_tracing_evaluation.py` → `lab09_walkthrough.ipynb` |
+| `lab10` | `lab10_release_rollback.py` → `lab10_walkthrough.ipynb` |
+| `lab11` | `lab11_prompt_agents.py` → `lab11_walkthrough.ipynb` |
+| `lab12` | `lab12_workflows_delegation.py` → `lab12_walkthrough.ipynb` |
+| `lab13` | `lab13_invocations.py` → `lab13_walkthrough.ipynb` |
+| `lab14` | `lab14_skills_toolbox.py` → `lab14_walkthrough.ipynb` |
+
+Each numbered folder has only that lab's source, notebook and README.
+Folders and learner filenames use two-digit lab numbers for lexical sorting;
+titles, steps and stable artifact namespaces retain their original numbers.
+The [shared implementation guide](shared/README.md) identifies product ownership
+and consumers without duplicating a second learner sequence.
+
+For example, from the workshop directory, these internal author commands
+regenerate Labs 1-2; use the same explicit source/output pairing above for
+each other lab.
 
 ```bash
-python tools/cleanup_workshop.py
-python tools/cleanup_workshop.py --execute
-```
-
-A facilitator can preview all suffixed workshop resources in the configured project and Search
-service. Deleting that full set requires the exact Foundry project name as an additional guard:
-
-```bash
-python tools/cleanup_workshop.py --scope all
-python tools/cleanup_workshop.py --scope all --execute --confirm-all '<project-name>'
+python tools/py_to_ipynb.py labs/lab01/lab01_identity_project.py --name lab01_walkthrough
+python tools/py_to_ipynb.py labs/lab02/lab02_models_verify.py --name lab02_walkthrough
 ```

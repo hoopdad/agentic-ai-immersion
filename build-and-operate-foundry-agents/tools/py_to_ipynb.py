@@ -1,8 +1,8 @@
 """py_to_ipynb: stdlib-only converter from a `# %%` cell script to a Jupyter notebook.
 
 Usage:
-    python tools/py_to_ipynb.py labs/lab2-hosted-knowledge-sessions/lab2_hosted_knowledge.py
-    python tools/py_to_ipynb.py <script.py> [-o <notebook.ipynb>] [--name lab2_walkthrough]
+    python tools/py_to_ipynb.py labs/lab05/lab05_knowledge_retrieval.py --name lab05_walkthrough
+    python tools/py_to_ipynb.py <script.py> [-o <notebook.ipynb>] [--name lab06_walkthrough]
     python tools/py_to_ipynb.py --check <notebook.ipynb>      # validate an existing notebook
 
 Rules:
@@ -11,16 +11,14 @@ Rules:
 * `# %% [markdown]` starts a Markdown cell. Lines in the block are Markdown; a leading `# ` on each
   line is stripped so the block reads well in the .py file too. Triple-quoted blocks inside a
   Markdown cell are also accepted (the quotes are dropped).
-* `# %% [raw]` starts a non-executable raw cell. Use it for shell commands that learners should copy
-  verbatim without risking execution in the notebook's Python kernel.
+* `# %% [raw]` starts a non-executable raw cell.
+* `# %% [script-only]` keeps internal CLI helpers in the authoring source but omits them from notebooks.
 * A module docstring (before the first marker, or at the top of the first code cell after a leading Markdown
   cell) becomes its own Markdown cell.
 * Code before the first marker (imports, sys.path setup) becomes the first code cell.
 * Empty cells are skipped.
 * Notebook safety (disable with --keep-script-semantics): `Path(__file__)` falls back to a file in the
-  notebook's folder so `parents[N]` arithmetic keeps working, and `if __name__ == "__main__":` entry points
-  are guarded so argparse does not see the kernel's argv. A closing Markdown cell tells notebook learners
-  to skip the script-only entry point and describes the alternative command-line path.
+  notebook's folder so `parents[N]` arithmetic keeps working, and CLI-only cells are omitted.
 
 Output is nbformat 4.5 JSON that `python -m json.tool` and Jupyter both accept. No nbformat dependency.
 """
@@ -37,6 +35,7 @@ from pathlib import Path
 CELL_RE = re.compile(r"^\s*#\s*%%(.*)$")
 MARKDOWN_TAG_RE = re.compile(r"\[\s*markdown\s*\]", re.IGNORECASE)
 RAW_TAG_RE = re.compile(r"\[\s*raw\s*\]", re.IGNORECASE)
+SCRIPT_ONLY_TAG_RE = re.compile(r"\[\s*script-only\s*\]", re.IGNORECASE)
 STEP_RE = re.compile(r"^# Step (?P<id>S?\d+\.\d+) - .+")
 
 
@@ -69,14 +68,6 @@ def _split_docstring(text: str) -> tuple[str | None, str]:
 
 FILE_FALLBACK = 'Path(globals().get("__file__", Path.cwd() / "_walkthrough_.py"))'
 MAIN_GUARD = 'if __name__ == "__main__" and "__file__" in globals():'
-CLOSING_NOTE = [
-    "**Notebook users: skip the script-only entry-point cell above.** When running cell by cell in Jupyter or VS Code,",
-    "the earlier cells provide the notebook path. You do not need to call `main()`, `build()`, or `demo()` again.",
-    "The final code cell is only the command-line entry point for running the adjacent `.py` file as one program.",
-    "Its command-line invocation is guarded in this generated notebook; running the cell does not launch the lab.",
-    "For script mode instead, run `python <script>.py --help` in a Bash terminal from the lab folder and follow that lab's",
-    "CLI instructions. For notebook mode, follow the setup cell's kernel working-directory instructions.",
-]
 
 
 def _notebookify(lines: list[str]) -> list[str]:
@@ -165,7 +156,10 @@ def split_cells(text: str, notebook_safe: bool = True) -> list[tuple[str, list[s
         if match:
             cells.append((current_type, current))
             tag = match.group(1).strip()
-            if RAW_TAG_RE.search(tag):
+            if SCRIPT_ONLY_TAG_RE.search(tag):
+                current_type = "script-only"
+                current = []
+            elif RAW_TAG_RE.search(tag):
                 current_type = "raw"
                 title = RAW_TAG_RE.sub("", tag).strip()
                 current = [f"# {title}\n"] if title else []
@@ -182,6 +176,10 @@ def split_cells(text: str, notebook_safe: bool = True) -> list[tuple[str, list[s
 
     result: list[tuple[str, list[str]]] = []
     for cell_type, lines in cells:
+        if cell_type == "script-only":
+            if notebook_safe:
+                continue
+            cell_type = "code"
         if cell_type == "code":
             docstring, rest = _split_docstring("".join(lines))
             if docstring:
@@ -196,8 +194,6 @@ def split_cells(text: str, notebook_safe: bool = True) -> list[tuple[str, list[s
             cleaned = _clean_markdown(lines)
         if cleaned:
             result.append((cell_type, cleaned))
-    if notebook_safe and any(MAIN_GUARD in line for _, lines in result for line in lines):
-        result.append(("markdown", list(CLOSING_NOTE)))
     return result
 
 
@@ -272,6 +268,18 @@ def validate_step_ids(nb: dict, expected_prefix: str) -> list[str]:
     return problems
 
 
+def validate_cell_descriptions(nb: dict) -> list[str]:
+    """Require a visible explanation immediately before every executable cell."""
+    problems = []
+    for index, cell in enumerate(nb.get("cells", [])):
+        if cell.get("cell_type") != "code":
+            continue
+        previous = nb["cells"][index - 1] if index else {}
+        if previous.get("cell_type") != "markdown" or not "".join(previous.get("source", [])).strip():
+            problems.append(f"cell {index}: code cell needs a preceding Markdown description")
+    return problems
+
+
 def convert(script: Path, output: Path | None = None, name: str | None = None, notebook_safe: bool = True) -> Path:
     text = script.read_text(encoding="utf-8")
     nb = build_notebook(text, seed=script.stem, notebook_safe=notebook_safe)
@@ -289,7 +297,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("script", type=Path, help="a # %%%% cell script, or a .ipynb when --check is used")
     parser.add_argument("-o", "--output", type=Path, default=None, help="notebook path (default: next to the script)")
-    parser.add_argument("--name", default=None, help="notebook stem, for example lab2_walkthrough")
+    parser.add_argument("--name", default=None, help="notebook stem, for example lab05_walkthrough")
     parser.add_argument("--check", action="store_true", help="validate an existing .ipynb instead of converting")
     parser.add_argument("--keep-script-semantics", action="store_true",
                         help="do not rewrite Path(__file__) or guard the __main__ block")

@@ -14,9 +14,9 @@ from azure.core.exceptions import ResourceExistsError, ResourceModifiedError, Re
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "labs"))
 import deployment  # noqa: E402
-LAB2_DIR = ROOT / "labs/lab2-hosted-knowledge-sessions"
-sys.path.insert(0, str(LAB2_DIR))
-import lab2_hosted_knowledge  # noqa: E402
+LAB3_DIR = ROOT / "shared/hosted-knowledge-sessions"
+sys.path.insert(0, str(LAB3_DIR))
+import lab3_hosted_knowledge  # noqa: E402
 from common import message_store
 
 
@@ -190,7 +190,7 @@ class AzureBlobMessageStoreTests(unittest.TestCase):
             })
 
     def test_deployment_uses_existing_blob_settings_but_not_local_storage(self) -> None:
-        settings = lab2_hosted_knowledge.container_environment(
+        settings = lab3_hosted_knowledge.container_environment(
             {"mcp_endpoint": "https://search.blob.core.windows.net/kb/mcp"},
             {
                 "MARKETPLACE_BLOB_STORAGE_URL": "https://account.blob.core.windows.net",
