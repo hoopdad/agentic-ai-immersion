@@ -15,6 +15,9 @@
 - Agent navigation and index maintenance: `.github/copilot-instructions.md`, `.github/skills/repo-index/SKILL.md`, and this index.
 - Shared line-ending policy: root `.gitattributes` normalizes text to LF; `.vscode/settings.json` defaults new files to LF. `.gitignore` permits these shared settings while excluding other VS Code files.
 - Learner setup: `.devcontainer/devcontainer.json`, `.devcontainer/compose.yaml`, `.env.example`, root `requirements.in` and `requirements.txt`.
+- Prerequisite collateral: root `Workshop-Agentic-AI-Immersion-Prerequisites-Datasheet*.pdf`;
+  editable ReportLab generators are `scripts/generate_prereq_datasheet.py` and
+  `scripts/generate_prereq_datasheet_v2.py`.
 - Workshop entry point: `build-and-operate-foundry-agents/README.md` and `SETUP.md`.
 - Workshop customer collateral: `build-and-operate-foundry-agents/Datasheets/` contains editable HTML sources and rendered PDF/Word deliverables.
 - Workshop implementation: `common/` (data, environment and state), `data/` (synthetic fixtures), `labs/` (drivers and notebooks).
@@ -91,3 +94,7 @@ Pending structural change considered: `build-and-operate-foundry-agents/infra/po
 and its README/index navigation updates.
 Pending structural change considered: `build-and-operate-foundry-agents/infra/troubleshoot-private-endpoint.sh`
 and its README/index navigation updates.
+Parent integration baseline: fork `f6e5d4c092139995b4700bcfe7cf04dfc634ad26` and
+parent `a92d5b746a08205c793dc27598c95529f11b0382`.
+Added prerequisite PDFs and their two generator scripts; retained the fork's Compose/Bash/PowerShell
+setup and newer GitHub CLI lock while adopting the parent's azd `:0` pin and Windows-only dependency markers.
