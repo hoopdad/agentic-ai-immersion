@@ -193,6 +193,44 @@ def ensure_project(cli: AzureCLI, account: dict, attendee_suffix: str) -> dict:
     return project
 
 
+def read_project_handoff(
+    path: Path, cli: AzureCLI, subscription_id: str, tenant_id: str, attendee_suffix: str,
+) -> tuple[dict, dict, dict, dict]:
+    """Read Lab 1A's explicit inputs and revalidate ownership without provisioning."""
+    if not path.is_file():
+        raise RuntimeError("Complete Lab 1A before opening Lab 1B: missing part_a.json.")
+    try:
+        record = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise RuntimeError("Lab 1A handoff is unreadable; rerun Lab 1A.") from exc
+    if not isinstance(record, dict):
+        raise RuntimeError("Lab 1A handoff must contain explicit project/context inputs.")
+    suffix = resource_names.suffix({"MARKETPLACE_RESOURCE_SUFFIX": attendee_suffix}, required=True)
+    if not subscription_id or not tenant_id:
+        raise ValueError("Enter the facilitator-approved subscription and tenant from Lab 1A.")
+    context = azure_context(cli, subscription_id, tenant_id)
+    if (record.get("schema_version") != 1 or record.get("part") != "a"
+            or record.get("subscription_id", "").lower() != context["subscription_id"].lower()
+            or record.get("tenant_id", "").lower() != context["tenant_id"].lower()
+            or record.get("resource_suffix") != suffix):
+        raise RuntimeError("Lab 1A handoff is stale or belongs to another Azure context/attendee.")
+    account = verify_account(cli, context, record["resource_group"], record["account_name"])
+    expected_id = account["id"] + "/projects/" + resource_names.name(
+        "healthcare-marketplace", {"MARKETPLACE_RESOURCE_SUFFIX": suffix}, required=True)
+    if (record.get("account_resource_id", "").lower() != account["id"].lower()
+            or record.get("project_resource_id", "").lower() != expected_id.lower()):
+        raise RuntimeError("Lab 1A handoff escaped the approved account/project scope.")
+    project = cli.rest("get", expected_id)
+    if (project.get("id", "").lower() != expected_id.lower()
+            or project.get("tags", {}).get("marketplace-resource-suffix") != suffix
+            or project.get("properties", {}).get("provisioningState") != "Succeeded"):
+        raise RuntimeError("Lab 1A project is missing, not ready, or not owned by this attendee.")
+    if endpoints(account, project) != (
+            record.get("project_endpoint"), record.get("azure_openai_endpoint")):
+        raise RuntimeError("Lab 1A endpoints changed; revalidate the project in Lab 1A.")
+    return record, context, account, project
+
+
 def ensure_deployment(cli: AzureCLI, account: dict, deployment_name: str, desired: dict) -> dict:
     resource_id = account["id"] + "/deployments/" + deployment_name
     existing = next((d for d in cli.items(account["id"] + "/deployments")

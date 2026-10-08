@@ -6,6 +6,8 @@ reviewed reusable intelligence; file existence alone is not an acceptance pass.
 
 | Location | Producer | Consumers |
 |---|---|---|
+| `lab1/part_a.json` … `lab5/part_a.json`, `stretch6/part_a.json`, `stretch7/part_a.json` | Each [A walkthrough](../README.md) | Corresponding B walkthrough in a fresh kernel; validated project/attendee scope and handoff metadata |
+| `lab1/part_b.json` … `lab5/part_b.json`, `stretch6/part_b.json`, `stretch7/part_b.json` | Each [B walkthrough](../README.md) | Completion evidence alongside the unchanged cumulative artifacts below |
 | `lab1/project.json` | Foundry project/model setup notebook | Verified project/model references and chat/embedding smoke evidence |
 | Repository-root `.env` (outside this folder) | Foundry project/model setup notebook | Configuration persistence for all later notebooks |
 | `lab2/hosted.json` | Hosted basics | Lab 3 |
@@ -17,3 +19,6 @@ reviewed reusable intelligence; file existence alone is not an acceptance pass.
 
 Reopen the producing notebook and rerun required checkpoint cells to regenerate
 missing evidence. Do not commit generated outputs, credentials or executed notebooks.
+Half checkpoints contain real resource, configuration or evidence references,
+not fabricated completion markers. A checkpoint must match the active project
+and attendee scope; its presence never replaces the relevant acceptance checks.

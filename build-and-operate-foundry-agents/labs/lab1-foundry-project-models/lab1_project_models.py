@@ -8,8 +8,9 @@
 # Use a unique attendee suffix, and agree on deployment SKU/capacity costs before provisioning.
 # This lab does not configure Standard Agent capability hosts or grant RBAC.
 #
-# Run these cells individually in `lab1_walkthrough.ipynb` using the repository Python 3.14
-# dev-container kernel; do not use Run All before reviewing discovery and the deployment plan.
+# This original combined source is retained for internal regression compatibility.
+# Learners use `lab1a_walkthrough.ipynb` then `lab1b_walkthrough.ipynb` in Python 3.14;
+# do not use Run All before reviewing discovery and the deployment plan.
 # Existing Azure CLI login is reused; device login is requested only when credentials are unavailable.
 #
 # This cell imports the dependency-free provisioning helpers from the notebook or repository folder.

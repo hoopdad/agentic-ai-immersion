@@ -5,13 +5,24 @@
 | Goal | Build platform-managed concierge/specialist prompt agents and a declarative triage workflow, then delegate to it from the hosted concierge |
 | Time | 60 min: teach 10, demo 10, do 35, checkpoint 5 |
 | Starts from | `artifacts/lab3/knowledge.json` and Lab 1 configuration |
-| Notebook | `stretch6_walkthrough.ipynb` |
+| Notebooks | [Stretch 6A](stretch6a_walkthrough.ipynb), then [Stretch 6B](stretch6b_walkthrough.ipynb) in a fresh kernel |
 | Produces | `artifacts/stretch6/agents.json`, `workflow.yaml`, `handoff_packets/S1.json` |
 
-Open this notebook with the repository dev-container `/usr/local/bin/python`
+Open these notebooks with the repository dev-container `/usr/local/bin/python`
 kernel and run cells in order. It creates and invokes platform-managed agents.
 `hosted_tool_snippet.py` is product integration code for Lab 3's container;
 `stretch6_prompt_agents.py` is internal notebook source, not a learner driver.
+
+## Two independently runnable halves
+
+| Half | Scope | Durable checkpoint |
+|---|---|---|
+| 6A (25 min) | Publish prompt agents only, client-side function tools, portal instruction exercise and restoration | `artifacts/stretch6/part_a.json`, `prompt_agents.json`, tool/portal evidence |
+| 6B (35 min) | Reuse A's prompt names/IDs, create only the workflow, test routing and hosted delegation, deploy the edited Lab 3 package | `artifacts/stretch6/part_b.json` and original `agents.json`/`workflow.yaml`/handoff packet |
+
+B imports definitions without rerunning A and refuses missing, modified, or differently scoped evidence.
+It never republishes A's prompt agents. The original `build()` remains the internal cumulative publishing API.
+The adjacent paired cell sources are `stretch6a_prompt_agents.py` and `stretch6b_workflows_delegation.py`.
 
 ## What you'll learn
 

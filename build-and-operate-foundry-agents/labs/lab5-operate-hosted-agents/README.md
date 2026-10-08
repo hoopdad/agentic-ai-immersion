@@ -5,14 +5,28 @@
 | Goal | Trace, evaluate, gate, inspect versions, promote and roll back with explicit release ownership |
 | Time | 60 min: teach 10, demo 10, do 35, checkpoint 5 |
 | Starts from | `artifacts/lab3/hosted.json`, `knowledge.json`; optional Lab 4 metadata |
-| Notebook | `lab5_walkthrough.ipynb` |
+| Notebooks | [Lab 5A](lab5a_walkthrough.ipynb), then [Lab 5B](lab5b_walkthrough.ipynb) in a fresh kernel |
 | Produces | `artifacts/lab5/operate.json`, `eval_results.jsonl`, `eval_report.md`, `gate_result.json`, `pipeline.md`, `promotions.jsonl` |
 
-Open this walkthrough with the dev-container `/usr/local/bin/python` kernel.
+Open these walkthroughs with the dev-container `/usr/local/bin/python` kernel.
 Use its editable evaluation inputs and run cells in order. The target is the
 Lab 3 concierge product, started locally by the notebook or invoked as an active
 Foundry version. Internal `lab5_operate.py`, `eval_gate.py` and `promote.py`
 support the notebook/CI implementation, not alternate learner commands.
+
+## Two independently runnable halves
+
+| Half | Scope | Durable checkpoint |
+|---|---|---|
+| 5A (30 min) | Six-question model-judged baseline plus one-question tracing; verify Azure ingestion separately | `part_a.json`, `evaluation_bundle.json`, `trace_evidence.json`, original `eval_results.jsonl`/`eval_report.md` |
+| 5B (30 min) | Read A's bundle/scores, strict gate, blocked promotion, restored baseline, version/promotion/rollback rehearsal | `part_b.json`, original `operate.json`/`gate_result.json`/`promotions.jsonl`, `release_plan.json` |
+
+Checkpoint paths are under `artifacts/lab5/`. B never calls the model evaluators again:
+it corrupts an in-memory response copy to demonstrate a failed release, then gates the unchanged measured rows.
+Promotion is explicitly a dry run and rollback a recorded operator rehearsal, not claimed cloud activation.
+Missing, modified, or differently scoped A artifacts stop B before release actions.
+Edit adjacent `lab5a_tracing_evaluation.py` / `lab5b_release_rollback.py` when authoring notebooks;
+retain the original driver for the opt-in cloud pipeline.
 
 ## Tracing prerequisites
 
@@ -85,14 +99,13 @@ not zero.
    approval requirements before executing any deployment action.
 4. **YOUR TURN: stricter gate.** Run its notebook gate to prove a forbidden phrase
    fails and a safe answer passes.
-5. **YOUR TURN: break it.** Temporarily add a recommendation instruction to Lab 3
-   `hosted/main.py`, run the local failure gate, then revert and run
-   **Verify baseline recovery**.
+5. **YOUR TURN: break the release evidence.** Run 5B's unsafe response-copy exercise;
+   verify promotion is blocked, then restore the exact measured baseline without reevaluation.
 6. **YOUR TURN: trace one question.** Run the tracing cell, inspect its trace ID,
    allow ingestion delay and locate the slowest child span in Azure.
 7. Optional: evaluate an active deployed version through the notebook after
    applying the telemetry configuration through its deployment action.
-8. Optional: run the notebook's platform evaluation if the target/preview is available.
+8. Platform evaluation remains an internal optional pipeline capability, not a repeated B notebook action.
 
 ## Checkpoint (5 min)
 
@@ -116,7 +129,7 @@ dependencies
 | order by timestamp desc
 ```
 
-Match the printed operation ID, also saved as `trace_id` in `eval_results.jsonl`.
+Match the printed operation ID, also saved in `trace_evidence.json` (the baseline remains in `eval_results.jsonl`).
 The notebook prints a run-specific query; replace the placeholder below with
 that exact value when inspecting related spans.
 

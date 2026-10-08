@@ -5,13 +5,16 @@
 | Goal | Build the Healthcare Marketplace concierge, test Responses locally, deploy the same product package and invoke its active hosted version |
 | Time | 60 min: teach 10, demo 10, do 35, checkpoint 5 |
 | Starts from | `artifacts/lab1/project.json` and Lab 1's verified project/model configuration persisted to the root `.env` |
-| Notebook | `lab2_walkthrough.ipynb` |
-| Produces | `artifacts/lab2/hosted.json`, `transcripts.md`, `hosted_local.log` |
+| Notebooks | [Lab 2A](lab2a_walkthrough.ipynb): tools/local agent; [Lab 2B](lab2b_walkthrough.ipynb): deployment/invocation |
+| Produces | `artifacts/lab2/part_a.json`, `part_b.json`, `hosted.json`, `transcripts.md`, `hosted_local.log` |
 | Learn alignment | Agent Framework, custom tools, Foundry agent development |
 
-Open the walkthrough in this folder with the dev container's
-`/usr/local/bin/python` kernel. Run its cells in order. The notebook manages the
-local product process on port 8088 and explicit deployment actions.
+Open 2A then 2B with the dev container's `/usr/local/bin/python` kernel.
+Each half can start in a fresh kernel. **2A** manages local processes on port 8088
+and the tool/instruction exercises only; it never deploys. **2B** validates the
+scope-bound local checkpoint, transcript fingerprint and tested source, imports
+the original driver's definitions without replaying demos, then explicitly deploys
+and invokes the active version.
 `hosted/main.py` is the deployable product, not another learner entry point.
 
 ## What you'll learn
@@ -31,7 +34,7 @@ local product process on port 8088 and explicit deployment actions.
 | Responses hosting | `ResponsesHostServer` | Same Python product runs locally and in Foundry |
 | Model transcript policy | `default_options={"store": False}` | Agent-owned history is introduced in Lab 3 |
 | Flat pinned package | `hosted/prepare.py`, `requirements.txt` | Remote build must receive all imported code/data without local credentials |
-| Notebook process lifecycle | Internal `lab2_hosted_basics.py` cell source uses subprocesses/readiness probes | Start, test, inspect logs and stop through notebook cells |
+| Notebook process lifecycle | `lab2a_tools_local.py` uses internal `lab2_hosted_basics.py` helpers | Start, test, inspect logs and stop through notebook cells |
 | Source deployment and version invocation | `azd` managed by notebook actions; named OpenAI client | Foundry builds, versions and scales the product |
 
 ## Teach (10 min)
@@ -72,11 +75,11 @@ retain judgment. Passing sample checks is not production compliance certificatio
 3. **YOUR TURN: add `get_sponsor`.** Edit `hosted/main.py` using the other typed
    tools as the pattern and register it. Restart through the notebook. The gate
    requires Northwind and the $3,600 annual HRA for P-1001, plus safety checks.
-4. Deploy through the notebook, wait for `active`, record the real version and
-   invoke the deployed endpoint. Stop if deployment fails.
-5. **YOUR TURN: tighten an instruction.** Require the enrollment window in the
-   advisor offer, rerun local checks, redeploy and compare immutable versions.
-6. Call the deployed endpoint from the walkthrough and compare its evidence with
+4. In **2A**, **YOUR TURN: tighten an instruction.** Require the enrollment window
+   in the advisor offer, rerun local checks and publish the local checkpoint.
+5. In **2B**, deploy, wait for `active`, record the real version and invoke the
+   deployed endpoint. Stop if deployment fails.
+6. Compare its evidence with
    the local transcript.
 
 ## Checkpoint (5 min)
@@ -84,6 +87,11 @@ retain judgment. Passing sample checks is not production compliance certificatio
 Share the S1 refusal/advisor answer and the `deployed` block of
 `artifacts/lab2/hosted.json`. Lab 3 consumes this checkpoint. If a cloud build is
 still queued, distinguish local acceptance from deployed readiness.
+`part_a.json` certifies local acceptance only; `part_b.json` records the explicit
+active-version inference pass. Keep the original `hosted.json` for Lab 3A.
+If the product source changes between halves, rerun 2A acceptance rather than
+deploying untested code. Adjacent paired Python sources are authoring inputs,
+not terminal learner alternatives.
 
 ## Troubleshooting
 

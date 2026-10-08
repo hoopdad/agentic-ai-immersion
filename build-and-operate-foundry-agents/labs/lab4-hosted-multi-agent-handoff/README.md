@@ -5,14 +5,25 @@
 | Goal | Run intake, parallel specialists, compliance reflection and advisor packet creation inside a hosted agent; approve, revise or decline on the next HTTP turn |
 | Time | 60 min: teach 10, demo 10, do 35, checkpoint 5 |
 | Starts from | `artifacts/lab3/hosted.json` and knowledge configuration |
-| Notebook | `lab4_walkthrough.ipynb` |
+| Notebooks | [Lab 4A](lab4a_walkthrough.ipynb), then [Lab 4B](lab4b_walkthrough.ipynb) in a fresh kernel |
 | Produces | `artifacts/lab4/handoff_packets/S1.json`, `S2.json`, `S3.json`, `hosted.json`, `sessions/` |
 | Learn alignment | Agent Framework orchestration, Foundry workflows and human collaboration |
 
-Open the notebook in this folder using the dev-container `/usr/local/bin/python`
-kernel. It plays participant and advisor against the local product on port
+Open the paired notebooks in this folder using the dev-container `/usr/local/bin/python`
+kernel. They play participant and advisor against the local product on port
 8088, writes evidence and manages process cleanup. Foundry runs the same
 `hosted/main.py` as `healthcare-marketplace-triage-hosted` after explicit notebook deployment.
+
+## Two independently runnable halves
+
+| Half | Scope | Durable checkpoint |
+|---|---|---|
+| 4A (30 min) | Graph construction, specialist fan-out, bounded compliance reflection, model classification; stops at pending approval | `artifacts/lab4/part_a.json`, `pending_cases.json`, classification/compliance evidence and persisted sessions |
+| 4B (30 min) | Resume A's S3 revision and S2 restart path, approve existing packets, deploy and verify final approval | `artifacts/lab4/part_b.json` and original `hosted.json`/`handoff_packets/` |
+
+4B imports definitions, not 4A's notebook, and does not repeat intake or specialist calls.
+Missing, changed, or differently scoped A evidence blocks B before advisor/deployment actions.
+Do not delete pending sessions between halves; rerunning A is required after changing its evidence or Azure context.
 
 ## What you'll learn
 
@@ -36,7 +47,8 @@ kernel. It plays participant and advisor against the local product on port
 | Pending packet | File-backed `common.session_store` | Local restart recovery only, not shared replica/version continuity |
 | Specialist knowledge | Local reviewed documents or Lab 3's MCP KB | Same rules and citations across the workflow |
 
-Internal `lab4_hosted_multi_agent.py` is the notebook's cell source, not an
+Adjacent `lab4a_specialist_orchestration.py` and `lab4b_advisor_recovery.py` are cell sources;
+internal `lab4_hosted_multi_agent.py` supplies reusable definitions, not an
 alternative learner driver. Product files remain editable in the guided exercises.
 
 ## Teach (10 min)
@@ -83,7 +95,7 @@ advisor before accepting any decision.
    and verify both recovery route and persisted session JSON.
 4. **YOUR TURN: make review earn its keep.** Temporarily add a recommendation
    instruction in `hosted/marketplace_specialists.py`. Inspect the rejection,
-   single-revision route and safe final packet; remove the instruction afterward.
+   single-revision route and safe pending packet in 4A; remove the instruction afterward.
 5. **YOUR TURN: model-based classification.** Retain `classify_lob()` as fallback,
    add a structured `LobCall` classifier and run the ambiguous card/prescription
    gate, which requires accounts routing. This is task routing, not a demonstrated cost benefit.

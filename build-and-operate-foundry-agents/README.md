@@ -26,13 +26,25 @@ learner run path.
 
 | # | Notebook | Outcome | Evidence passed onward |
 |---|---|---|---|
-| 1 | `labs/lab1-foundry-project-models/lab1_walkthrough.ipynb` | Create a project in an existing admin-supplied Foundry account, provision chat and embedding deployments, verify access, persist downstream settings | `artifacts/lab1/project.json` and project/model configuration in the repository-root `.env` |
-| 2 | `labs/lab2-hosted-agent-basics/lab2_walkthrough.ipynb` | Build a typed-tool concierge with shared compliance instructions; test locally, deploy and inspect an immutable version | `artifacts/lab2/hosted.json`, transcripts |
-| 3 | `labs/lab3-hosted-knowledge-sessions/lab3_walkthrough.ipynb` | Build governed Foundry IQ knowledge and prove conversation continuity after a local restart; distinguish files from shared Blob history | `artifacts/lab3/knowledge.json`, `hosted.json`, sessions |
-| 4 | `labs/lab4-hosted-multi-agent-handoff/lab4_walkthrough.ipynb` | Fan out to specialists, bound compliance reflection, and pause for advisor approval across HTTP turns | `artifacts/lab4/handoff_packets/`, `hosted.json` |
-| 5 | `labs/lab5-operate-hosted-agents/lab5_walkthrough.ipynb` | Trace, evaluate, gate, inspect promotion and rollback; review an opt-in cloud pipeline | `artifacts/lab5/eval_report.md`, `gate_result.json`, `pipeline.md` |
-| S6 | `labs/stretch6-prompt-agents-and-workflows/stretch6_walkthrough.ipynb` | Compare platform-managed prompt/workflow ownership with hosted code and delegate from the concierge | `artifacts/stretch6/agents.json`, handoff packet |
-| S7 | `labs/stretch7-invocations-toolbox-skills/stretch7_walkthrough.ipynb` | Contrast structured Invocations with Responses; load governed Skills and optionally attach Toolbox | `artifacts/stretch7/invocations.json`, claim reviews, skills transcript |
+| 1A | [Identity and project](labs/lab1-foundry-project-models/lab1a_walkthrough.ipynb) | Create a project in an existing admin-supplied Foundry account | `artifacts/lab1/part_a.json` |
+| 1B | [Models and verification](labs/lab1-foundry-project-models/lab1b_walkthrough.ipynb) | Provision chat and embedding deployments, verify access, persist downstream settings | `artifacts/lab1/part_b.json`, `project.json` and project/model configuration in the repository-root `.env` |
+| 2A | [Tools and local testing](labs/lab2-hosted-agent-basics/lab2a_walkthrough.ipynb) | Build a typed-tool concierge with shared compliance instructions and test locally | `artifacts/lab2/part_a.json` |
+| 2B | [Deploy and invoke](labs/lab2-hosted-agent-basics/lab2b_walkthrough.ipynb) | Deploy and inspect an immutable version | `artifacts/lab2/part_b.json`, `hosted.json`, transcripts |
+| 3A | [Knowledge and retrieval](labs/lab3-hosted-knowledge-sessions/lab3a_walkthrough.ipynb) | Build governed Foundry IQ knowledge | `artifacts/lab3/part_a.json`, `knowledge.json` |
+| 3B | [Sessions and resiliency](labs/lab3-hosted-knowledge-sessions/lab3b_walkthrough.ipynb) | Prove conversation continuity after a local restart; distinguish files from shared Blob history | `artifacts/lab3/part_b.json`, `hosted.json`, sessions |
+| 4A | [Specialist orchestration](labs/lab4-hosted-multi-agent-handoff/lab4a_walkthrough.ipynb) | Fan out to specialists and bound compliance reflection | `artifacts/lab4/part_a.json` |
+| 4B | [Advisor approval and recovery](labs/lab4-hosted-multi-agent-handoff/lab4b_walkthrough.ipynb) | Pause for advisor approval across HTTP turns and recover pending state | `artifacts/lab4/part_b.json`, `handoff_packets/`, `hosted.json` |
+| 5A | [Tracing and evaluation](labs/lab5-operate-hosted-agents/lab5a_walkthrough.ipynb) | Trace, evaluate and gate | `artifacts/lab5/part_a.json`, `eval_report.md`, `gate_result.json` |
+| 5B | [Release and rollback](labs/lab5-operate-hosted-agents/lab5b_walkthrough.ipynb) | Inspect promotion and rollback; review an opt-in cloud pipeline | `artifacts/lab5/part_b.json`, `pipeline.md` |
+| S6A | [Prompt agents](labs/stretch6-prompt-agents-and-workflows/stretch6a_walkthrough.ipynb) | Compare platform-managed prompt ownership with hosted code | `artifacts/stretch6/part_a.json` |
+| S6B | [Workflows and delegation](labs/stretch6-prompt-agents-and-workflows/stretch6b_walkthrough.ipynb) | Compare workflow ownership and delegate from the concierge | `artifacts/stretch6/part_b.json`, `agents.json`, handoff packet |
+| S7A | [Invocations](labs/stretch7-invocations-toolbox-skills/stretch7a_walkthrough.ipynb) | Contrast structured Invocations with Responses | `artifacts/stretch7/part_a.json`, `invocations.json`, claim reviews |
+| S7B | [Skills and Toolbox](labs/stretch7-invocations-toolbox-skills/stretch7b_walkthrough.ipynb) | Load governed Skills and optionally attach Toolbox | `artifacts/stretch7/part_b.json`, skills transcript |
+
+Run A before B for each lab: fourteen notebooks replace the seven monolithic
+walkthroughs. B starts in a fresh kernel and validates `part_a.json` against the
+current project and attendee scope before restoring its local variables.
+Both halves preserve the cumulative final artifact contracts passed onward.
 
 Each hosted breakout retains teach, demo, exercise and checkpoint sections.
 Read its README first, then execute notebook cells in order, including each

@@ -1,7 +1,9 @@
 # Lab 1 — Foundry project and models
 
-Open **[lab1_walkthrough.ipynb](lab1_walkthrough.ipynb)** in the repository
-Python 3.14 dev container and run its cells individually.
+Open **[Lab 1A](lab1a_walkthrough.ipynb)**, then **[Lab 1B](lab1b_walkthrough.ipynb)**
+in the repository Python 3.14 dev container and run cells individually.
+Each half starts independently in a fresh kernel; do not run the preceding notebook
+inside the next one.
 
 ## Prerequisites
 
@@ -17,14 +19,19 @@ only when unavailable. The notebook never switches subscriptions.
 
 1. Edit the context inputs, discover and review subscription/tenant and accounts.
 2. Fill the approved account/resource group and a unique attendee suffix.
-3. Inspect the account's **live model inventory**; select a chat model plus
+3. In **1A**, review scope/ownership, approve creation of only your project, and save
+   `artifacts/lab1/part_a.json` with explicit noncredential context/project inputs.
+4. In **1B**, enter your approved subscription, tenant and suffix again. Read the
+   handoff and verify current identity, account, live project ownership and endpoints
+   without creating or updating the project.
+5. Inspect the account's **live model inventory**; select a chat model plus
    `text-embedding-3-large`, their available versions, advertised SKUs and capacity.
-4. Review costs/quota and the printed scope, then explicitly approve provisioning.
-5. Create an attendee-scoped project and two account-level deployments, waiting
+6. Review costs/quota and the printed scope, then explicitly approve model provisioning.
+7. Create two account-level deployments, waiting
    for `Succeeded`; compatible resources are reused without modifying them, and
    incompatible resources are never overwritten.
-6. Confirm hello-world text and a 3072-dimensional embedding, then publish root
-   `.env` outputs and `labs/artifacts/lab1/project.json`.
+8. Confirm hello-world text and a 3072-dimensional embedding, then publish root
+   `.env`, `labs/artifacts/lab1/project.json`, and the **1B** `part_b.json` marker.
 
 Each executable cell has its own one-sentence description and visible step ID.
 Do not run all cells before reviewing discovery and approving the model plan.
@@ -35,16 +42,18 @@ before starting. Publishing requires fresh passed tests bound to the exact
 project, tenant, endpoints, deployment names and model/SKU/capacity specifications.
 
 The root `.env` update preserves unrelated values and writes no Azure access
-tokens, passwords or SAS credentials. Step 1.2 also exposes **optional explicit
+tokens, passwords or SAS credentials. **1B Step 1.2** also exposes **optional explicit
 administrator-supplied inputs**: `AZURE_AI_SEARCH_ENDPOINT`,
 `MARKETPLACE_BLOB_STORAGE_URL`, `MARKETPLACE_BLOB_STORAGE_CONTAINER` and
-`APPLICATIONINSIGHTS_CONNECTION_STRING`; nonblank values are saved in Step 1.8,
+`APPLICATIONINSIGHTS_CONNECTION_STRING`; nonblank values are saved in **1B Step 1.7**,
 and blank inputs preserve existing configuration. These resources are not
 created or guessed, their readiness is not certified by model smoke tests,
-and missing later dependencies are identified after persistence.
+and later dependencies remain administrator-owned.
 `MARKETPLACE_TODAY` defaults to the fixed fixture date `2026-10-06`.
 None of these optional inputs is copied into the project artifact.
 The next hosted-agent notebook consumes the verified project checkpoint.
+The adjacent `lab1a_identity_project.py` and `lab1b_models_verify.py` are notebook
+authoring sources; `project_setup.py` and the original driver remain internal helpers.
 
 ## Checkpoint contract
 

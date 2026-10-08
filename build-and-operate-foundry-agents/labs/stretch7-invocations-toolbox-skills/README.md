@@ -4,14 +4,26 @@
 |---|---|
 | Goal | Keep denied-claim facts deterministic and model explanation bounded; add reusable Skills and optional Toolbox to a Responses product |
 | Time | 45–60 min; complete Invocations first |
-| Notebook | `stretch7_walkthrough.ipynb` |
+| Notebooks | [Stretch 7A](stretch7a_walkthrough.ipynb), then [Stretch 7B](stretch7b_walkthrough.ipynb) in a fresh kernel |
 | Produces | `artifacts/stretch7/invocations.json`, `claim_reviews/CLM-*.json`, `skills_transcript.md` |
 | Cloud requirement | Deterministic notebook checks need no model; model-backed local demos and deployment require Azure |
 
-Open this notebook with `/usr/local/bin/python` in the repository dev container.
+Open these notebooks with `/usr/local/bin/python` in the repository dev container.
 Run its deterministic, model-backed and deployment cells in order, using editable
 inputs for optional Toolbox. Internal `stretch7_invocations.py` is cell source,
 not a terminal learner route.
+
+## Two independently runnable halves
+
+| Half | Scope | Durable checkpoint |
+|---|---|---|
+| 7A (25–30 min) | Prepare only Invocations, offline fact checks, model-assisted nightly scenario, batch-only deployment | `artifacts/stretch7/part_a.json`, offline/nightly evidence and original claim reviews |
+| 7B (25–30 min) | Read A, prepare only Responses Skills, prove first/second skill use, validate optional Toolbox configuration, Responses-only deployment | `artifacts/stretch7/part_b.json`, Skills evidence/transcript and cumulative `invocations.json` |
+
+B never replays the batch or rebuilds/deploys its host. Missing, changed, or differently scoped A evidence blocks B.
+Blank `SKILL_NAMES` automatically includes every local workshop skill, including the newly authored second skill.
+Toolbox configuration is not a passing invocation check; unavailable/skipped preview behavior stays explicitly unverified.
+Author notebooks in `stretch7a_invocations.py` and `stretch7b_skills_toolbox.py`; the original driver preserves its cumulative API.
 
 ## Protocol contract
 
@@ -40,7 +52,7 @@ lifecycle controls stop the child product on success or failure.
 
 ## Product packaging
 
-The notebook prepares and reviews both `hosted-invocations` and
+7A prepares `hosted-invocations`; 7B separately prepares
 `hosted-responses-skills`. Shared code/data and bundled Skills are vendored and
 hashed. Stale copies, missing imports, credentials, deployment state and caches
 must not enter the upload. Generated vendored copies are not hand-editable

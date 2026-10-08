@@ -500,13 +500,9 @@ class DeploymentTests(unittest.TestCase):
 
     def test_every_walkthrough_code_block_has_consecutive_step_id(self):
         cases = {
-            "lab1-foundry-project-models/lab1_project_models.py": "1",
-            "lab2-hosted-agent-basics/lab2_hosted_basics.py": "2",
-            "lab3-hosted-knowledge-sessions/lab3_hosted_knowledge.py": "3",
-            "lab4-hosted-multi-agent-handoff/lab4_hosted_multi_agent.py": "4",
-            "lab5-operate-hosted-agents/lab5_operate.py": "5",
-            "stretch6-prompt-agents-and-workflows/stretch6_prompt_agents.py": "S6",
-            "stretch7-invocations-toolbox-skills/stretch7_invocations.py": "S7",
+            f"{directory}/{source}": prefix
+            for directory, parts in validate_workshop.WALKTHROUGHS.items()
+            for source, _, prefix, _, _ in parts
         }
         for relative, prefix in cases.items():
             with self.subTest(driver=relative):
@@ -567,13 +563,9 @@ class DeploymentTests(unittest.TestCase):
 
     def test_walkthrough_cells_have_descriptions_and_omit_cli_and_raw_shell_cells(self):
         cases = (
-            ("lab1-foundry-project-models/lab1_project_models.py", "lab1_walkthrough.ipynb"),
-            ("lab2-hosted-agent-basics/lab2_hosted_basics.py", "lab2_walkthrough.ipynb"),
-            ("lab3-hosted-knowledge-sessions/lab3_hosted_knowledge.py", "lab3_walkthrough.ipynb"),
-            ("lab4-hosted-multi-agent-handoff/lab4_hosted_multi_agent.py", "lab4_walkthrough.ipynb"),
-            ("lab5-operate-hosted-agents/lab5_operate.py", "lab5_walkthrough.ipynb"),
-            ("stretch6-prompt-agents-and-workflows/stretch6_prompt_agents.py", "stretch6_walkthrough.ipynb"),
-            ("stretch7-invocations-toolbox-skills/stretch7_invocations.py", "stretch7_walkthrough.ipynb"),
+            (f"{directory}/{source}", notebook)
+            for directory, parts in validate_workshop.WALKTHROUGHS.items()
+            for source, notebook, _, _, _ in parts
         )
         for relative, notebook_name in cases:
             with self.subTest(driver=relative):
@@ -618,10 +610,6 @@ class DeploymentTests(unittest.TestCase):
     def test_lab4_classifier_gate_reports_results_without_false_success(self):
         path = ROOT / "labs/lab4-hosted-multi-agent-handoff/lab4_hosted_multi_agent.py"
         notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
-        self.assertEqual(
-            json.loads(path.with_name("lab4_walkthrough.ipynb").read_text(encoding="utf-8")),
-            notebook,
-        )
         gate = next(
             "".join(cell["source"])
             for cell in notebook["cells"]

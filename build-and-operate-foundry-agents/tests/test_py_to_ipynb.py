@@ -22,8 +22,9 @@ from py_to_ipynb import (  # noqa: E402
     validate_notebook,
     validate_step_ids,
 )
+from validate_workshop import WALKTHROUGHS, validate_checkpoint_contract  # noqa: E402
 
-DRIVERS = (
+INTERNAL_DRIVERS = (
     ("lab1-foundry-project-models/lab1_project_models.py", "lab1_walkthrough.ipynb", "1"),
     ("lab2-hosted-agent-basics/lab2_hosted_basics.py", "lab2_walkthrough.ipynb", "2"),
     ("lab3-hosted-knowledge-sessions/lab3_hosted_knowledge.py", "lab3_walkthrough.ipynb", "3"),
@@ -31,6 +32,12 @@ DRIVERS = (
     ("lab5-operate-hosted-agents/lab5_operate.py", "lab5_walkthrough.ipynb", "5"),
     ("stretch6-prompt-agents-and-workflows/stretch6_prompt_agents.py", "stretch6_walkthrough.ipynb", "S6"),
     ("stretch7-invocations-toolbox-skills/stretch7_invocations.py", "stretch7_walkthrough.ipynb", "S7"),
+)
+
+DRIVERS = tuple(
+    (f"{directory}/{source}", notebook, prefix)
+    for directory, parts in WALKTHROUGHS.items()
+    for source, notebook, prefix, _, _ in parts
 )
 
 
@@ -47,6 +54,88 @@ def notebook_action(source: str) -> ast.Module:
 
 
 class ConverterTests(unittest.TestCase):
+    def test_checkpoint_contract_requires_scoped_real_handoffs(self):
+        source = (
+            "context = notebook_parts.scope(ENV)\n"
+            "previous = notebook_parts.read_checkpoint(ARTIFACTS / 'part_a.json', "
+            "lab='lab2', part='a', context=context)\n"
+            "notebook_parts.write_checkpoint(ARTIFACTS / 'part_b.json', "
+            "lab='lab2', part='b', context=context, state={'hosted': hosted})\n"
+        )
+        validate_checkpoint_contract(ast.parse(source), "lab2", "b")
+        for invalid in (
+            source.replace("lab='lab2'", "lab='lab3'"),
+            source.replace("part='a'", "part='b'"),
+            source.replace("context=context", "context=None"),
+            source.replace("'part_a.json'", "'part_b.json'"),
+            source.replace("state={'hosted': hosted}", "state={}"),
+            source.replace("state={'hosted': hosted}", "state={'complete': True}"),
+            source.splitlines()[0] + "\n" + source.splitlines()[2],
+        ):
+            with self.subTest(source=invalid), self.assertRaises(ValueError):
+                validate_checkpoint_contract(ast.parse(invalid), "lab2", "b")
+
+    def test_all_fourteen_halves_publish_their_real_checkpoint_contract(self):
+        count = 0
+        for directory, parts in WALKTHROUGHS.items():
+            for source, _, _, lab, part in parts:
+                with self.subTest(source=source):
+                    path = ROOT / "labs" / directory / source
+                    validate_checkpoint_contract(ast.parse(path.read_text(encoding="utf-8")), lab, part)
+                    count += 1
+        self.assertEqual(count, 14)
+
+    def test_fresh_b_kernels_restore_state_without_repeating_a_cloud_work(self):
+        cases = (
+            ("lab4-hosted-multi-agent-handoff", "lab4b_advisor_recovery.py", "lab4",
+             {"pending": {name: {"session_id": name} for name in ("S1", "S2", "S3")}}, "pending"),
+            ("lab5-operate-hosted-agents", "lab5b_release_rollback.py", "lab5",
+             {"bundle": {"info": {"version": "measured"}}, "summary": {"questions": 6}}, "bundle"),
+            ("stretch6-prompt-agents-and-workflows", "stretch6b_workflows_delegation.py", "stretch6",
+             {"prompt_agents": {"agents": {"triage": {"agent_id": "existing", "agent_version": "3"}}}},
+             "prompt_info"),
+            ("stretch7-invocations-toolbox-skills", "stretch7b_skills_toolbox.py", "stretch7",
+             {"nightly": {"reviews": 3}}, "part_a"),
+        )
+        for directory, filename, lab, state, restored in cases:
+            with self.subTest(lab=lab):
+                path = ROOT / "labs" / directory / filename
+                notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
+                startup = next(cell for cell in notebook["cells"] if cell["cell_type"] == "code")
+                action = compile(notebook_action("".join(startup["source"])), str(path), "exec")
+                cloud = Mock(side_effect=AssertionError("B must not replay A's cloud work."))
+                context = {"project": "current", "suffix": "current-attendee"}
+                checkpoint = {"state": state}
+                parts = SimpleNamespace(
+                    read_checkpoint=Mock(return_value=checkpoint), scope=Mock(return_value=context),
+                )
+                artifacts = ROOT / "labs/artifacts" / lab
+                helpers = SimpleNamespace(artifact_path=lambda namespace, name: ROOT / "labs/artifacts" / namespace / name)
+                driver = SimpleNamespace(
+                    ENV={"current": "configuration"}, ARTIFACTS=artifacts,
+                    SPECS={"triage": {}}, build=cloud, demo=cloud, publish_prompt_agents=cloud,
+                )
+                namespace = {
+                    "driver": driver, "notebook_parts": parts, "lab_helpers": helpers,
+                    "gate": SimpleNamespace(
+                        RESULTS_PATH=artifacts / "eval_results.jsonl",
+                        load_results=Mock(return_value=([{"response": "measured"}] * 6, [])),
+                    ),
+                }
+                exec(action, namespace)
+                self.assertIn(restored, namespace)
+                parts.read_checkpoint.assert_called_once_with(
+                    artifacts / "part_a.json", lab=lab, part="a", context=context,
+                )
+                parts.scope.assert_called_once_with(driver.ENV)
+                cloud.assert_not_called()
+                parts.read_checkpoint.side_effect = RuntimeError("Run A first.")
+                with self.assertRaisesRegex(RuntimeError, "Run A first"):
+                    exec(action, {key: value for key, value in namespace.items() if key not in (
+                        "part_a", "pending", "bundle", "rows", "load_errors", "prompt_info",
+                    )})
+                cloud.assert_not_called()
+
     def test_internal_cli_cells_are_omitted_without_skip_instructions(self):
         text = (
             "# %% [markdown]\n# This cell defines the example.\n"
@@ -90,7 +179,7 @@ class ConverterTests(unittest.TestCase):
     def test_notebook_paths_work_from_repository_and_lab_directories(self):
         original = Path.cwd()
         try:
-            for relative, _, _ in DRIVERS[1:]:
+            for relative, _, _ in INTERNAL_DRIVERS[1:]:
                 path = ROOT / "labs" / relative
                 tree = ast.parse(path.read_text(encoding="utf-8"))
                 assignment = next(
@@ -107,8 +196,33 @@ class ConverterTests(unittest.TestCase):
         finally:
             os.chdir(original)
 
+    def test_split_kernel_paths_work_without_file_or_a_kernel_globals(self):
+        original = Path.cwd()
+        try:
+            for relative, _, _ in DRIVERS:
+                path = ROOT / "labs" / relative
+                notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
+                startup = next(cell for cell in notebook["cells"] if cell["cell_type"] == "code")
+                tree = ast.parse("".join(startup["source"]))
+                locations = ast.Module(body=[
+                    node for node in tree.body if isinstance(node, ast.Assign)
+                    and any(isinstance(target, ast.Name) and target.id in {
+                        "HERE", "REPO_ROOT", "WORKSHOP", "SOURCE_PATH", "ROOT",
+                    } for target in node.targets)
+                ], type_ignores=[])
+                for directory in (ROOT.parent, ROOT, path.parent):
+                    with self.subTest(source=relative, cwd=directory):
+                        os.chdir(directory)
+                        namespace = {"Path": Path}
+                        exec(compile(locations, str(path), "exec"), namespace)
+                        self.assertEqual(namespace.get("WORKSHOP", namespace.get("ROOT")), ROOT)
+                        if "SOURCE_PATH" in namespace:
+                            self.assertEqual(namespace["SOURCE_PATH"], path)
+        finally:
+            os.chdir(original)
+
     def test_lab3_exercises_execute_without_environment_toggles(self):
-        path = ROOT / "labs" / DRIVERS[2][0]
+        path = ROOT / "labs" / INTERNAL_DRIVERS[2][0]
         notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
         for step, function in (("3.8", "broken_store_acceptance_gate"), ("3.9", "knowledge_acceptance_gate")):
             with self.subTest(step=step):
@@ -118,7 +232,7 @@ class ConverterTests(unittest.TestCase):
                 gate.assert_called_once_with()
 
     def test_lab2_requires_verified_setup_only_in_notebooks(self):
-        path = ROOT / "labs" / DRIVERS[1][0]
+        path = ROOT / "labs" / INTERNAL_DRIVERS[1][0]
         notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
         cell = next(cell for cell in notebook["cells"] if "".join(cell["source"]).startswith("# Step 2.2 -"))
         action = compile(notebook_action("".join(cell["source"])), str(path), "exec")
@@ -157,7 +271,7 @@ class ConverterTests(unittest.TestCase):
         require.assert_not_called()
 
     def test_scale_out_requires_shared_history_and_does_not_claim_false_success(self):
-        path = ROOT / "labs" / DRIVERS[2][0]
+        path = ROOT / "labs" / INTERNAL_DRIVERS[2][0]
         notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
         cell = next(cell for cell in notebook["cells"] if "".join(cell["source"]).startswith("# Step 3.7 -"))
         code = compile(notebook_action("".join(cell["source"])), str(path), "exec")
@@ -175,7 +289,7 @@ class ConverterTests(unittest.TestCase):
                     self.assertIn("NOT proven", output.getvalue())
 
     def test_cloud_deployment_is_an_explicit_checked_notebook_action(self):
-        for relative, _, _ in DRIVERS:
+        for relative, _, _ in INTERNAL_DRIVERS:
             path = ROOT / "labs" / relative
             tree = ast.parse(path.read_text(encoding="utf-8"))
             for node in tree.body:
@@ -198,7 +312,7 @@ class ConverterTests(unittest.TestCase):
                 runner.assert_not_called()
 
     def test_two_package_deployment_stops_when_the_first_command_fails(self):
-        path = ROOT / "labs" / DRIVERS[6][0]
+        path = ROOT / "labs" / INTERNAL_DRIVERS[6][0]
         notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
         cell = next(cell for cell in notebook["cells"] if "".join(cell["source"]).startswith("# Step S7.9 -"))
         runner = Mock(side_effect=RuntimeError("first deployment failed"))
@@ -216,7 +330,7 @@ class ConverterTests(unittest.TestCase):
         )
 
     def test_stretch7_inputs_override_unrelated_skill_defaults_and_validate_toolbox(self):
-        path = ROOT / "labs" / DRIVERS[6][0]
+        path = ROOT / "labs" / INTERNAL_DRIVERS[6][0]
         notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
         source = next(
             "".join(cell["source"]) for cell in notebook["cells"]

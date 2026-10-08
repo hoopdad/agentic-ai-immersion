@@ -1,8 +1,8 @@
 """py_to_ipynb: stdlib-only converter from a `# %%` cell script to a Jupyter notebook.
 
 Usage:
-    python tools/py_to_ipynb.py labs/lab3-hosted-knowledge-sessions/lab3_hosted_knowledge.py
-    python tools/py_to_ipynb.py <script.py> [-o <notebook.ipynb>] [--name lab3_walkthrough]
+    python tools/py_to_ipynb.py labs/lab3-hosted-knowledge-sessions/lab3a_knowledge_retrieval.py --name lab3a_walkthrough
+    python tools/py_to_ipynb.py <script.py> [-o <notebook.ipynb>] [--name lab3b_walkthrough]
     python tools/py_to_ipynb.py --check <notebook.ipynb>      # validate an existing notebook
 
 Rules:
@@ -297,7 +297,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("script", type=Path, help="a # %%%% cell script, or a .ipynb when --check is used")
     parser.add_argument("-o", "--output", type=Path, default=None, help="notebook path (default: next to the script)")
-    parser.add_argument("--name", default=None, help="notebook stem, for example lab3_walkthrough")
+    parser.add_argument("--name", default=None, help="notebook stem, for example lab3a_walkthrough")
     parser.add_argument("--check", action="store_true", help="validate an existing .ipynb instead of converting")
     parser.add_argument("--keep-script-semantics", action="store_true",
                         help="do not rewrite Path(__file__) or guard the __main__ block")

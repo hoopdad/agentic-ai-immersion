@@ -158,7 +158,9 @@ if "__file__" not in globals():
 # %% [markdown]
 # This cell vendors both local hosted packages and records their runtime contracts without deploying to Azure.
 # %% Step S7.3 - Build both hosted packages
-def build(*, vendor: bool = True) -> dict:
+def build(*, vendor: bool = True, protocols: tuple[str, ...] = ("invocations", "responses_skills")) -> dict:
+    if not protocols or set(protocols) - {"invocations", "responses_skills"}:
+        raise ValueError("Select invocations and/or responses_skills.")
     env = dict(foundry_env.load_env())
     env.update({key: os.environ.get(key, "") for key in ("TOOLBOX_NAME", "TOOLBOX_MCP_URL", "SKILL_NAMES")})
     resource_names.suffix(env, required=True)
@@ -168,10 +170,10 @@ def build(*, vendor: bool = True) -> dict:
         log("artifacts/lab2/hosted.json missing; continuing because this notebook does not require Lab 2 output")
     counts: dict[str, dict] = {}
     if vendor:
-        invocations_prepare = lab_helpers.load_lab_module(f"{LAB_DIR.name}/hosted-invocations/prepare.py")
-        responses_prepare = lab_helpers.load_lab_module(f"{LAB_DIR.name}/hosted-responses-skills/prepare.py")
-        counts["hosted-invocations"] = invocations_prepare.vendor()
-        counts["hosted-responses-skills"] = responses_prepare.vendor()
+        for protocol, folder in (("invocations", "hosted-invocations"), ("responses_skills", "hosted-responses-skills")):
+            if protocol in protocols:
+                prepare = lab_helpers.load_lab_module(f"{LAB_DIR.name}/{folder}/prepare.py")
+                counts[folder] = prepare.vendor()
     skills = [name.strip() for name in env.get("SKILL_NAMES", "").split(",") if name.strip()] \
         or sorted(p.parent.name for p in SKILLS_SRC.glob("*/SKILL.md"))
     existing = json.loads(RECORD.read_text(encoding="utf-8")) if RECORD.exists() else {}
@@ -189,6 +191,11 @@ def build(*, vendor: bool = True) -> dict:
         "model": lab_helpers.pick_model(env), "protocol_comparison": PROTOCOLS, "vendored": counts or existing.get("vendored", {}),
         "sample_run": existing.get("sample_run"), "lab2_agent": lab2.get("agent_name"), "built_at": lab_helpers.now_iso(),
     }
+    record["agents"] = {
+        **existing.get("agents", {}),
+        **{key: value for key, value in record["agents"].items() if key in protocols},
+    }
+    record["vendored"] = {**existing.get("vendored", {}), **counts}
     foundry_env.save_artifact(RECORD, record)
     log(f"wrote {RECORD.relative_to(LABS_DIR)} (agents {INVOCATIONS_AGENT}, {SKILLS_AGENT}; skills {skills})")
     return record
@@ -375,10 +382,10 @@ def validate_second_skill_source() -> Path:
     return path
 
 
-def second_skill_acceptance_gate(base: str | None = None) -> str:
+def second_skill_acceptance_gate(base: str | None = None, *, protocols: tuple[str, ...] = ("invocations", "responses_skills")) -> str:
     """Build, invoke, assert KB-ACC-002 use, and always stop the learner's local server."""
     validate_second_skill_source()
-    build()
+    build(protocols=protocols)
     server = None
     if base is None:
         server = HostedProcess(SKILLS_HOST_DIR).start()

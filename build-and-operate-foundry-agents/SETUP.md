@@ -9,7 +9,7 @@ organization's policy and Azure network allow it.
 
 1. Open the repository root and select **Dev Containers: Reopen in Container**.
 2. Wait for bootstrap to finish installing the root dependency lock and toolchain.
-3. Open `labs/lab1-foundry-project-models/lab1_walkthrough.ipynb` beneath this workshop.
+3. Open [Lab 1A](labs/lab1-foundry-project-models/lab1a_walkthrough.ipynb) beneath this workshop.
 4. Select **Select Kernel > Python Environments > `/usr/local/bin/python`**.
 5. Edit the notebook's setup inputs using values supplied by your administrator,
    then run its authentication, provisioning, verification and persistence cells in order.
@@ -172,7 +172,9 @@ tool access.
 
 ## 6. Notebook execution and recovery
 
-Open each walkthrough in its own lab folder and run prerequisite cells first.
+Open each A/B walkthrough in its own lab folder and run prerequisite cells first.
+Start B in a fresh kernel: its opening cells restore validated A checkpoint
+metadata, rather than rerunning A's provisioning or evaluation work.
 The notebook manages local servers on port 8088, readiness probes, package
 preparation and process cleanup. Foundry separately builds and runs the uploaded
 Python product package. Deployment is an explicit notebook action; review its
@@ -236,3 +238,26 @@ learners run the `.ipynb` files. Standalone helper self-tests, package preparati
 checks and the root offline workflow are implementation validation, not extra
 learner setup steps. The root dependency lock remains authoritative, with
 matching minimal hosted-runtime pins. Offline results make no live Azure claim.
+
+The seven original drivers remain internal callable helpers. Authors edit the
+fourteen adjacent A/B cell sources below and regenerate their paired notebooks;
+do not convert the original drivers into learner notebooks.
+
+| Directory under `labs/` | A source → notebook | B source → notebook |
+|---|---|---|
+| `lab1-foundry-project-models` | `lab1a_identity_project.py` → `lab1a_walkthrough.ipynb` | `lab1b_models_verify.py` → `lab1b_walkthrough.ipynb` |
+| `lab2-hosted-agent-basics` | `lab2a_tools_local.py` → `lab2a_walkthrough.ipynb` | `lab2b_deploy_invoke.py` → `lab2b_walkthrough.ipynb` |
+| `lab3-hosted-knowledge-sessions` | `lab3a_knowledge_retrieval.py` → `lab3a_walkthrough.ipynb` | `lab3b_sessions_resiliency.py` → `lab3b_walkthrough.ipynb` |
+| `lab4-hosted-multi-agent-handoff` | `lab4a_specialist_orchestration.py` → `lab4a_walkthrough.ipynb` | `lab4b_advisor_recovery.py` → `lab4b_walkthrough.ipynb` |
+| `lab5-operate-hosted-agents` | `lab5a_tracing_evaluation.py` → `lab5a_walkthrough.ipynb` | `lab5b_release_rollback.py` → `lab5b_walkthrough.ipynb` |
+| `stretch6-prompt-agents-and-workflows` | `stretch6a_prompt_agents.py` → `stretch6a_walkthrough.ipynb` | `stretch6b_workflows_delegation.py` → `stretch6b_walkthrough.ipynb` |
+| `stretch7-invocations-toolbox-skills` | `stretch7a_invocations.py` → `stretch7a_walkthrough.ipynb` | `stretch7b_skills_toolbox.py` → `stretch7b_walkthrough.ipynb` |
+
+For example, from the workshop directory, these internal author commands
+regenerate Lab 1's halves; use the same explicit source/output pairing above for
+each other half.
+
+```bash
+python tools/py_to_ipynb.py labs/lab1-foundry-project-models/lab1a_identity_project.py --name lab1a_walkthrough
+python tools/py_to_ipynb.py labs/lab1-foundry-project-models/lab1b_models_verify.py --name lab1b_walkthrough
+```

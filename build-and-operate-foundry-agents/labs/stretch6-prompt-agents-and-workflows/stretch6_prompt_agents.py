@@ -240,6 +240,12 @@ def render_workflow() -> str:
 # This cell defines publishing of attendee-scoped prompt agents and the platform workflow without publishing them yet.
 # %% Step S6.3 - Define prompt-agent and workflow publishing
 def build(project=None, overrides: dict[str, str] | None = None) -> dict:
+    info = publish_prompt_agents(project=project, overrides=overrides)
+    return publish_workflow(info, project=project)
+
+
+def publish_prompt_agents(project=None, overrides: dict[str, str] | None = None) -> dict:
+    """Publish only prompt agents; the workflow is a separate phase."""
     resource_names.suffix(ENV, required=True)
     knowledge = helpers.require_artifact("lab3", "knowledge.json", through=3, caller="stretch6")
     project = project or foundry_env.get_project_client()
@@ -251,16 +257,27 @@ def build(project=None, overrides: dict[str, str] | None = None) -> dict:
         agent = project.agents.create_version(agent_name=name, definition=PromptAgentDefinition(model=MODEL, instructions=instructions, tools=tools))
         agents[name] = {"agent_version": agent.version, "agent_id": agent.id, "function_tools": tool_names, "knowledge": uses_kb}
         print(f"[stretch6] created prompt agent {name} v{agent.version} (tools: {', '.join(tool_names) or 'none'}{', healthcare-marketplace-kb' if uses_kb else ''})")
+    return {"lab": LAB, "model": MODEL, "agents": agents,
+            "knowledge_base": knowledge.get("kb_name"), "packet_fields": PACKET_FIELDS,
+            "created_at": helpers.now_iso()}
+
+
+def publish_workflow(info: dict, project=None) -> dict:
+    """Reuse the published prompt-agent names without creating new prompt versions."""
+    resource_names.suffix(ENV, required=True)
+    if set(info.get("agents", {})) != set(SPECS):
+        raise ValueError("Publish every prompt agent in Stretch 6A before creating the workflow.")
+    project = project or foundry_env.get_project_client()
     text = render_workflow()
     workflow = project.agents.create_version(agent_name=WORKFLOW, definition=WorkflowAgentDefinition(workflow=text))
     helpers.artifact_path(LAB, "workflow.yaml").write_text(text, encoding="utf-8")
     print(f"[stretch6] created workflow agent {WORKFLOW} v{workflow.version} (preview)")
-    info = {"lab": LAB, "model": MODEL, "agents": agents, "workflow_name": workflow.name, "workflow_version": workflow.version,
-            "workflow_id": workflow.id, "knowledge_base": knowledge.get("kb_name"), "packet_fields": PACKET_FIELDS,
+    info = {**info, "workflow_name": workflow.name, "workflow_version": workflow.version,
+            "workflow_id": workflow.id,
             "hosted_tool": "hosted_tool_snippet.run_triage_workflow reads workflow_name from this file", "created_at": helpers.now_iso()}
     path = helpers.artifact_path(LAB, "agents.json")
     foundry_env.save_artifact(path, info)
-    print(f"[stretch6] saved {path.relative_to(LABS_DIR)}; portal: Agents shows {len(agents)} prompt agents + the workflow graph")
+    print(f"[stretch6] saved {path.relative_to(LABS_DIR)}; portal: Agents shows {len(info['agents'])} prompt agents + the workflow graph")
     return info
 
 

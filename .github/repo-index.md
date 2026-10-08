@@ -7,7 +7,7 @@
 - `observability-and-evaluations/`: tracing, evaluator and red-team notebooks.
 - `hosted-agents/`: small deployable examples for the Responses and Invocations protocols.
 - `AgentOps/`: standalone GitOps example with infrastructure and tests.
-- `build-and-operate-foundry-agents/`: cumulative Healthcare Marketplace workshop; five core labs and two stretch labs, run only through Jupyter walkthroughs.
+- `build-and-operate-foundry-agents/`: cumulative Healthcare Marketplace workshop; five core lab pairs and two stretch pairs, run only through fourteen Jupyter notebooks.
 - `byouc/`: use-case specification templates.
 
 ## Boundaries and navigation
@@ -22,6 +22,12 @@
 - Workshop customer collateral: `build-and-operate-foundry-agents/Datasheets/` contains editable HTML sources and rendered PDF/Word deliverables.
 - Workshop implementation: `common/` (data, environment and state), `data/` (synthetic fixtures), `labs/` (notebooks and adjacent authoring sources).
 - First lab: `labs/lab1-foundry-project-models/` creates a project in an approved existing Foundry account, deploys chat/embedding models, and saves the notebook configuration and `artifacts/lab1/project.json`.
+- Notebook pairs stay in their original lab directories: `lab1a/b_walkthrough.ipynb` through
+  `lab5a/b_walkthrough.ipynb`, then `stretch6a/b_walkthrough.ipynb` and `stretch7a/b_walkthrough.ipynb`.
+  A/B authoring sources are adjacent; the original combined Python drivers remain internal reusable helpers.
+- Part handoffs: `common/notebook_parts.py` stores explicit JSON state and evidence fingerprints in
+  `labs/artifacts/<lab>/part_a.json` and `part_b.json`. Part B starts in a fresh kernel,
+  validates current project/model scope and unchanged evidence, and does not replay Part A cloud operations.
 - Lab 3 conversation history: Azure Blob/Azurite or files; shared storage utilities retain optional backend implementations, but Redis is not a learner prerequisite or default.
 - Lab 3 Search configuration: `labs/lab3-hosted-knowledge-sessions/knowledge_base.py` resolves underlying model identities separately from attendee-scoped deployment aliases.
 - Hosted model resilience: `common/model_resilience.py` provides visible, retry-header-aware Agent Framework
@@ -44,9 +50,8 @@
 - Deployment: each lab's `hosted*/main.py` and minimal pinned requirements; `prepare.py` vendors shared files. Generated packages, credentials and runtime artifacts are not source.
 - Deployment integration: `labs/deployment.py`; explicit notebook cells invoke deployment tooling, and Python holds validation/logic.
 - Notebooks: edit adjacent `# %%` authoring sources and regenerate with `tools/py_to_ipynb.py`; give each code cell a preceding one-sentence description and keep CLI-only entry points out of learner notebooks.
-- Lab teaching alignment: `labs/README.md`, each lab README, and Markdown cells in the six adjacent Python
-  drivers connect outcomes to engineering decisions, acceptance evidence, ownership, and measurement limits.
-  Generated notebooks mirror that wording; runtime instructions and executable cells remain unchanged.
+- Lab teaching alignment: `labs/README.md`, each lab README, and Markdown cells in the fourteen adjacent
+  A/B authoring sources connect outcomes to engineering decisions, acceptance evidence and measurement limits.
 - Offline checks: the workshop's `tools/validate_workshop.py` and `tests/`, plus `.github/workflows/workshop-validate.yml`. Validation checks notebook cells, dependency pins, self-tests, regression tests and all five hosted packages in a temporary copy.
 - Cloud pipeline: Lab 5's nested workflow is an opt-in template, not an active deployment workflow.
 - Shared RBAC setup: `scripts/setup-permissions.ps1` (PowerShell 7 in the dev container).
@@ -116,3 +121,9 @@ adjacent Python sources, catch-up helpers and command-line tools remain internal
 Lab 3's exercises no longer require `RUN_LAB2_*` environment switches.
 Converter tests are in `tests/test_py_to_ipynb.py`; provisioning and notebook environment
 regressions are in `tests/test_project_setup.py` and `tests/test_notebook_environment.py`.
+
+Baseline for the fourteen-notebook split: `5ab47d7c6823590f482215922cd5e4d1c0f3f156`.
+Pending structural changes considered: fourteen paired authoring sources/notebooks replacing the seven
+combined learner walkthroughs, shared scope-bound checkpoint support, split regression tests, and updated
+navigation/generation validation. Original cumulative artifact names and hosted package directories remain
+stable; each half also publishes its own successful checkpoint.

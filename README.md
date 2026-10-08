@@ -486,7 +486,10 @@ Lab 4 multi-agent handoff with human approval -> Lab 5 operate/evaluate/CI)
 around one use case, the Healthcare Marketplace Concierge, plus two stretch
 labs (prompt agents & workflow agents; Invocations protocol, Toolbox and Skills). Reuses this repo's dev
 container, `.env` names, pinned requirements and RBAC script; extends the `hosted-agents/` and `AgentOps/`
-patterns. Synthetic data only.
+patterns. Each lab has independently runnable A/B notebooks (fourteen total) with
+validated checkpoints between halves. Start with
+[Lab 1A](build-and-operate-foundry-agents/labs/lab1-foundry-project-models/lab1a_walkthrough.ipynb).
+Synthetic data only.
 
 📖 [Lab sequence guide](build-and-operate-foundry-agents/README.md) • [Use case](build-and-operate-foundry-agents/USE-CASE.md) • [Setup](build-and-operate-foundry-agents/SETUP.md)
 

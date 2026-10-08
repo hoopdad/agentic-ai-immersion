@@ -25,13 +25,25 @@ terminal or interactive-cell learner entry points. Runtime files such as
 
 | # | Notebook | Builds | Checkpoint |
 |---|---|---|---|
-| 1 | `lab1-foundry-project-models/lab1_walkthrough.ipynb` | Project in an existing Foundry account; chat and embedding deployments | `artifacts/lab1/project.json` and verified settings persisted to the repository-root `.env` |
-| 2 | `lab2-hosted-agent-basics/lab2_walkthrough.ipynb` | Typed-tool concierge over Responses, local testing and hosted version | `artifacts/lab2/hosted.json`, `transcripts.md` |
-| 3 | `lab3-hosted-knowledge-sessions/lab3_walkthrough.ipynb` | Search indexes, Foundry IQ knowledge, identity connection and external history | `artifacts/lab3/knowledge.json`, `hosted.json`, `sessions/` |
-| 4 | `lab4-hosted-multi-agent-handoff/lab4_walkthrough.ipynb` | Specialist workflow, bounded review and advisor approval | `artifacts/lab4/handoff_packets/`, `hosted.json`, `sessions/` |
-| 5 | `lab5-operate-hosted-agents/lab5_walkthrough.ipynb` | Tracing, evaluation, release gate and operating runbook | `artifacts/lab5/eval_report.md`, `gate_result.json`, `pipeline.md` |
-| S6 | `stretch6-prompt-agents-and-workflows/stretch6_walkthrough.ipynb` | Platform prompt/workflow agents and hosted delegation | `artifacts/stretch6/agents.json`, `handoff_packets/S1.json` |
-| S7 | `stretch7-invocations-toolbox-skills/stretch7_walkthrough.ipynb` | Structured denied-claim reviews, Skills and optional Toolbox | `artifacts/stretch7/invocations.json`, `claim_reviews/`, `skills_transcript.md` |
+| 1A | [Identity and project](lab1-foundry-project-models/lab1a_walkthrough.ipynb) | Project in an existing Foundry account | `artifacts/lab1/part_a.json` |
+| 1B | [Models and verification](lab1-foundry-project-models/lab1b_walkthrough.ipynb) | Chat and embedding deployments | `artifacts/lab1/part_b.json`, `project.json` and verified settings persisted to the repository-root `.env` |
+| 2A | [Tools and local testing](lab2-hosted-agent-basics/lab2a_walkthrough.ipynb) | Typed-tool concierge over Responses and local tests | `artifacts/lab2/part_a.json` |
+| 2B | [Deploy and invoke](lab2-hosted-agent-basics/lab2b_walkthrough.ipynb) | Hosted version and invocation | `artifacts/lab2/part_b.json`, `hosted.json`, `transcripts.md` |
+| 3A | [Knowledge and retrieval](lab3-hosted-knowledge-sessions/lab3a_walkthrough.ipynb) | Search indexes, Foundry IQ knowledge and identity connection | `artifacts/lab3/part_a.json`, `knowledge.json` |
+| 3B | [Sessions and resiliency](lab3-hosted-knowledge-sessions/lab3b_walkthrough.ipynb) | External history and restart continuity | `artifacts/lab3/part_b.json`, `hosted.json`, `sessions/` |
+| 4A | [Specialist orchestration](lab4-hosted-multi-agent-handoff/lab4a_walkthrough.ipynb) | Specialist workflow and bounded review | `artifacts/lab4/part_a.json` |
+| 4B | [Advisor approval and recovery](lab4-hosted-multi-agent-handoff/lab4b_walkthrough.ipynb) | Advisor approval and pending-state recovery | `artifacts/lab4/part_b.json`, `handoff_packets/`, `hosted.json`, `sessions/` |
+| 5A | [Tracing and evaluation](lab5-operate-hosted-agents/lab5a_walkthrough.ipynb) | Tracing, evaluation and release gate | `artifacts/lab5/part_a.json`, `eval_report.md`, `gate_result.json` |
+| 5B | [Release and rollback](lab5-operate-hosted-agents/lab5b_walkthrough.ipynb) | Operating runbook, promotion and rollback | `artifacts/lab5/part_b.json`, `pipeline.md` |
+| S6A | [Prompt agents](stretch6-prompt-agents-and-workflows/stretch6a_walkthrough.ipynb) | Platform prompt agents | `artifacts/stretch6/part_a.json` |
+| S6B | [Workflows and delegation](stretch6-prompt-agents-and-workflows/stretch6b_walkthrough.ipynb) | Platform workflows and hosted delegation | `artifacts/stretch6/part_b.json`, `agents.json`, `handoff_packets/S1.json` |
+| S7A | [Invocations](stretch7-invocations-toolbox-skills/stretch7a_walkthrough.ipynb) | Structured denied-claim reviews | `artifacts/stretch7/part_a.json`, `invocations.json`, `claim_reviews/` |
+| S7B | [Skills and Toolbox](stretch7-invocations-toolbox-skills/stretch7b_walkthrough.ipynb) | Skills and optional Toolbox | `artifacts/stretch7/part_b.json`, `skills_transcript.md` |
+
+Each A/B pair runs in order but does not share kernel state: B reads A's validated
+`part_a.json` in a fresh kernel, restores required locals, and writes
+`part_b.json`. Do not run A from B or rerun provisioning/evaluation solely to
+restore variables. The original cumulative final checkpoints remain unchanged.
 
 Lab 1 supplies configuration for every later notebook. Lab 2 supplies the
 concierge baseline for Lab 3. Lab 3's hosted and knowledge checkpoints feed Lab 4,
@@ -116,4 +128,5 @@ Lab 5 must match a newly generated trace ID, not an old portal record.
 Internal author tooling regenerates notebooks from the adjacent sources and
 offline CI checks source alignment, contracts and regression tests. It is not
 a learner execution route and does not deploy Azure. See [SETUP.md](../SETUP.md)
-for administrator prerequisites, tracing permissions and cleanup ownership.
+for administrator prerequisites, tracing permissions, cleanup ownership and
+the fourteen source/notebook authoring pairs.
