@@ -16,9 +16,15 @@ implementation and offline validation do not establish those outcomes.
 
 `3-day-labs/` is the canonical fourteen-lab curriculum, relocated from `labs/`
 without teaching or gate changes; only relocation references change. The generated
-`1-day-labs/` publishes original-number Labs 1, 2, 4 and condensed capstone 7. Its Lab 4
+`1-day-labs/` publishes original-number Labs 1, 4 and condensed capstone 7. Its Lab 4
 folds real Lab 3 local exercises and acceptance into the deployment lesson; it
 must not fabricate Lab 3 evidence or assume a completed starter solution.
+Short Lab 1 combines canonical project setup with the chat-only cells owned by
+`tools/one_day_setup_finish.py`. No standalone Lab 2, embedding deployment,
+embedding inference or retrieval service is part of the short route.
+Generated `one_day_parts.py` retains the canonical checkpoint implementation
+but removes embeddings from short scope and maps both setup phases to Lab 1.
+Never weaken three-day `common/notebook_parts.py` or its RAG gates for this purpose.
 Short Lab 7 reuses the canonical MAF helper, fan-out demo and classifier exercise
 with a Lab 4 prerequisite; its isolated product uses synthetic local knowledge
 instead of Lab 6/Search. `tools/one_day_team_finish.py` owns the short-only
@@ -28,7 +34,8 @@ Lab 8 restart/recovery acceptance. Do not auto-send advisor decisions.
 
 Authors edit canonical adjacent cell sources and regenerate their notebooks,
 then run `python build-and-operate-foundry-agents/tools/sync_one_day_labs.py`
-from the repository root. Short-only adaptations belong to that tool and `tools/one_day_team_finish.py`.
+from the repository root. Short-only adaptations belong to that tool, `tools/one_day_setup_finish.py`
+and `tools/one_day_team_finish.py`.
 `--check` must pass in offline CI; it compares deterministic guides, source,
 notebooks, helper/product copies and provenance without writing.
 Default sync rejects modified generated files, including learner product edits.

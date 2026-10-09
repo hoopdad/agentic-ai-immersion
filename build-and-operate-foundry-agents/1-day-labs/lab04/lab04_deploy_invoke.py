@@ -1,8 +1,8 @@
 # %% [markdown]
 # # Lab 4: Build, test, deploy, and invoke a hosted agent
 #
-# **Prerequisites:** Lab 2. No separate Lab 3 notebook or checkpoint is required.
-# **One-day route:** Lab 1 -> Lab 2 -> Lab 4 -> Lab 7 team capstone.
+# **Prerequisites:** Lab 1's verified project and chat inference. No separate Lab 2 or 3 is required.
+# **One-day route:** Lab 1 -> Lab 4 -> Lab 7 team capstone.
 # This condensed lab includes Lab 3's real local acceptance before Lab 4's deployment.
 # Edit the isolated product in `../products/hosted-agent-basics/hosted/main.py`.
 # Preserve sponsor facts, the enrollment-window refusal, and source fingerprints.
@@ -25,7 +25,8 @@ WORKSHOP = REPO_ROOT / "build-and-operate-foundry-agents"
 for folder in (WORKSHOP, WORKSHOP / "1-day-labs"):
     if str(folder) not in sys.path:
         sys.path.insert(0, str(folder))
-from common import foundry_env, marketplace_data, notebook_parts
+from common import foundry_env, marketplace_data
+import one_day_parts as notebook_parts
 import lab_helpers
 
 ARTIFACTS = WORKSHOP / "1-day-labs/artifacts/lab2"
@@ -38,24 +39,23 @@ ENV = foundry_env.load_env()
 ARTIFACTS = lab2.ARTIFACTS
 
 # %% [markdown]
-# This cell checks the original Labs 1-2 inference evidence and binds it to this kernel's project, suffix and deployments.
+# This cell checks the original Lab 1 inference evidence and binds it to this kernel's project, suffix and deployments.
 # %% Step 4.2 - Validate project prerequisite
 (ARTIFACTS / "part_a.json").unlink(missing_ok=True)
 (ARTIFACTS / "part_b.json").unlink(missing_ok=True)
 project = lab_helpers.require_artifact("lab1", "project.json", through=1, caller="Lab 4")
 if project.get("provisioning_state") != "Succeeded" or any(
-        project.get("smoke_tests", {}).get(model) != "passed" for model in ("chat", "embedding")):
-    raise RuntimeError("Complete Lab 2's model smoke tests before continuing.")
+        project.get("smoke_tests", {}).get(model) != "passed" for model in ("chat",)):
+    raise RuntimeError("Complete Lab 1's model smoke tests before continuing.")
 checkpoint_config = {
     "PROJECT_RESOURCE_ID": project.get("project_resource_id"),
     "FOUNDRY_PROJECT_ENDPOINT": project.get("project_endpoint"),
     "TENANT_ID": project.get("tenant_id"),
     "MARKETPLACE_RESOURCE_SUFFIX": project.get("resource_suffix"),
     "AZURE_AI_MODEL_DEPLOYMENT_NAME": project.get("chat_deployment", {}).get("name"),
-    "EMBEDDING_MODEL_DEPLOYMENT_NAME": project.get("embedding_deployment", {}).get("name"),
 }
 if any(not value or value != ENV.get(key) for key, value in checkpoint_config.items()):
-    raise RuntimeError("Lab 2 project checkpoint does not match the current configuration.")
+    raise RuntimeError("Lab 1 project checkpoint does not match the current configuration.")
 
 # %% [markdown]
 # This cell reads the real tool and agent implementation and contrasts authoritative participant data with model-generated prose.

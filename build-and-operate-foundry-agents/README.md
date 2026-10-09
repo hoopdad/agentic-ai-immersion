@@ -9,13 +9,17 @@ All participant data is synthetic; hosted MAF does not require Prompt Agents.
 
 Start with [SETUP.md](SETUP.md), read the [use case](USE-CASE.md), and choose
 the [three-day full sequence](3-day-labs/README.md) or the
-[one-day hosted route](1-day-labs/README.md). The one-day route is **1 -> 2 -> 4 -> 7**,
+[one-day hosted route](1-day-labs/README.md). The one-day route is **1 -> 4 -> 7**,
 with real local acceptance folded into Lab 4 and a condensed
 **Lab 7: Build and host a multi-agent team** capstone. Learners change task routing,
 review specialist work, explicitly approve a packet and invoke the edited team
 hosted in Foundry. MAF supplies the workflow; no Search or Lab 6 is required.
 Use the repository Python 3.14 dev container and
 select `/usr/local/bin/python` as the notebook kernel.
+
+One-day Lab 1 combines identity/project creation and verified chat deployment.
+It has no standalone Lab 2 and provisions no embedding model; the full
+three-day setup retains chat/embedding verification for its later RAG labs.
 
 ## Where things run
 

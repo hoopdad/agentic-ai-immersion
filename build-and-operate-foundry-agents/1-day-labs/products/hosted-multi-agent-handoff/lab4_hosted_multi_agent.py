@@ -121,7 +121,7 @@ def source_fingerprints() -> dict[str, str]:
 
 def require_previous_lab(standalone: bool = False) -> dict:
     """Restore the accepted one-day Lab 4, never Lab 6 knowledge evidence."""
-    from common import notebook_parts
+    import one_day_parts as notebook_parts
     checkpoint = notebook_parts.read_checkpoint(
         lab_helpers.artifact_path("lab2", "part_b.json"), lab="lab2", part="b",
         context=notebook_parts.scope(ENV))

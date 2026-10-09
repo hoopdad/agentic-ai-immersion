@@ -2,7 +2,7 @@
 # # Lab 7: Build and host a multi-agent team
 #
 # **Prerequisites:** Lab 4's accepted deployed Responses checkpoint.
-# **Recommended route:** one-day Labs 1 -> 2 -> 4 -> 7 (capstone).
+# **Recommended route:** one-day Labs 1 -> 4 -> 7 (capstone).
 # Turn one hosted agent into a separate code-defined specialist team: parallel work,
 # structured merge, compliance review, a human approval boundary and Foundry hosting.
 # MAF supplies orchestration; Foundry supplies container hosting and versioned invocation.
@@ -29,7 +29,7 @@ for folder in (ROOT, ROOT / "1-day-labs"):
     if str(folder) not in sys.path:
         sys.path.insert(0, str(folder))
 import lab_helpers
-from common import notebook_parts
+import one_day_parts as notebook_parts
 
 driver = lab_helpers.load_lab_module("hosted-multi-agent-handoff/lab4_hosted_multi_agent.py")
 

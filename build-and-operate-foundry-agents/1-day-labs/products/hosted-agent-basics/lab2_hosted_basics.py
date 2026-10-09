@@ -10,7 +10,7 @@
 # | --- | --- |
 # | Goal | Build, run, and call the smallest complete hosted agent: Agent Framework `Agent` + `FoundryChatClient` + three `@tool` functions over the systems of record + the shared compliance block, served by `ResponsesHostServer`. Run it locally on port 8088, chat S1 and S2 through POST `/responses`, then deploy the same folder from source with `azd ai agent init` + `azd up` and invoke the version. |
 # | Inputs | Root `.env` (`FOUNDRY_PROJECT_ENDPOINT`, `AZURE_AI_MODEL_DEPLOYMENT_NAME`, `PROJECT_RESOURCE_ID` for deployment); `common/` and `data/` (vendored into `hosted/` by `build()`) |
-# | Inputs | Labs 1-2's verified `1-day-labs/artifacts/lab1/project.json` project/model checkpoint |
+# | Inputs | Lab 1's verified `1-day-labs/artifacts/lab1/project.json` project/model checkpoint |
 # | Outputs | `1-day-labs/artifacts/lab2/hosted.json` (agent name, protocol, model, endpoints, deployed version), `1-day-labs/artifacts/lab2/transcripts.md` (S1 and S2, PII-redacted), and `hosted_local.log` |
 # | Time | 60 min (teach 10, demo 10, do 35, checkpoint 5) |
 #
@@ -82,14 +82,14 @@ def log(message: str) -> None:
 
 
 # %% [markdown]
-# This cell checks the verified Labs 1-2 project and model checkpoint before creating the hosted package.
+# This cell checks the verified Lab 1 project and model checkpoint before creating the hosted package.
 # %% Step 2.2 - Check the project and model prerequisite
 if "__file__" not in globals():
     project = lab_helpers.require_artifact("lab1", "project.json", through=1, caller=LAB)
     if project.get("provisioning_state") != "Succeeded" or any(
-        project.get("smoke_tests", {}).get(model) != "passed" for model in ("chat", "embedding")
+        project.get("smoke_tests", {}).get(model) != "passed" for model in ("chat",)
     ):
-        raise RuntimeError("Complete the Labs 1-2 project/model smoke tests before continuing.")
+        raise RuntimeError("Complete the Lab 1 project/model smoke tests before continuing.")
     checkpoint_config = {
         "PROJECT_RESOURCE_ID": project.get("project_resource_id"),
         "FOUNDRY_PROJECT_ENDPOINT": project.get("project_endpoint"),
@@ -102,9 +102,9 @@ if "__file__" not in globals():
     ]
     if mismatches:
         raise RuntimeError(
-            "Labs 1-2 checkpoint does not match the current configuration: "
+            "Lab 1 checkpoint does not match the current configuration: "
             + ", ".join(mismatches)
-            + ". Rerun Labs 1-2's verified handoff, then reload this notebook's configuration."
+            + ". Rerun Lab 1's verified handoff, then reload this notebook's configuration."
         )
 
 # %% [markdown]

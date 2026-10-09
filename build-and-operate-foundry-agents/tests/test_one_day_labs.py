@@ -23,7 +23,6 @@ CONTEXT = {
     "project_endpoint": "https://offline.example.test",
     "resource_suffix": "offline",
     "chat_deployment": "chat-offline",
-    "embedding_deployment": "embed-offline",
 }
 
 
@@ -55,7 +54,7 @@ class OneDayTests(unittest.TestCase):
         short.sync(self.root)
         target = self.root / "1-day-labs"
         notebooks = sorted(target.glob("lab*/*.ipynb"))
-        self.assertEqual([path.parent.name for path in notebooks], ["lab01", "lab02", "lab04", "lab07"])
+        self.assertEqual([path.parent.name for path in notebooks], ["lab01", "lab04", "lab07"])
         for path in notebooks:
             source = next(path.parent.glob("*.py"))
             notebook = json.loads(path.read_text(encoding="utf-8"))
@@ -75,17 +74,17 @@ class OneDayTests(unittest.TestCase):
 
     def test_check_reports_upstream_drift_and_sync_updates_clean_copies(self) -> None:
         short.sync(self.root)
-        upstream = short.source_for(self.root / "3-day-labs", 2)
+        upstream = short.source_for(self.root / "3-day-labs", 3)
         upstream.write_text(upstream.read_text(encoding="utf-8").replace(
-            "Model deployments belong to", "Approved model deployments belong to"), encoding="utf-8")
+            "reads the real tool and agent implementation", "reads the accepted tool and agent implementation"), encoding="utf-8")
         before = snapshot(self.root / "1-day-labs")
         with self.assertRaisesRegex(ValueError, "sync drift"):
             short.sync(self.root, check=True)
         self.assertEqual(snapshot(self.root / "1-day-labs"), before)
         short.sync(self.root)
         short.sync(self.root, check=True)
-        source = self.root / "1-day-labs/lab02" / upstream.name
-        self.assertIn("Approved model deployments", source.read_text(encoding="utf-8"))
+        source = next((self.root / "1-day-labs/lab04").glob("*.py"))
+        self.assertIn("accepted tool and agent implementation", source.read_text(encoding="utf-8"))
 
     def test_sync_preserves_learner_edits_and_requires_explicit_overwrite(self) -> None:
         short.sync(self.root)
@@ -149,10 +148,13 @@ class OneDayTests(unittest.TestCase):
         namespace["TESTED_SOURCE_SHA256"] = hashlib.sha256(source.read_bytes()).hexdigest()
         namespace["ENV"] = dict(zip(
             ("PROJECT_RESOURCE_ID", "FOUNDRY_PROJECT_ENDPOINT", "MARKETPLACE_RESOURCE_SUFFIX",
-             "AZURE_AI_MODEL_DEPLOYMENT_NAME", "EMBEDDING_MODEL_DEPLOYMENT_NAME"),
+             "AZURE_AI_MODEL_DEPLOYMENT_NAME"),
             CONTEXT.values(), strict=True))
+        short.sync(self.root)
+        parts = load("one_day_parts", self.root / "1-day-labs/one_day_parts.py")
+        namespace["notebook_parts"] = parts
         exec(cells[8], namespace)
-        restored = notebook_parts.read_checkpoint(
+        restored = parts.read_checkpoint(
             artifacts / "part_a.json", lab="lab2", part="a", context=CONTEXT)
         self.assertEqual(restored["state"]["hosted_source_sha256"], namespace["TESTED_SOURCE_SHA256"])
         self.assertEqual(restored["state"]["local_tools"], "passed")
@@ -163,13 +165,13 @@ class OneDayTests(unittest.TestCase):
         old_path = sys.path[:]
         self.addCleanup(setattr, sys, "path", old_path)
         with patch.dict(sys.modules):
+            parts = load("one_day_parts", self.root / "1-day-labs/one_day_parts.py")
             helper = load("lab_helpers", self.root / "1-day-labs/lab_helpers.py")
             env = {
                 "MARKETPLACE_RESOURCE_SUFFIX": CONTEXT["resource_suffix"],
                 "PROJECT_RESOURCE_ID": CONTEXT["project_resource_id"],
                 "FOUNDRY_PROJECT_ENDPOINT": CONTEXT["project_endpoint"],
                 "AZURE_AI_MODEL_DEPLOYMENT_NAME": CONTEXT["chat_deployment"],
-                "EMBEDDING_MODEL_DEPLOYMENT_NAME": CONTEXT["embedding_deployment"],
                 "MARKETPLACE_KB_MCP_URL": "https://unwanted.example.test/mcp",
             }
             with patch.object(foundry_env, "load_env", return_value=env):
@@ -188,7 +190,7 @@ class OneDayTests(unittest.TestCase):
                     team.build(standalone=True)
             project = target / "artifacts/lab2/hosted.json"
             project.write_text(json.dumps({"agent_name": basics.AGENT_NAME}))
-            notebook_parts.write_checkpoint(
+            parts.write_checkpoint(
                 project.with_name("part_b.json"), lab="lab2", part="b", context=CONTEXT,
                 evidence=[project], state={"deployed_inference": "passed"})
             team.ENV = env
@@ -271,6 +273,72 @@ class OneDayTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Invalid generated manifest path"):
             short.sync(self.root, overwrite=True)
         self.assertEqual(snapshot(self.root / "3-day-labs"), self.originals)
+
+    def test_combined_setup_calls_chat_only_and_rejects_changed_plan(self) -> None:
+        from datetime import datetime, timezone
+        from types import SimpleNamespace
+        from unittest.mock import MagicMock
+        short.sync(self.root)
+        with patch.dict(sys.modules):
+            parts = load("one_day_parts", self.root / "1-day-labs/one_day_parts.py")
+            text = short.adapt_source(self.root / "3-day-labs", 1)[1]
+            notebook = build_notebook(text)
+            cells = {int("".join(cell["source"]).splitlines()[0].split("Step 1.")[1].split(" ")[0]): "".join(cell["source"])
+                     for cell in notebook["cells"] if cell["cell_type"] == "code"}
+            self.assertEqual(sorted(cells), list(range(1, 11)))
+            artifacts = self.root / "1-day-labs/artifacts/lab1"
+            artifacts.mkdir(parents=True)
+            cli = MagicMock()
+            cli.run.return_value = {"choices": [{"message": {"content": "Hello"}}]}
+            setup = MagicMock()
+            setup.read_project_handoff.return_value = (
+                {}, {"tenant_id": "tenant", "subscription_id": "subscription"},
+                {"id": "account"}, {"id": CONTEXT["project_resource_id"]})
+            setup.endpoints.return_value = (CONTEXT["project_endpoint"], "https://openai.example.test/")
+            namespace = {
+                "CLI": cli, "project_setup": setup, "ARTIFACTS": artifacts,
+                "ARTIFACT": artifacts / "project.json", "SUBSCRIPTION_ID": "subscription",
+                "TENANT_ID": "tenant", "ATTENDEE_SUFFIX": "offline", "SUFFIX": "offline",
+                "CONTEXT": {"tenant_id": "tenant"}, "PROJECT": {"id": CONTEXT["project_resource_id"]},
+                "PROJECT_ENDPOINT": CONTEXT["project_endpoint"], "OPENAI_ENDPOINT": "https://openai.example.test/",
+                "CHAT_NAME": "chat-offline", "CHAT_SPEC": {"version": "accepted"},
+                "json": json, "notebook_parts": parts,
+            }
+            exec(cells[9], namespace)
+            self.assertEqual(cli.run.call_count, 1)
+            self.assertTrue(any("chat/completions" in arg for arg in cli.run.call_args.args))
+            self.assertEqual(namespace["SMOKE_TESTS"], {"chat": "passed"})
+            namespace["CHAT_SPEC"] = {"version": "changed"}
+            with self.assertRaisesRegex(RuntimeError, "exact project and chat"):
+                exec(cells[10], namespace)
+            setup.write_env.assert_not_called()
+            namespace.update({
+                "CHAT_SPEC": {"version": "accepted"}, "REPO_ROOT": self.root,
+                "datetime": datetime, "timezone": timezone,
+                "foundry_env": SimpleNamespace(
+                    load_env=lambda: namespace["OUTPUT_ENV"],
+                    save_artifact=lambda path, data: path.write_text(json.dumps(data), encoding="utf-8"),
+                ),
+            })
+            exec(cells[10], namespace)
+            setup.write_env.assert_called_once()
+            verified = json.loads(namespace["ARTIFACT"].read_text(encoding="utf-8"))
+            self.assertEqual(verified["smoke_tests"], {"chat": "passed"})
+            self.assertNotIn("embedding_deployment", verified)
+            self.assertTrue((artifacts / "part_b.json").is_file())
+            cli.run.return_value = {"choices": []}
+            with self.assertRaisesRegex(RuntimeError, "no assistant text"):
+                exec(cells[9], namespace)
+            self.assertEqual(namespace["SMOKE_TESTS"], {})
+            self.assertFalse((artifacts / "part_b.json").exists())
+            self.assertNotIn("EMBEDDING_MODEL_DEPLOYMENT_NAME", text)
+            self.assertNotIn("text-embedding", text)
+            self.assertEqual(parts.scope({
+                "PROJECT_RESOURCE_ID": CONTEXT["project_resource_id"],
+                "FOUNDRY_PROJECT_ENDPOINT": CONTEXT["project_endpoint"],
+                "MARKETPLACE_RESOURCE_SUFFIX": CONTEXT["resource_suffix"],
+                "AZURE_AI_MODEL_DEPLOYMENT_NAME": CONTEXT["chat_deployment"],
+            }), CONTEXT)
 
 
 if __name__ == "__main__":

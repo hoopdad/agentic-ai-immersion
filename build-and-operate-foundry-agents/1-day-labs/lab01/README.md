@@ -1,8 +1,8 @@
-# Lab 1: Identity and project
+# Lab 1: Project, identity and chat inference
 
 ## Prerequisites
 
-Administrator-approved account and permissions.
+Administrator-approved account, chat quota and permissions.
 
 Open [lab01_walkthrough.ipynb](lab01_walkthrough.ipynb) in a fresh Python 3.14 dev-container kernel. Run the described cells in order.
 The notebook contains the actual inputs, YOUR TURN edits, and acceptance gates.
@@ -15,7 +15,7 @@ Artifacts live in `../artifacts/`; use a distinct attendee suffix for a separate
 
 ## Checkpoint
 
-`artifacts/lab1/part_a.json` passes the approved project to Lab 2.
+`artifacts/lab1/part_a.json` is the internal project handoff within this lab; `part_b.json` and `project.json` pass verified chat-only configuration to Lab 4. No embedding model is deployed or verified.
 
 ## Recovery and synchronization
 

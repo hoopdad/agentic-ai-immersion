@@ -101,7 +101,7 @@ agentic-ai-immersion-day/
 │   ├── tools/py_to_ipynb.py                    # script -> notebook converter
 │   ├── shared/                                 # reusable products, provisioning and operating helpers
 │   ├── 3-day-labs/lab01/ ... 3-day-labs/lab14/  # canonical full curriculum
-│   └── 1-day-labs/                            # generated Labs 1, 2, 4 and MAF team capstone 7
+│   └── 1-day-labs/                            # generated Labs 1, 4 and MAF team capstone 7
 │
 ├── 🧩 byouc/                                   # Bring Your Own Use Case
 │   ├── Agentic_UseCase_Spec.md                # Use case spec template (Markdown)
@@ -494,10 +494,12 @@ container, `.env` names, pinned requirements and RBAC script; extends the `hoste
 patterns. This track uses the Python 3.14 dev container and Bash; Labs 1-2 persist configuration,
 so do not copy `.env` manually using the independent-track setup above.
 Choose the [one-day route](build-and-operate-foundry-agents/1-day-labs/README.md)
-for **1 -> 2 -> 4 -> 7**; local acceptance is folded into short Lab 4,
+for **1 -> 4 -> 7**; local acceptance is folded into short Lab 4,
 then a condensed MAF team capstone adds parallel specialists, a learner-changed
 classifier, explicit human review and Foundry-hosted invocation. It requires no
 Search or Lab 6 and uses separate editable products and artifacts. The
+short Lab 1 combines approved project setup with chat-model deployment and
+verification; no embedding model or standalone Lab 2 is required. The
 [three-day route](build-and-operate-foundry-agents/3-day-labs/README.md) retains
 all fourteen labs. Authors synchronize the generated short route with
 `tools/sync_one_day_labs.py`; tracks share root configuration and must not run concurrently.

@@ -127,6 +127,11 @@ Do not deploy Azurite's local emulator settings to Foundry.
 
 ## 4. Project and model setup: Labs 1-2
 
+This section describes the full three-day route. The generated one-day route
+combines these foundations in **Lab 1**, deploys and verifies **chat only**,
+then proceeds to Labs 4 and 7. Do not run the three-day embedding setup for
+that route; follow `1-day-labs/lab01/lab01_walkthrough.ipynb` instead.
+
 Lab 1 authenticates and creates or resolves the project. Lab 2 reuses that
 project, provisions chat and embedding deployments, verifies readiness and
 persists their settings. Lab 2's `artifacts/lab1/project.json` checkpoint records project/model references

@@ -340,7 +340,10 @@ Before changing this workshop, read `build-and-operate-foundry-agents/convention
 Read `migration-plan.md` for migration history and implementation status; use
 `3-day-labs/README.md` for the hosted-first curriculum and required prerequisites.
 Canonical lab sources live in `3-day-labs/`. The generated `1-day-labs/` route is
-Labs 1, 2, 4 and capstone 7; Lab 4 includes genuine local acceptance before deployment.
+Labs 1, 4 and capstone 7; Lab 4 includes genuine local acceptance before deployment.
+Short Lab 1 combines identity/project setup with chat-only deployment/inference.
+`tools/one_day_setup_finish.py` owns those cells; generated `one_day_parts.py`
+omits embedding scope without changing canonical three-day checkpoints.
 Short Lab 7 requires Lab 4, not Lab 6: reuse the MAF graph with synthetic local
 knowledge, a changed classifier, explicit human decisions and pinned Foundry
 invocation. Short-only finish cells live in `tools/one_day_team_finish.py`.

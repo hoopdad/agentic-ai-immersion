@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Build and Operate Foundry Agents</title>
+<style>
+:root{--navy:#17365d;--blue:#0078d4;--ink:#243747;--muted:#526577;--line:#d5e0e8;--panel:#f3f6f9;--pale:#eaf4fc}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:#d9e1e8;color:var(--ink);font-family:"Segoe UI",Arial,sans-serif;font-size:10pt;line-height:1.36;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+@page{size:Letter;margin:0}
+.page{position:relative;width:8.5in;height:11in;margin:0 auto .15in;background:white;break-after:page}
+.page:last-child{break-after:auto}
+.hero{height:1.99in;padding:.29in .53in;color:white;background:linear-gradient(115deg,#123457,#173e67 65%,#08657c)}
+.eyebrow{font-size:8pt;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:#9de0ff}
+h1{font-size:28pt;line-height:1.09;letter-spacing:-.5px;margin:.12in 0 .13in}
+.hero p{margin:0;color:#e2effb;max-width:6.7in;font-size:11pt}
+.meta{display:grid;grid-template-columns:1fr 1.3fr 1fr;margin:0 .5in;background:var(--panel);min-height:.72in}
+.meta>div{padding:.13in .15in;border-right:1px solid var(--line)}
+.meta>div:last-child{border:0}
+.label{display:block;font-size:7.6pt;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.7px;margin-bottom:.035in}
+.meta strong{font-size:10pt;color:var(--navy)}
+.body{padding:.2in .53in .4in}
+.section-title{margin:0 0 .09in;color:#0067b8;text-transform:uppercase;letter-spacing:1px;font-size:8.4pt;font-weight:800}
+p{margin:0 0 .12in}
+.objectives{display:grid;grid-template-columns:1fr 1fr;gap:.11in .18in;margin:.1in 0 .19in}
+.objective{display:grid;grid-template-columns:.29in 1fr;gap:.08in}
+.badge{display:inline-flex;align-items:center;justify-content:center;border-radius:4px;background:var(--pale);color:var(--blue);font-size:10pt;font-weight:800;height:.28in;width:.28in}
+.objective strong{display:block;margin-bottom:.03in;font-size:10pt;color:var(--navy)}
+.objective span.text{font-size:9.3pt}
+.callout{padding:.15in .17in;margin:0 0 .19in;background:var(--pale);border-left:7px solid var(--blue)}
+.callout strong{display:block;color:var(--navy);font-size:11pt;margin-bottom:.035in}
+.callout p{font-size:9.4pt;margin:0}
+.agenda{border-collapse:collapse;width:100%;border-top:2px solid var(--navy);font-size:9.2pt}
+.agenda th{background:#e7edf2;text-align:left;padding:.08in;color:var(--navy);font-size:8pt}
+.agenda td{padding:.07in .08in;border-bottom:1px solid var(--line);vertical-align:top}
+.agenda td:first-child{width:1.12in;font-weight:700;color:var(--navy)}
+.agenda td:nth-child(2){width:1.76in}
+.note{font-size:8.1pt;color:var(--muted);margin:.09in 0 0}
+.page-header{padding:.29in .53in .15in;border-top:8px solid var(--blue)}
+.page-header h2{font-size:21pt;margin:.075in 0 .07in;line-height:1.14;color:var(--navy)}
+.page-header p{font-size:9.4pt;margin:0;color:var(--muted)}
+.page2 .body{padding-top:.06in}
+.columns{display:grid;grid-template-columns:1.03fr 1fr;gap:.24in}
+.card{padding:.11in .13in;margin-bottom:.1in;background:var(--panel);border-top:3px solid #8ebfdf}
+.card h3{font-size:10.3pt;margin:0 0 .055in;color:var(--navy)}
+.card p{font-size:9pt;line-height:1.31;margin:0}
+.card p+p{margin-top:.07in}
+.safety{padding:.12in;background:#fff8dd;border-left:5px solid #e8b52d;margin-top:.1in;font-size:9pt;line-height:1.31}
+.safety strong{display:block;color:#614c12;margin-bottom:.04in}
+.lab-row{display:grid;grid-template-columns:.36in 1fr;gap:.09in;padding:.105in 0;border-bottom:1px solid var(--line)}
+.lab-row .badge{background:var(--navy);color:white;height:.33in;width:.33in;font-size:11pt}
+.lab-row h3{font-size:10.2pt;color:var(--navy);margin:0 0 .03in}
+.lab-row p{font-size:9.1pt;margin:0}
+.capstone{background:var(--pale);padding:.13in;border-bottom:0;margin-top:.06in}
+.method{margin-top:.16in;padding:.14in;border:1px solid var(--line);font-size:9.1pt}
+.method h3{margin:0 0 .06in;font-size:10.3pt;color:var(--navy)}
+.scope{display:grid;grid-template-columns:1fr 1fr;gap:.17in;margin-top:.15in;break-inside:avoid}
+.scope>div{padding:.13in;background:var(--panel)}
+.scope h3{font-size:9.7pt;color:var(--navy);margin:0 0 .045in}
+.scope p{font-size:8.9pt;margin:0}
+.footer{position:absolute;left:.53in;right:.53in;bottom:.21in;display:flex;justify-content:space-between;gap:.1in;padding-top:.07in;border-top:1px solid var(--line);color:var(--muted);font-size:6.8pt}
+@media print{html,body{background:white}.page{margin:0}}
+</style>
+</head>
+<body>
+<section class="page">
+  <header class="hero">
+    <div class="eyebrow">Microsoft Foundry &bull; Hands-on engineering workshop</div>
+    <h1>Build and Operate<br>Foundry Agents</h1>
+    <p>One-day hosted-agent workshop<br>Build one agent. Change a specialist team. Host it in Foundry.</p>
+  </header>
+  <div class="meta">
+    <div><span class="label">Duration</span><strong>One-day track</strong><br><span style="font-size:8.4pt">Timing subject to rehearsal</span></div>
+    <div><span class="label">Delivery</span><strong>Guided, notebook-first labs</strong><br><span style="font-size:8.4pt">Python 3.14 dev container</span></div>
+    <div><span class="label">Technical depth</span><strong>Python development</strong><br><span style="font-size:8.4pt">Foundations to orchestration</span></div>
+  </div>
+  <main class="body">
+    <h2 class="section-title">Workshop description</h2>
+    <p>Build the Healthcare Marketplace Concierge with Microsoft Foundry hosted
+    agents and Microsoft Agent Framework (MAF). Work through a cumulative,
+    synthetic-data scenario: establish identity and models, test and deploy
+    a typed-tool agent, then change and host a multi-agent team that pauses
+    for human review.</p>
+    <h2 class="section-title">Objectives and expected outcomes</h2>
+    <div class="objectives">
+      <div class="objective"><span class="badge">1</span><div><strong>Establish a verified foundation</strong><span class="text">Create an attendee project in an approved account; verify chat inference.</span></div></div>
+      <div class="objective"><span class="badge">2</span><div><strong>Build and deploy real behavior</strong><span class="text">Add a typed tool, test policy boundaries and invoke an actual hosted Responses version.</span></div></div>
+      <div class="objective"><span class="badge">3</span><div><strong>Change a specialist team</strong><span class="text">Inspect parallel work, structured merge and compliance review; add model-based task routing.</span></div></div>
+      <div class="objective"><span class="badge">4</span><div><strong>Review and host the result</strong><span class="text">Explicitly approve local and hosted packets; retain source-bound, fixed-version acceptance evidence.</span></div></div>
+    </div>
+    <aside class="callout">
+      <strong>The capstone is a hosted team, not another protocol demo.</strong>
+      <p>MAF supplies orchestration and the human-review boundary. Foundry hosts
+      and versions one service containing code-defined specialists. No Prompt
+      Agents, Search service or Lab 6 prerequisites are required.
+      Deployment is a required, explicit, paid lab action.</p>
+    </aside>
+    <h2 class="section-title">Agenda &amp; timing readiness</h2>
+    <table class="agenda">
+      <thead><tr><th>Sequence</th><th>Module</th><th>Participant milestone</th></tr></thead>
+      <tbody>
+        <tr><td>Before delivery</td><td>Administrator readiness</td><td>Approved account, network, roles, hosted enablement, quota and working dev container.</td></tr>
+        <tr><td>First &middot; TBC</td><td>Lab 1<br>Project and chat inference</td><td>Approved attendee project, verified chat inference and persisted configuration.</td></tr>
+        <tr><td>Next &middot; TBC</td><td>Lab 4<br>One hosted agent</td><td>Real local tool/policy acceptance, deployment and selected-version invocation.</td></tr>
+        <tr><td>Capstone &middot; TBC</td><td>Lab 7<br>Multi-agent team</td><td>Changed classifier, specialist packet, explicit approval and hosted team invocation.</td></tr>
+        <tr><td>Close &middot; TBC</td><td>Evidence and cleanup review</td><td>Inspect accepted outcomes and review attendee-owned resource cleanup with the facilitator.</td></tr>
+      </tbody>
+    </table>
+    <p class="note">TBC = time allocation to be confirmed. The sources specify a one-day route,
+    not approved clock times or lab durations. Rehearsal must confirm pacing,
+    breaks and cloud-readiness waits before scheduling delivery.</p>
+  </main>
+  <footer class="footer"><span>Build and Operate Foundry Agents &bull; One-day track</span><span>Page 1 of 2</span></footer>
+</section>
+<section class="page page2">
+  <header class="page-header">
+    <div class="eyebrow" style="color:#0067b8">Readiness &bull; Cumulative learning path</div>
+    <h2>From a single agent to a hosted team</h2>
+    <p>Participant outcome: &ldquo;I changed a team of AI specialists, reviewed its work and hosted it in Foundry.&rdquo;</p>
+  </header>
+  <main class="body">
+    <div class="columns">
+      <div>
+        <h2 class="section-title">Participants &amp; readiness</h2>
+        <div class="card">
+          <h3>Who should participate</h3>
+          <p>Engineers building AI-enabled applications, including benefits-marketplace
+          solutions. Participants should be comfortable reading and editing Python,
+          using notebooks, and inspecting JSON and HTTP interactions.</p>
+        </div>
+        <div class="card">
+          <h3>Required workstation and tools</h3>
+          <p>Repository Python 3.14 dev container; VS Code with Dev Containers,
+          Python and Jupyter support. For local delivery, Docker Desktop with
+          Linux containers is required.</p>
+          <p>Use the container's Azure CLI, Azure Developer CLI (azd), Bash and
+          pinned dependencies. Select <strong>/usr/local/bin/python</strong>.
+          <strong>Alternative:</strong> GitHub Codespaces only where organizational
+          policy and Azure network access permit.</p>
+        </div>
+        <div class="card">
+          <h3>Required Azure environment and access</h3>
+          <p>Administrator-approved tenant, subscription, resource group and existing
+          Foundry account; available chat model and quota; an approved
+          network path from the learner container.</p>
+          <p>Project/chat-model creation rights, hosted-project enablement and identity
+          access must be confirmed. Deployment requires <strong>Foundry Project
+          Manager</strong>; invocation requires <strong>Foundry Agent Consumer
+          or Foundry User</strong>. Model access is separate from deployment
+          and invocation permission. Use Entra authentication.</p>
+        </div>
+        <aside class="safety">
+          <strong>Safety and governance boundaries</strong>
+          Synthetic data only. No plan ranking, recommendation or medical advice.
+          Keep facts grounded, minimize data and hand off judgment to a licensed
+          advisor. Approval is an explicit learner simulation, not production
+          authorization. Never commit credentials or runtime evidence.
+          Review costs, scope and cleanup; do not bypass network controls.
+        </aside>
+      </div>
+      <div>
+        <h2 class="section-title">Three cumulative labs, in order</h2>
+        <div class="lab-row"><span class="badge">01</span><div><h3>Project, identity and chat inference</h3><p>Authenticate, confirm approved account scope and create or resolve the attendee project. Select a chat model, review capacity and charges, deploy it and verify real inference. Save the verified configuration and scoped handoff.</p><p style="margin-top:.08in">This combines project setup and model verification into one foundational milestone: your environment works. No embedding model is provisioned and no separate Lab 2 is needed. Hosted-project enablement and identity access still require administrator confirmation.</p></div></div>
+        <div class="lab-row"><span class="badge">04</span><div><h3>Build, test, deploy and invoke</h3><p>Complete the folded local tool and instruction exercises before deployment. Confirm sponsor facts and the enrollment-window refusal, then invoke the selected hosted version. No separate Lab 3 is needed.</p></div></div>
+        <div class="lab-row capstone"><span class="badge">07</span><div><h3>Build and host a multi-agent team</h3><p>Inspect the scaffolded MAF graph, route to marketplace/account specialists, merge and compliance-check results. Add a structured classifier, explicitly approve a mixed-case packet, then deploy and review the same team in Foundry.</p></div></div>
+        <div class="method">
+          <h3>Delivery methodology</h3>
+          Teach &rarr; inspect &rarr; demonstrate &rarr; edit &rarr; verify &rarr; hand off.
+          Run each notebook in a fresh kernel and restore validated predecessor
+          evidence instead of repeating provisioning. Learners edit isolated
+          one-day products. Model calls and cloud deployment are explicit actions;
+          a successful local test is not proof of Azure acceptance.
+          <p style="margin:.09in 0 0">Shared root configuration, port 8088 and quota
+          mean tracks must not run concurrently. File-backed pending state is
+          single-instance, not cross-replica recovery.</p>
+        </div>
+      </div>
+    </div>
+    <div class="scope">
+      <div><h3>Included</h3><p>Three guided notebooks, scaffolded hosted products, synthetic fixtures,
+      typed-tool/policy exercises, MAF workflow/classifier exercise, explicit
+      human review and acceptance checkpoints.</p></div>
+      <div><h3>Out of scope / not prerequisites</h3><p>Embedding models, RAG, Prompt Agents, Search/Foundry IQ setup, Blob history, telemetry/evaluation
+      infrastructure, batch Invocations, restart recovery, hosted delegation
+      and production authorization. No production-readiness certification.</p></div>
+    </div>
+  </main>
+  <footer class="footer"><span>Updated 08 Oct 2026 &bull; Working revision based on 8462563</span><span>Page 2 of 2</span></footer>
+</section>
+</body>
+</html>

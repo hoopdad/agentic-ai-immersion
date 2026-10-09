@@ -32,7 +32,8 @@ ROOT = LABS_DIR.parent                                   # build-and-operate-fou
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from common import marketplace_data, foundry_env, guardrails, notebook_parts  # noqa: E402
+from common import marketplace_data, foundry_env, guardrails
+import one_day_parts as notebook_parts  # noqa: E402
 
 DEFAULT_MODEL = "gpt-5.4-mini"
 CITATION_RE = re.compile(r"\[KB-[A-Z]{3}-\d{3}\]")

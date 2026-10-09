@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-Lab 2; local acceptance is included here.
+Lab 1 verified chat-only setup; local acceptance is included here.
 
 Open [lab04_walkthrough.ipynb](lab04_walkthrough.ipynb) in a fresh Python 3.14 dev-container kernel. Run the described cells in order.
 The notebook contains the actual inputs, YOUR TURN edits, and acceptance gates.

@@ -7,7 +7,7 @@
 - `observability-and-evaluations/`: tracing, evaluator and red-team notebooks.
 - `hosted-agents/`: small deployable examples for the Responses and Invocations protocols.
 - `AgentOps/`: standalone GitOps example with infrastructure and tests.
-- `build-and-operate-foundry-agents/`: Healthcare Marketplace workshop; canonical three-day Labs 1-14 and generated one-day Labs 1, 2, 4, capstone 7, run through Jupyter notebooks.
+- `build-and-operate-foundry-agents/`: Healthcare Marketplace workshop; canonical three-day Labs 1-14 and generated one-day Labs 1, 4, capstone 7, run through Jupyter notebooks.
 - `byouc/`: use-case specification templates.
 
 ## Boundaries and navigation
@@ -25,13 +25,19 @@
   implemented on `copilot/hosted-first-lab-conventions`; Lab 12 replaces
   prompt-backed orchestration with hosted-to-hosted delegation, while Lab 11
   is a terminal optional comparison.
-- Workshop `Datasheets/` is absent in this baseline; root prerequisite PDFs and
-  their indexed generators remain independent collateral.
+- Workshop `Datasheets/Build-and-Operate-Foundry-Agents-One-Day-Datasheet.html`
+  is the editable, headless-Edge-rendered two-page US Letter one-day datasheet;
+  the adjacent PDF summarizes the 1 -> 4 -> 7 capstone route, required paid
+  deployment and readiness. Exact agenda allocations remain TBC pending rehearsal.
+  Root prerequisite PDFs and their indexed generators remain independent collateral.
 - Workshop implementation: `common/` (data, environment and state), `data/` (synthetic fixtures),
   `3-day-labs/lab01/` through `3-day-labs/lab14/` (one notebook, adjacent authoring source and README each),
   and `shared/` (reusable products and internal drivers). Paths below are relative to the workshop.
 - Short-track ownership/sync: `tools/sync_one_day_labs.py` generates `1-day-labs/` from canonical
   sources and shared products; `--check` detects drift, default sync preserves learner edits.
+  Short Lab 1 folds identity/project setup and chat-only provisioning/inference together;
+  `tools/one_day_setup_finish.py` owns its model phase. Standalone short Lab 2 is retired.
+  Generated `one_day_parts.py` removes embedding scope only for this track; full RAG remains intact.
   Lab 4 composes real Lab 3 local gates with deployment; no separate Lab 3 notebook.
   Short Lab 7 adapts canonical fan-out/classifier cells plus `tools/one_day_team_finish.py`
   for explicit local/hosted approval and fixed-version deployment. Its isolated triage
@@ -158,3 +164,11 @@ Latest short-track adaptation replaces Lab 13/batch copies with condensed Lab 7
 and the generated MAF triage product. Added `tools/one_day_team_finish.py`; canonical
 three-day material is untouched. The terminal `one-day-team` checkpoint must not
 be confused with three-day Lab 8's recovery contract.
+Datasheet source baseline: `846256313ee91376f3598466246952f0f9f21cd3`.
+Added the one-day HTML/PDF pair under workshop `Datasheets/`; reflects current
+one-day guides and SETUP, not obsolete batch-capstone collateral. No deck or
+facilitator playbook is present in the workshop tree at this revision.
+Latest consolidation adds `tools/one_day_setup_finish.py`, retires one-day Lab 2,
+generates chat-only checkpoint logic, and updates the datasheet to three labs:
+1 -> 4 -> 7. Embedding deployment/inference is absent from the short route;
+canonical three-day setup, shared SDK helpers and embedding contracts are unchanged.

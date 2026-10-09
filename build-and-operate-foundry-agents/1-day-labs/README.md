@@ -1,6 +1,8 @@
 # One-day hosted-agent workshop
 
-The short route keeps the original lab numbers: **1 -> 2 -> 4 -> 7**.
+The short route keeps the original lab numbers: **1 -> 4 -> 7**.
+Lab 1 combines approved identity/project setup with chat-model deployment and
+verified inference. No embedding model, standalone Lab 2 or RAG setup is required.
 Lab 4 includes the real local tool/policy build-and-test phase needed before
 deployment; a separate Lab 3 notebook is not required. The fourth lab is
 **Lab 7: Build and host a multi-agent team**, the one-day capstone. It follows
@@ -10,13 +12,12 @@ and versions that service behind the Responses endpoint. No Prompt Agents.
 
 ```text
 Administrator prerequisites and dev container
-`-- Lab 01: Identity and project
-    `-- Lab 02: Models and verification
-        `-- Lab 04: Local acceptance, deploy and invoke hosted Responses
-            `-- Lab 07: Build and host a multi-agent team [capstone]
-                |-- Parallel specialists -> merge -> compliance review
-                |-- Change routing and explicitly approve the result
-                `-- Deploy and invoke the same team in Foundry
+`-- Lab 01: Project, identity and chat inference
+    `-- Lab 04: Local acceptance, deploy and invoke hosted Responses
+        `-- Lab 07: Build and host a multi-agent team [capstone]
+            |-- Parallel specialists -> merge -> compliance review
+            |-- Change routing and explicitly approve the result
+            `-- Deploy and invoke the same team in Foundry
 ```
 
 Read [setup](../SETUP.md) for approved account, model quota, hosted enablement,
@@ -30,10 +31,9 @@ are intentionally left to the three-day workshop.
 
 | Order | Notebook | Main outcome |
 |---|---|---|
-| 1 | [Lab 1](lab01/lab01_walkthrough.ipynb) | Approved identity and attendee project |
-| 2 | [Lab 2](lab02/lab02_walkthrough.ipynb) | Verified chat/embedding configuration |
-| 3 | [Lab 4](lab04/lab04_walkthrough.ipynb) | Tested tools/policy and actual deployed invocation |
-| 4 | [Lab 7](lab07/lab07_walkthrough.ipynb) | Your changed multi-agent workflow, reviewed and hosted in Foundry |
+| 1 | [Lab 1](lab01/lab01_walkthrough.ipynb) | Approved project and verified chat inference |
+| 2 | [Lab 4](lab04/lab04_walkthrough.ipynb) | Tested tools/policy and actual deployed invocation |
+| 3 | [Lab 7](lab07/lab07_walkthrough.ipynb) | Your changed multi-agent workflow, reviewed and hosted in Foundry |
 
 ## Isolation
 
