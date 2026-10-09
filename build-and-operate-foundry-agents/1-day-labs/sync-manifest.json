@@ -1,0 +1,51 @@
+{
+  "inputs": {
+    "3-day-labs/lab01/lab01_identity_project.py": "ef23fd9d5eb618fb61dbe4dad5ab9ea7efe821711139be23eb5c8827e33dbbd6",
+    "3-day-labs/lab02/lab02_models_verify.py": "6f652d4d92f328be68489ee835f691037cf827f08ea5929c08f9f861bfeb1e9f",
+    "3-day-labs/lab03/lab03_tools_local.py": "358011dae5c8a7e3894d71243391d693d947d772e1dba31da488dbbeacbc0ee7",
+    "3-day-labs/lab04/lab04_deploy_invoke.py": "03f6145a8cddf0bae1bbc2b33a0f3a5c26a21a653c1e735532330ed6a2070667",
+    "3-day-labs/lab07/lab07_specialist_orchestration.py": "6aa829ce8392a6c670f45d4e1ef7e5b6ed6a7cf2b2159033055397dc8c549e0d",
+    "tools/one_day_team_finish.py": "456c8befadc14013a4f366d019e52588b541cceade2fb72543433f258471c96e"
+  },
+  "outputs": {
+    "README.md": "7f81cc7d7ac2ce0e7f161237918cd8d904e16de12407e7bc34c2af4b2dfcd1ba",
+    "artifacts/README.md": "cdadcae316576c519f7d2f673bb73541ba47d56a6e2a3dabe3b1172cb5b5cfa8",
+    "deployment.py": "1c373d0cb13d01bc5d9347494496a49e7378eb5d89f582deaa5844f850f9acfa",
+    "lab01/README.md": "f8073273cd83be70bf2d0b4ad1509721a2b3f6eaa7dfcd48b7a24edf4567b5c3",
+    "lab01/lab01_identity_project.py": "8227e9592d672251addf16d9927e8dd2438106aec1b67fe4796edfa21766c6c2",
+    "lab01/lab01_walkthrough.ipynb": "5c7b0428e7fb12581faf476fc1378449c99a9d18e88a0bbbe0772713f87057f6",
+    "lab02/README.md": "23d6c839c88215bea9d7ac5f0f66ee08b22a5c18cbcf968cd540c9b073753d16",
+    "lab02/lab02_models_verify.py": "a08b23d3135390e32b438f372b2fb13150cb92d735c990049f136e002bf19bd3",
+    "lab02/lab02_walkthrough.ipynb": "d71a4b8e9d77f23c61f45951c1c7d0711b0b9816dcb4a37c83d624cf032b60f4",
+    "lab04/README.md": "09e02b1b89b46a05ea4535540cb4602454c9a793b6805a8f692627aff1cbbc54",
+    "lab04/lab04_deploy_invoke.py": "818a3a136ce40491df497bc11d453074bda4674bde4f11d49c85d7592edaf69a",
+    "lab04/lab04_walkthrough.ipynb": "25ffb4a614829271cf2e8c057fc7ed3217d56bac0f3e681b693d8ca4299d5d17",
+    "lab07/README.md": "2969264c67b12e7c8bda6d8d0b6f70e9ea76e809a90eaa062060bd0317b6bd59",
+    "lab07/lab07_specialist_orchestration.py": "495706134b3dbb3f8fb0e0ce663138e7e464112ec8b1a54dc2e4e3e7cf83708e",
+    "lab07/lab07_walkthrough.ipynb": "f04a6af16969c6295e34edae5f9e031c9af06bf25e436cb1f10bbe74b9af6b1e",
+    "lab_helpers.py": "d5be83c9fee0a43e09237535511da8e696b96fc4b82713c5efa6dd6f938b9c79",
+    "products/hosted-agent-basics/hosted/.agentignore": "a7fe9f2fc09ea899587ca882fca13227bf9c0fcda26ba10ae36fc79b4cb229c8",
+    "products/hosted-agent-basics/hosted/.gitignore": "a4a00ecf625036c6a62ac97553fb060bbbf2c835ca017d6c82609e864d7cca85",
+    "products/hosted-agent-basics/hosted/main.py": "11104a79f4547a8aa3846169d797e6767411a23340324ededd64ba3f4d2a50a3",
+    "products/hosted-agent-basics/hosted/prepare.py": "152e0a36e3687a0d1802f03995811ae631694895cd2e6ae81863966816455742",
+    "products/hosted-agent-basics/hosted/requirements.txt": "51c1ebee9f3bd8584df0f3f4896c3968fc4b16cd2731aa045a7472c58879f1ee",
+    "products/hosted-agent-basics/hosted/test_local.py": "23ac4bca4f816ca45f5cf44861d13587c442c863de2b718069a7a0855d9a7025",
+    "products/hosted-agent-basics/lab2_hosted_basics.py": "ab194bd4fa3394aec305337b9395fd6a127dff544ad911442cfa8ade146423be",
+    "products/hosted-multi-agent-handoff/hosted/.agentignore": "08c3f7509e0415a2a6f0c420c3341038b4e6bef39021fe63eb2f74a8c023d824",
+    "products/hosted-multi-agent-handoff/hosted/.gitignore": "a4a00ecf625036c6a62ac97553fb060bbbf2c835ca017d6c82609e864d7cca85",
+    "products/hosted-multi-agent-handoff/hosted/main.py": "e422204fc2f43a56c0fa2700515f4f553f9b3a71651f4c8324268635eb850639",
+    "products/hosted-multi-agent-handoff/hosted/marketplace_specialists.py": "b5b9d60b2140bb8151852eb3f0c4b2afe378af54ff566759e3acbc9ab87ae4d1",
+    "products/hosted-multi-agent-handoff/hosted/marketplace_workflow.py": "16ff0d3c3f54cbb7559f7b9cf9addbef517df126f6c362e72497c401e0a874de",
+    "products/hosted-multi-agent-handoff/hosted/prepare.py": "c0815559526a3cc5c296b43508932704355a27b8654257fb6deec821c71479d1",
+    "products/hosted-multi-agent-handoff/hosted/requirements.txt": "c90d24d2acd2e38a4f90795526799284783ad1b7ae37abf2ab00bb297996b06d",
+    "products/hosted-multi-agent-handoff/hosted/test_local.py": "ff7d620f430a99ca5ab44efe8a8602afc842fd13bc6914200f6016496b116576",
+    "products/hosted-multi-agent-handoff/lab4_hosted_multi_agent.py": "5091a69ebf95438fcb9e2f596d73590b5565780ba07a85c267f4923ece00f393"
+  },
+  "schema_version": 1,
+  "selected_labs": [
+    1,
+    2,
+    4,
+    7
+  ]
+}

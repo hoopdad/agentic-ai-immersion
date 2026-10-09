@@ -10,8 +10,8 @@
 # | --- | --- |
 # | Goal | Build, run, and call the smallest complete hosted agent: Agent Framework `Agent` + `FoundryChatClient` + three `@tool` functions over the systems of record + the shared compliance block, served by `ResponsesHostServer`. Run it locally on port 8088, chat S1 and S2 through POST `/responses`, then deploy the same folder from source with `azd ai agent init` + `azd up` and invoke the version. |
 # | Inputs | Root `.env` (`FOUNDRY_PROJECT_ENDPOINT`, `AZURE_AI_MODEL_DEPLOYMENT_NAME`, `PROJECT_RESOURCE_ID` for deployment); `common/` and `data/` (vendored into `hosted/` by `build()`) |
-# | Inputs | Labs 1-2's verified `labs/artifacts/lab1/project.json` project/model checkpoint |
-# | Outputs | `labs/artifacts/lab2/hosted.json` (agent name, protocol, model, endpoints, deployed version), `labs/artifacts/lab2/transcripts.md` (S1 and S2, PII-redacted), and `hosted_local.log` |
+# | Inputs | Labs 1-2's verified `3-day-labs/artifacts/lab1/project.json` project/model checkpoint |
+# | Outputs | `3-day-labs/artifacts/lab2/hosted.json` (agent name, protocol, model, endpoints, deployed version), `3-day-labs/artifacts/lab2/transcripts.md` (S1 and S2, PII-redacted), and `hosted_local.log` |
 # | Time | 60 min (teach 10, demo 10, do 35, checkpoint 5) |
 #
 # **How to run.** Execute this notebook's cells in order, pausing at each YOUR TURN to save the requested edit.
@@ -23,8 +23,8 @@
 # `hosted/main.py` is the product: Foundry builds a container from the ZIP azd uploads, runs it, scales it and
 # gives it an identity. Nothing customer-facing runs in this notebook.
 #
-# **Checkpoint artifact.** `labs/artifacts/lab2/hosted.json` (agent `healthcare-marketplace-concierge-hosted`, protocol, model,
-# deployed version once you ran `azd up`) and `labs/artifacts/lab2/transcripts.md`. Labs 5-6 starts from hosted.json.
+# **Checkpoint artifact.** `3-day-labs/artifacts/lab2/hosted.json` (agent `healthcare-marketplace-concierge-hosted`, protocol, model,
+# deployed version once you ran `azd up`) and `3-day-labs/artifacts/lab2/transcripts.md`. Labs 5-6 starts from hosted.json.
 #
 # ## Before the first run
 #
@@ -56,7 +56,7 @@ SOURCE_PATH = (
     )
 )
 ROOT = SOURCE_PATH.parents[2]      # workshop root (common/ and data/ live here)
-LABS_DIR = ROOT / "labs"
+LABS_DIR = ROOT / "3-day-labs"
 LAB_DIR = SOURCE_PATH.parent
 for folder in (ROOT, LABS_DIR):
     if str(folder) not in sys.path:
@@ -235,6 +235,19 @@ def post_responses(base: str, text: str, *, previous_response_id: str | None = N
     return {"text": output_text(payload), "id": payload.get("id"), "raw": payload}
 
 
+def require_pinned_version(agent_name: str, version: str) -> None:
+    """Read routing only; the learner/operator explicitly pins traffic in Foundry."""
+    with foundry_env.get_project_client() as project:
+        agent = project.agents.get(agent_name=agent_name)
+        endpoint = getattr(agent, "agent_endpoint", None)
+        selector = getattr(endpoint, "version_selector", None)
+        rules = getattr(selector, "version_selection_rules", None) or []
+        if len(rules) != 1 or getattr(rules[0], "type", None) != "FixedRatio" \
+                or str(getattr(rules[0], "agent_version", "")) != str(version) \
+                or getattr(rules[0], "traffic_percentage", None) != 100:
+            raise RuntimeError(f"Pin 100% of {agent_name} traffic to version {version} in Foundry before invoking.")
+
+
 def call_deployed(text: str, *, previous_response_id: str | None = None, store: bool = True) -> dict:
     """Call the version Foundry runs through its agent-specific Responses endpoint."""
     log(f"calling deployed {AGENT_NAME} (store={store}; 120s network timeout; SDK retries disabled)")
@@ -333,7 +346,7 @@ def record_deployment(version: str, status: str = "active") -> dict:
 #    and annual HRA amount, checks the answer, and always stops the server.
 #
 # A passing run prints an answer containing **Northwind** and **$3,600**. If it fails, inspect
-# `labs/artifacts/lab2/hosted_local.log`.
+# `3-day-labs/artifacts/lab2/hosted_local.log`.
 
 # This cell rebuilds the package and verifies your sponsor tool against a fresh local server.
 # %% Step 2.9 - Test the first local exercise

@@ -35,7 +35,7 @@ import project_setup
 
 CLI = project_setup.AzureCLI()
 LAB = "lab1"
-ARTIFACT = WORKSHOP / "labs/artifacts/lab1/project.json"
+ARTIFACT = WORKSHOP / "3-day-labs/artifacts/lab1/project.json"
 
 # %% [markdown]
 # This cell records your approved Azure context, attendee suffix and optional administrator-supplied downstream configuration without switching subscriptions.
@@ -176,7 +176,7 @@ if MISSING_LATER_INPUTS:
 # The published project checkpoint means the project and both model deployments reached `Succeeded`,
 # the chat returned text, the embedding returned 3072 dimensions, and downstream `load_env()` sees
 # the verified endpoints and deployment names; it does not certify hosted-agent infrastructure readiness.
-# Keep `labs/artifacts/lab1/project.json` for the hosted-agent lab's prerequisite check.
+# Keep `3-day-labs/artifacts/lab1/project.json` for the hosted-agent lab's prerequisite check.
 #
 # **Later explicit inputs:** Search endpoint, Blob storage URL/container and Application Insights
 # connection string must come from facilitator-approved infrastructure and can be entered in Step 1.2;

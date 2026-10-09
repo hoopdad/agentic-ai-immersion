@@ -6,7 +6,7 @@
 * get_project_client()           AIProjectClient for FOUNDRY_PROJECT_ENDPOINT with allow_preview=True
 * get_openai_client(agent_name)  project or agent-endpoint OpenAI client (Responses, Conversations, Evals)
 * get_foundry_chat_client()      agent_framework.foundry.FoundryChatClient for the hosted agents (Agent Framework)
-* artifacts_dir(folder, lab)     <folder>/artifacts/labN/ (created on demand; the labs pass labs/)
+* artifacts_dir(folder, lab)     <track>/artifacts/labN/ (created on demand; labs pass their track directory)
 * save_artifact / load_artifact  JSON (or text) checkpoints that chain one lab to the next
 
 Azure SDKs are imported inside the functions that need them, so `import foundry_env` and load_env()
@@ -160,7 +160,7 @@ def model_name(env: dict[str, str] | None = None) -> str:
 # Artifacts (the chain between labs)
 # ---------------------------------------------------------------------------
 def artifacts_dir(option_folder: Path | str, lab: str) -> Path:
-    """<folder>/artifacts/<lab>/ (for example labs/artifacts/lab2), created if needed."""
+    """<track>/artifacts/<lab>/ (for example 3-day-labs/artifacts/lab2), created if needed."""
     path = Path(option_folder) / "artifacts" / lab
     path.mkdir(parents=True, exist_ok=True)
     return path
@@ -203,4 +203,4 @@ if __name__ == "__main__":
             shown = value[:20] + "..."
         print(f"  {name:40} {shown}")
     print(f"[env] model deployment: {model_name(loaded)}")
-    print("[env] artifacts land in labs/artifacts/<lab>/ via artifacts_dir(LABS_DIR, 'lab1')")
+    print("[env] artifacts land in the active track's artifacts/<lab>/ via artifacts_dir(LABS_DIR, 'lab1')")

@@ -1,7 +1,7 @@
 """py_to_ipynb: stdlib-only converter from a `# %%` cell script to a Jupyter notebook.
 
 Usage:
-    python tools/py_to_ipynb.py labs/lab05/lab05_knowledge_retrieval.py --name lab05_walkthrough
+    python tools/py_to_ipynb.py 3-day-labs/lab05/lab05_knowledge_retrieval.py --name lab05_walkthrough
     python tools/py_to_ipynb.py <script.py> [-o <notebook.ipynb>] [--name lab06_walkthrough]
     python tools/py_to_ipynb.py --check <notebook.ipynb>      # validate an existing notebook
 
@@ -289,7 +289,7 @@ def convert(script: Path, output: Path | None = None, name: str | None = None, n
     if output is None:
         stem = name or script.stem
         output = script.with_name(f"{stem}.ipynb")
-    output.write_text(json.dumps(nb, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
+    output.write_text(json.dumps(nb, indent=1, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
     return output
 
 

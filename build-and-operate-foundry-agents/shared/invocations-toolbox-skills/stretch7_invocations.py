@@ -9,8 +9,8 @@
 # |  | Details |
 # | --- | --- |
 # | Goal | Build and call an Invocations-protocol hosted agent for denied-claims review, then run the Responses concierge with a bundled skill and, when configured, a Foundry Toolbox. Compare the two protocols. |
-# | Inputs | Root `.env`; optional `labs/artifacts/lab2/hosted.json`; optional `TOOLBOX_NAME`, `TOOLBOX_MCP_URL`, and `SKILL_NAMES` |
-# | Outputs | `labs/artifacts/stretch7/invocations.json`, `claim_reviews/*.json`, and `*_local.log` |
+# | Inputs | Root configuration; required Lab 4 checkpoint in the learner notebook; optional `TOOLBOX_NAME`, `TOOLBOX_MCP_URL`, and `SKILL_NAMES` |
+# | Outputs | `3-day-labs/artifacts/stretch7/invocations.json`, `claim_reviews/*.json`, and `*_local.log` |
 # | Time | 45–60 min (stretch) |
 #
 # **How to run.** Execute this notebook's cells in order, pausing to create the requested governed skill.
@@ -24,15 +24,15 @@
 # **Lab path and prerequisites.**
 #
 # - **Optional extension:** Labs 13-14 are independent of Labs 11-12 and are not required for core Labs 1-10.
-# - **No prior artifact is required:** The Invocations exercise and offline baseline run without Labs 3-4 output.
-# - **Recommended before the comparison:** Complete the Labs 3-4 notebook so its Responses agent is the concrete comparison.
+# - **Required:** Complete Lab 4 and retain its accepted deployed Responses checkpoint for the concrete comparison.
+# - **New products:** The batch and Skills hosts do not inherit concierge knowledge, history or approval state.
 # - **From Labs 3-4:** Reuse the dev-container setup, local port, source packaging, and explicit `azd` deployment
 #   workflow. Labs 3-4 introduced the Responses protocol; this lab highlights where Invocations differs.
 # - **Optional:** Foundry Toolbox configuration and deployment are extension paths. Toolbox and
 #   Skills are preview features.
 #
-# **Checkpoint artifact.** `labs/artifacts/stretch7/invocations.json` (agent names, protocol comparison, one batch
-# result) and `labs/artifacts/stretch7/claim_reviews/CLM-*.json`.
+# **Checkpoint artifact.** `3-day-labs/artifacts/stretch7/invocations.json` (agent names, protocol comparison, one batch
+# result) and `3-day-labs/artifacts/stretch7/claim_reviews/CLM-*.json`.
 #
 # %% [markdown]
 # ## Before the first run
@@ -67,7 +67,7 @@ SOURCE_PATH = (
     )
 )
 ROOT = SOURCE_PATH.parents[2]      # workshop root (common/ and data/ live here)
-LABS_DIR = ROOT / "labs"
+LABS_DIR = ROOT / "3-day-labs"
 LAB_DIR = SOURCE_PATH.parent
 for folder in reversed((ROOT, LABS_DIR, LAB_DIR / "hosted-invocations")):
     if str(folder) not in sys.path:
@@ -102,7 +102,7 @@ if "__file__" not in globals():
     os.environ.update(optional_config)
     ENV.update(optional_config)
 INVOCATIONS_AGENT = resource_names.name(resource_names.HOSTED_CLAIMS, ENV)
-SKILLS_AGENT = resource_names.name(resource_names.HOSTED_CONCIERGE, ENV)
+SKILLS_AGENT = resource_names.name("healthcare-skills-responses", ENV)
 INVOCATIONS_DIR = LAB_DIR / "hosted-invocations"
 SKILLS_HOST_DIR = LAB_DIR / "hosted-responses-skills"
 ARTIFACTS = lab_helpers.artifact_path(LAB)
@@ -164,10 +164,6 @@ def build(*, vendor: bool = True, protocols: tuple[str, ...] = ("invocations", "
     env = dict(foundry_env.load_env())
     env.update({key: os.environ.get(key, "") for key in ("TOOLBOX_NAME", "TOOLBOX_MCP_URL", "SKILL_NAMES")})
     resource_names.suffix(env, required=True)
-    previous = lab_helpers.artifact_path("lab2", "hosted.json")
-    lab2 = foundry_env.load_artifact(previous) if previous.exists() else {}
-    if not lab2:
-        log("artifacts/lab2/hosted.json missing; continuing because this notebook does not require Labs 3-4 output")
     counts: dict[str, dict] = {}
     if vendor:
         for protocol, folder in (("invocations", "hosted-invocations"), ("responses_skills", "hosted-responses-skills")):
@@ -189,7 +185,7 @@ def build(*, vendor: bool = True, protocols: tuple[str, ...] = ("invocations", "
                                  "deployed": (existing.get("agents", {}).get("responses_skills") or {}).get("deployed") or {"version": None, "status": "not deployed"}},
         },
         "model": lab_helpers.pick_model(env), "protocol_comparison": PROTOCOLS, "vendored": counts or existing.get("vendored", {}),
-        "sample_run": existing.get("sample_run"), "lab2_agent": lab2.get("agent_name"), "built_at": lab_helpers.now_iso(),
+        "sample_run": existing.get("sample_run"), "built_at": lab_helpers.now_iso(),
     }
     record["agents"] = {
         **existing.get("agents", {}),
@@ -216,6 +212,7 @@ class HostedProcess:
 
     def start(self, timeout: float = 120.0) -> "HostedProcess":
         env = {**os.environ, **foundry_env.load_env(), **self.extra_env, "MARKETPLACE_HOSTED_PORT": str(self.port), "PYTHONUNBUFFERED": "1"}
+        env["MARKETPLACE_AGENT_NAME"] = SKILLS_AGENT if self.hosted_dir == SKILLS_HOST_DIR else INVOCATIONS_AGENT
         self.log_handle = self.log_path.open("w", encoding="utf-8")
         self.process = subprocess.Popen([sys.executable, str(self.hosted_dir / "main.py")], cwd=str(self.hosted_dir), env=env,
                                         stdout=self.log_handle, stderr=subprocess.STDOUT)
@@ -419,6 +416,7 @@ def deploy_commands(env: dict | None = None) -> str:
         key: env.get(key, os.environ.get(key, ""))
         for key in ("TOOLBOX_NAME", "TOOLBOX_MCP_URL", "SKILL_NAMES")
     }
+    skill_settings["MARKETPLACE_AGENT_NAME"] = SKILLS_AGENT
     skill_settings["SKILL_NAMES"] = skill_settings["SKILL_NAMES"] or ",".join(
         sorted(path.parent.name for path in SKILLS_SRC.glob("*/SKILL.md"))
     )

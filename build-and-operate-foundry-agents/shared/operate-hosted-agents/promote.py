@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 from datetime import datetime, timezone
 import json
 import os
@@ -13,7 +14,7 @@ import sys
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
-LABS_DIR = ROOT / "labs"
+LABS_DIR = ROOT / "3-day-labs"
 GATE_PATH = LABS_DIR / "artifacts" / "lab5" / "gate_result.json"
 PROMOTIONS_PATH = LABS_DIR / "artifacts" / "lab5" / "promotions.jsonl"
 HOSTED_DIR = ROOT / "shared" / "hosted-knowledge-sessions" / "hosted"
@@ -30,6 +31,23 @@ def check_gate() -> dict:
     required = {"passed", "evaluated_at", "questions", "failures"}
     if not isinstance(gate, dict) or not required.issubset(gate) or gate["passed"] is not True:
         raise ValueError("A passing, complete gate_result.json is required. Run eval_gate.py --run first.")
+    if gate.get("thresholds", {}).get("strict") is not True:
+        raise ValueError("Promotion requires a strict measured-score gate, not warning-only evaluation.")
+    folder = GATE_PATH.parent
+    for field, name in (("evaluation_bundle_sha256", "evaluation_bundle.json"),
+                        ("evaluation_results_sha256", "eval_results.jsonl")):
+        path = folder / name
+        if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != gate.get(field):
+            raise ValueError("Release evidence is missing or changed; rerun Lab 9 and Lab 10, not only the gate.")
+    bundle = json.loads((folder / "evaluation_bundle.json").read_text(encoding="utf-8"))
+    files = bundle.get("info", {}).get("evaluated_target", {}).get("files", {})
+    if not files:
+        raise ValueError("The gate does not pin an evaluated product.")
+    for name, expected in files.items():
+        path = (ROOT / name).resolve()
+        if not path.is_relative_to(ROOT.resolve()) or not path.is_file() \
+                or hashlib.sha256(path.read_bytes()).hexdigest() != expected:
+            raise ValueError("Candidate source changed; rerun Lab 9 and Lab 10 before promotion.")
     return gate
 
 
@@ -59,6 +77,7 @@ def execute(target: str, tag: str) -> None:
     if result.returncode != 1:
         raise RuntimeError(f"Tag already exists or tag lookup failed: {tag} (exit {result.returncode}).")
     run(sys.executable, "prepare.py")
+    check_gate()
     run("azd", "env", "select", f"healthcare-marketplace-concierge-{target}")
     # Refuse to deploy an already-selected azd environment against a different project.
     azd_values = json.loads(subprocess.check_output(
@@ -80,6 +99,8 @@ def record(gate: dict, target: str, tag: str, outcome: str) -> None:
             "at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "from": ORDER[max(ORDER.index(target) - 1, 0)], "to": target, "tag": tag,
             "gate_evaluated_at": gate["evaluated_at"], "outcome": outcome,
+            "evaluation_bundle_sha256": gate.get("evaluation_bundle_sha256"),
+            "evaluation_results_sha256": gate.get("evaluation_results_sha256"),
         }) + "\n")
 
 

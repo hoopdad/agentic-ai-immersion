@@ -336,6 +336,37 @@ These principles are working if you see:
 
 ### Build and Operate workshop
 
+Before changing this workshop, read `build-and-operate-foundry-agents/conventions.md`.
+Read `migration-plan.md` for migration history and implementation status; use
+`3-day-labs/README.md` for the hosted-first curriculum and required prerequisites.
+Canonical lab sources live in `3-day-labs/`. The generated `1-day-labs/` route is
+Labs 1, 2, 4 and capstone 7; Lab 4 includes genuine local acceptance before deployment.
+Short Lab 7 requires Lab 4, not Lab 6: reuse the MAF graph with synthetic local
+knowledge, a changed classifier, explicit human decisions and pinned Foundry
+invocation. Short-only finish cells live in `tools/one_day_team_finish.py`.
+Do not claim three-day recovery acceptance or silently auto-approve packets.
+After canonical/shared changes run `tools/sync_one_day_labs.py`; validation includes
+its read-only `--check`. Never hand-edit generated short material or sync over
+learner edits without archiving them and explicitly choosing `--overwrite`.
+Short exercises and evidence use `1-day-labs/products/` and `artifacts/`, not the
+three-day product/checkpoints. Root `.env`, ports and quota remain shared.
+The hosted-first implementation is integrated; approved live learner rehearsal
+remains outstanding. Do not infer Azure acceptance from offline validation.
+Teach core Labs 1-10 in order, then chosen extensions; dependency independence
+does not authorize parallel same-workspace runtime (shared port 8088, sources and quota).
+Lab 11 is a short terminal prompt comparison requiring Lab 4, with no downstream
+consumers. Lab 12 requires both Labs 8 and 9, calls the existing hosted triage
+service from an isolated `shared/hosted-delegation/` concierge candidate, and
+publishes `3-day-labs/artifacts/hosted_delegation/part_a.json`; never accept legacy
+`stretch6/part_b.json` as delegation evidence or package a prompt-backed graph.
+Lab 13 requires Lab 4; Lab 14 requires Lab 13 and introduces a distinct Responses
+Skills product, not a stateful conversion of the batch Invocations service.
+Document product lineage and retained exercise behavior, preserve the exact
+core evaluation/release target, and distinguish local file-backed pending-state
+recovery from distributed continuity. Never manufacture an advisor decision.
+Preserve existing topic checkpoint mappings outside the new Lab 12 contract.
+Label optional/preview skips and offline versus actual Azure evidence explicitly.
+
 The learner path is the repository Python 3.14 dev container with Bash instructions.
 Keep lab logic in Python; retain PowerShell
 only for shared permission setup. Edit the adjacent cell scripts and regenerate notebooks.

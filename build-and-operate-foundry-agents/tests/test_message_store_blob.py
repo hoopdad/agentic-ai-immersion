@@ -12,7 +12,7 @@ from unittest.mock import patch
 from azure.core.exceptions import ResourceExistsError, ResourceModifiedError, ResourceNotFoundError
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "labs"))
+sys.path.insert(0, str(ROOT / "3-day-labs"))
 import deployment  # noqa: E402
 LAB3_DIR = ROOT / "shared/hosted-knowledge-sessions"
 sys.path.insert(0, str(LAB3_DIR))

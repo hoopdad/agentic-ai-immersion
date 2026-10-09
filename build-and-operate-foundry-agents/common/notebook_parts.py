@@ -24,13 +24,16 @@ LAB_NUMBERS = {
     "lab3": {"a": 5, "b": 6},
     "lab4": {"a": 7, "b": 8},
     "lab5": {"a": 9, "b": 10},
-    "stretch6": {"a": 11, "b": 12},
+    "stretch6": {"a": 11},
+    "hosted_delegation": {"a": 12},
     "stretch7": {"a": 13, "b": 14},
 }
 
 
 def lab_label(lab: str, part: str) -> str:
     """Translate stable artifact namespaces to the learner's sequential lab number."""
+    if lab == "stretch6" and part == "b":
+        return "Lab 12 (new hosted_delegation/part_a.json; old prompt-backed evidence is obsolete)"
     return f"Lab {LAB_NUMBERS[lab][part]}"
 
 
@@ -68,7 +71,9 @@ def _validate_state(value: Any) -> None:
 
 
 def _artifact_root(path: Path, lab: str, part: str) -> Path:
-    if lab not in LAB_NUMBERS or part not in {"a", "b"} \
+    if lab == "stretch6" and part == "b":
+        raise ValueError("Lab 12 now requires hosted_delegation/part_a.json; rerun Lab 12, not Lab 11.")
+    if lab not in LAB_NUMBERS or part not in LAB_NUMBERS[lab] \
             or path.name != f"part_{part}.json" or path.parent.name != lab:
         raise ValueError("Use the lab's artifacts directory and part_a.json or part_b.json.")
     root = path.parent.parent.resolve()
@@ -121,6 +126,8 @@ def write_checkpoint(path: Path, *, lab: str, part: str, context: dict[str, str]
 def read_checkpoint(path: Path, *, lab: str, part: str, context: dict[str, str]) -> dict:
     """Reject missing, differently scoped, or changed evidence before the next part runs."""
     path = Path(path)
+    if lab == "stretch6" and part == "b":
+        raise RuntimeError("Old prompt-backed Lab 12 checkpoint is obsolete; rerun Lab 12 to publish hosted_delegation/part_a.json.")
     root = _artifact_root(path, lab, part)
     _validate_context(context)
     try:

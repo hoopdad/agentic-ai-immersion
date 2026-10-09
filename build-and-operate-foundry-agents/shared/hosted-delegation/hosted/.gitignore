@@ -1,0 +1,11 @@
+common/
+data/
+core_product.py
+delegation.py
+.azure/
+azure.yaml
+Dockerfile
+__pycache__/
+*.log
+message_store/
+sessions/

@@ -53,6 +53,28 @@ class NotebookPartCheckpointTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "current project/model context"):
             self.read(context={**self.context, "resource_suffix": "another-user"})
 
+    def test_hosted_delegation_checkpoint_is_independent_of_prompt_comparison(self) -> None:
+        path = self.artifacts / "hosted_delegation" / "part_a.json"
+        record = notebook_parts.write_checkpoint(
+            path, lab="hosted_delegation", part="a", context=self.context,
+            evidence=[self.evidence], state={"target_version": "accepted-triage-version"},
+        )
+        restored = notebook_parts.read_checkpoint(
+            path, lab="hosted_delegation", part="a", context=self.context,
+        )
+        self.assertEqual(restored, record)
+        self.assertFalse((self.artifacts / "stretch6").exists())
+        self.assertEqual(notebook_parts.lab_label("hosted_delegation", "a"), "Lab 12")
+
+    def test_legacy_prompt_workflow_checkpoint_cannot_publish_delegation_evidence(self) -> None:
+        path = self.artifacts / "stretch6" / "part_b.json"
+        with self.assertRaisesRegex(ValueError, "Lab 12|checkpoint|handoff"):
+            notebook_parts.write_checkpoint(
+                path, lab="stretch6", part="b", context=self.context,
+                evidence=[self.evidence], state={"prompt_agents": {"triage": "legacy-version"}},
+            )
+        self.assertFalse(path.exists())
+
     def test_changed_or_missing_evidence_blocks_part_b(self) -> None:
         self.publish()
         self.evidence.write_text("changed", encoding="utf-8")

@@ -29,7 +29,7 @@ ROOT = Path(__file__).resolve().parents[2]      # build-and-operate-foundry-agen
 sys.path.insert(0, str(ROOT))
 from common import marketplace_data, foundry_env, guardrails, resource_names  # noqa: E402,F401
 
-LABS_DIR = ROOT / "labs"
+LABS_DIR = ROOT / "3-day-labs"
 sys.path.insert(0, str(LABS_DIR))
 import lab_helpers as helpers  # noqa: E402
 

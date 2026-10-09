@@ -100,7 +100,8 @@ agentic-ai-immersion-day/
 │   ├── data/                                   # synthetic participants, sponsors, plans, knowledge, golden questions
 │   ├── tools/py_to_ipynb.py                    # script -> notebook converter
 │   ├── shared/                                 # reusable products, provisioning and operating helpers
-│   └── labs/lab01/ ... labs/lab14/                # one documented learner lab per numbered folder
+│   ├── 3-day-labs/lab01/ ... 3-day-labs/lab14/  # canonical full curriculum
+│   └── 1-day-labs/                            # generated Labs 1, 2, 4 and MAF team capstone 7
 │
 ├── 🧩 byouc/                                   # Bring Your Own Use Case
 │   ├── Agentic_UseCase_Spec.md                # Use case spec template (Markdown)
@@ -481,16 +482,33 @@ python -m pytest tests/unit tests/integration -q
 **Location:** `build-and-operate-foundry-agents/`
 
 A notebook-only lab sequence for engineers building benefits-marketplace agents on **Microsoft Foundry Hosted Agents**:
-Agent Framework code that Foundry builds into a container, versions and scales. Labs 1-10 chain
-artifacts (Labs 1-2 project + models -> Labs 3-4 basics -> Labs 5-6 knowledge + sessions ->
-Labs 7-8 multi-agent handoff with human approval -> Labs 9-10 operate/evaluate/CI)
-around one use case, the Healthcare Marketplace Concierge, with optional Labs 11-14
-(Foundry prompt agents with Microsoft Agent Framework workflows; Invocations protocol, Toolbox and Skills). Reuses this repo's dev
+Agent Framework code that Foundry builds into a container, versions and scales.
+The guided route is Labs 1-10 in order (project/models -> hosted basics ->
+knowledge/sessions -> specialist handoff and human approval -> tracing/evaluation/release)
+around one synthetic Healthcare Marketplace use case, then selected optional extensions:
+Lab 11 is a short terminal prompt-versus-hosted comparison after Lab 4, with no downstream consumers;
+Lab 12 requires **both Labs 8 and 9** and adds hosted-to-hosted delegation, not a prompt-backed graph;
+Lab 13 introduces stateless Invocations after Lab 4; Lab 14 requires Lab 13 and branches into a
+distinct Responses Skills service with optional preview Toolbox. Reuses this repo's dev
 container, `.env` names, pinned requirements and RBAC script; extends the `hosted-agents/` and `AgentOps/`
-patterns. Fourteen sequentially numbered notebooks document their prerequisites and
-reuse validated checkpoints, resources and product code. Start with
-[Lab 1](build-and-operate-foundry-agents/labs/lab01/lab01_walkthrough.ipynb).
-Synthetic data only.
+patterns. This track uses the Python 3.14 dev container and Bash; Labs 1-2 persist configuration,
+so do not copy `.env` manually using the independent-track setup above.
+Choose the [one-day route](build-and-operate-foundry-agents/1-day-labs/README.md)
+for **1 -> 2 -> 4 -> 7**; local acceptance is folded into short Lab 4,
+then a condensed MAF team capstone adds parallel specialists, a learner-changed
+classifier, explicit human review and Foundry-hosted invocation. It requires no
+Search or Lab 6 and uses separate editable products and artifacts. The
+[three-day route](build-and-operate-foundry-agents/3-day-labs/README.md) retains
+all fourteen labs. Authors synchronize the generated short route with
+`tools/sync_one_day_labs.py`; tracks share root configuration and must not run concurrently.
+Fourteen sequentially numbered canonical notebooks document their prerequisites and
+reuse validated checkpoints, resources and product code. Start the full route with
+[Lab 1](build-and-operate-foundry-agents/3-day-labs/lab01/lab01_walkthrough.ipynb).
+Dependency branches are learning choices, not instructions for parallel execution in one workspace:
+local hosts share port 8088, editable sources and Azure quota. Lab 12 uses an isolated extension
+candidate rather than overwriting the evaluated core concierge. Lab 8 pending-state recovery is
+local/file-backed; no automatic advisor decision or distributed recovery is claimed.
+Offline checks do not establish Azure deployment, telemetry ingestion or preview availability.
 
 📖 [Lab sequence guide](build-and-operate-foundry-agents/README.md) • [Use case](build-and-operate-foundry-agents/USE-CASE.md) • [Setup](build-and-operate-foundry-agents/SETUP.md)
 

@@ -9,8 +9,8 @@
 # |  | Details |
 # | --- | --- |
 # | Goal | Turn on tracing, evaluate the hosted endpoint, create a fail-closed release gate, and practice version promotion and rollback. |
-# | Inputs | Required `labs/artifacts/lab3/hosted.json` and `knowledge.json`; optional `labs/artifacts/lab4/hosted.json`; root `.env` |
-# | Outputs | `labs/artifacts/lab5/eval_report.md`, `eval_results.jsonl`, `operate.json`, `pipeline.md`, and `gate_result.json` |
+# | Inputs | Required `3-day-labs/artifacts/lab3/hosted.json` and `knowledge.json`; optional `3-day-labs/artifacts/lab4/hosted.json`; root `.env` |
+# | Outputs | `3-day-labs/artifacts/lab5/eval_report.md`, `eval_results.jsonl`, `operate.json`, `pipeline.md`, and `gate_result.json` |
 # | Time | 60 min (teach 10, demo 10, do 35, checkpoint 5) |
 #
 # **How to run.** Execute this notebook's cells in order, pausing to apply and revert the deliberately unsafe edit.
@@ -25,7 +25,7 @@
 # **Lab path and prerequisites.**
 #
 # - **Required:** Complete the Labs 5-6 notebook first; Labs 9-10 reads both Labs 5-6 checkpoint files.
-# - **Optional:** Labs 7-8 is not required. When `labs/artifacts/lab4/hosted.json` exists, Labs 9-10 records that
+# - **Optional:** Labs 7-8 is not required. When `3-day-labs/artifacts/lab4/hosted.json` exists, Labs 9-10 records that
 #   workflow agent alongside the Labs 5-6 concierge.
 # - **From Labs 3-4:** Labs 3-4 first created, ran, deployed, and versioned the hosted Responses agent. This lab
 #   operates that same deployment model rather than introducing another application host.
@@ -67,6 +67,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import subprocess
@@ -84,9 +85,9 @@ SOURCE_PATH = (
 )
 ROOT = SOURCE_PATH.parents[2]      # workshop root (common/ and data/ live here)
 sys.path.insert(0, str(ROOT))
-from common import marketplace_data, foundry_env, guardrails, resource_names  # noqa: E402
+from common import marketplace_data, foundry_env, guardrails, notebook_parts, resource_names  # noqa: E402
 
-LABS_DIR = ROOT / "labs"
+LABS_DIR = ROOT / "3-day-labs"
 sys.path.insert(0, str(LABS_DIR))
 import lab_helpers as helpers  # noqa: E402
 
@@ -251,8 +252,10 @@ class HostedTarget:
                     env_overrides={"APPLICATIONINSIGHTS_CONNECTION_STRING": connection},
                 ).start()
             else:
-                print(f"[lab5] target: reusing the main.py already listening on {LOCAL_PORT}")
+                raise RuntimeError(f"Port {LOCAL_PORT} is busy; stop its owning notebook process before Lab 9.")
         else:
+            self.basics = helpers.load_lab_module("hosted-agent-basics/lab2_hosted_basics.py")
+            self.basics.require_pinned_version(hosted["agent_name"], hosted["deployed"]["version"])
             self.client = foundry_env.get_openai_client(agent_name=hosted["agent_name"])
             print(f"[lab5] target: deployed agent {hosted['agent_name']} through {ENV.get('FOUNDRY_PROJECT_ENDPOINT', '')}")
 
@@ -260,6 +263,7 @@ class HostedTarget:
         session_id = f"eval-{uuid.uuid4().hex[:8]}"
         if self.mode == "local":
             return self.lab3.ask(LOCAL_PORT, text, session_id)[0]
+        self.basics.require_pinned_version(self.hosted["agent_name"], self.hosted["deployed"]["version"])
         conversation = self.client.conversations.create()
         response = self.client.responses.create(input=text, conversation=conversation.id)
         return response.output_text
@@ -267,14 +271,51 @@ class HostedTarget:
     def close(self) -> None:
         if self.proc is not None:
             self.proc.stop()
+        elif self.mode != "local":
+            self.client.close()
 
 
 # %% [markdown]
 # This cell defines the operations bundle and its pipeline evidence without running evaluations.
 # %% Step 5.5 - Build the operations bundle
+def evaluated_target(hosted: dict, knowledge: dict, mode: str = "local") -> dict:
+    """Fingerprint the actual local package, knowledge configuration and measured question set."""
+    product = ROOT / "shared/hosted-knowledge-sessions/hosted"
+    paths = [product / "main.py", product / "prepare.py", product / "requirements.txt", GOLDEN, SOURCE_PATH]
+    paths.extend(path for base in (product, ROOT) for folder in ("common", "data") for path in (base / folder).rglob("*")
+                 if path.is_file() and "__pycache__" not in path.parts and path.suffix in {".py", ".json", ".jsonl", ".md"})
+    if not (product / "common/accepted_concierge.py").is_file():
+        raise RuntimeError("Lab 5 accepted behavior package is missing; restore Lab 5, then rerun Lab 6.")
+    return {
+        "mode": mode, "agent_name": hosted["agent_name"],
+        "project_endpoint": ENV["FOUNDRY_PROJECT_ENDPOINT"],
+        "scope": notebook_parts.scope(ENV),
+        "model": hosted["model"], "deployed_reference": hosted.get("deployed", {}),
+        "knowledge_sha256": hashlib.sha256(json.dumps(knowledge, sort_keys=True).encode()).hexdigest(),
+        "files": {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest() for path in sorted(set(paths))},
+    }
+
+
+def validate_evaluated_target(reference: dict, hosted: dict, knowledge: dict) -> None:
+    if reference != evaluated_target(hosted, knowledge, reference.get("mode", "local")):
+        raise RuntimeError("Evaluated candidate changed; rerun Lab 9 evaluation and Lab 10 gates.")
+
+
 def build(skip_judges: bool = False, target: str = "local", enable_tracing: bool = True) -> dict:
+    accepted = notebook_parts.read_checkpoint(
+        helpers.artifact_path("lab3", "part_b.json"), lab="lab3", part="b", context=notebook_parts.scope(ENV))
     hosted = helpers.require_artifact("lab3", "hosted.json", through=3, caller="lab5")
     knowledge = helpers.require_artifact("lab3", "knowledge.json", through=3, caller="lab5")
+    if hosted.get("deployed", {}).get("version") != accepted["state"].get("deployed_version"):
+        raise RuntimeError("Lab 6 deployed target changed; rerun its deployed acceptance.")
+    product = ROOT / "shared/hosted-knowledge-sessions/hosted"
+    if not (product / "common/accepted_concierge.py").is_file():
+        raise RuntimeError("Lab 5 accepted sponsor/policy package is missing; restore Labs 5-6 before evaluation.")
+    if accepted["state"].get("hosted_source_sha256") != hashlib.sha256((product / "main.py").read_bytes()).hexdigest() \
+            or accepted["state"].get("retained_behavior", {}).get("transfer_sha256") != hashlib.sha256(
+                (product / "common/accepted_concierge.py").read_bytes()).hexdigest():
+        raise RuntimeError("Lab 6 accepted concierge changed; restore Labs 5-6 before evaluation.")
+    reference = evaluated_target(hosted, knowledge, target)
     lab4_path = helpers.artifact_path("lab4", "hosted.json")
     lab4 = foundry_env.load_artifact(lab4_path) if lab4_path.exists() else {}
     tracing = tracing_config() if enable_tracing else {"enabled": False, "source": None}
@@ -284,7 +325,8 @@ def build(skip_judges: bool = False, target: str = "local", enable_tracing: bool
         "no_recommendation": NoRecommendationEvaluator(),
         "pii_leak": PiiLeakEvaluator(),
     }
-    info = {"lab": LAB, "target": {"mode": target, "agent_name": hosted["agent_name"], "version_label": hosted.get("version_label"),
+    info = {"lab": LAB, "evaluated_target": reference,
+            "target": {"mode": target, "agent_name": hosted["agent_name"], "version_label": hosted.get("version_label"),
                                     "local_url": hosted.get("local_url"), "triage_agent": lab4.get("agent_name")},
             "tracing": {k: v for k, v in tracing.items() if k != "connection_string"},
             "evaluators": sorted(judges) + sorted(custom) + ["must_include_coverage"], "judge_model": MODEL,
@@ -438,6 +480,9 @@ def write_report(results: list[dict], summary: dict, bundle: dict) -> Path:
 
 def demo(bundle: dict | None = None, limit: int | None = None, target_mode: str = "local") -> dict:
     bundle = bundle or build(target=target_mode)
+    reference = bundle.get("info", {}).get("evaluated_target")
+    if reference:
+        validate_evaluated_target(reference, bundle["hosted"], bundle["knowledge"])
     configure_local_tracing(bundle["tracing"])
     target = HostedTarget(target_mode, bundle["hosted"], bundle["knowledge"], bundle["tracing"])
     results = []
@@ -456,6 +501,12 @@ def demo(bundle: dict | None = None, limit: int | None = None, target_mode: str 
     if bundle["tracing"].get("enabled"):
         summary["trace_ids"] = [row["trace_id"] for row in results]
     write_report(results, summary, bundle)
+    if reference:
+        validate_evaluated_target(reference, bundle["hosted"], bundle["knowledge"])
+        durable = {key: bundle[key] for key in ("info", "hosted", "knowledge")}
+        durable["results_sha256"] = hashlib.sha256(
+            helpers.artifact_path(LAB, "eval_results.jsonl").read_bytes()).hexdigest()
+        foundry_env.save_artifact(helpers.artifact_path(LAB, "evaluation_bundle.json"), durable)
     if bundle["tracing"].get("enabled") and summary["trace_ids"]:
         trace_filter = " or ".join(f"operation_Id == {json.dumps(trace_id)}" for trace_id in summary["trace_ids"])
         print("\nRun this KQL in the destination Application Insights resource > Logs (ingestion is not yet verified):")

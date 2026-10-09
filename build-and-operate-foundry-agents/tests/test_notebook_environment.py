@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "labs"))
+sys.path.insert(0, str(ROOT / "3-day-labs"))
 
 from common import foundry_env
 import lab_helpers
@@ -51,14 +51,14 @@ class NotebookEnvironmentTests(unittest.TestCase):
         self.assertIn("MARKETPLACE_BLOB_STORAGE_CONTAINER", source)
 
     def test_missing_checkpoint_points_to_notebooks(self) -> None:
-        with patch.object(lab_helpers, "artifact_path", return_value=ROOT / "labs/artifacts/missing.json"):
+        with patch.object(lab_helpers, "artifact_path", return_value=ROOT / "3-day-labs/artifacts/missing.json"):
             with self.assertRaises(SystemExit) as error:
                 lab_helpers.require_artifact("lab1", "project.json", through=1, caller="lab2")
         self.assertIn("Run Lab 2 and its prerequisites", str(error.exception))
         self.assertNotIn("python catch_up.py", str(error.exception))
 
     def test_missing_knowledge_points_to_its_producing_lab(self) -> None:
-        with patch.object(lab_helpers, "artifact_path", return_value=ROOT / "labs/artifacts/missing.json"):
+        with patch.object(lab_helpers, "artifact_path", return_value=ROOT / "3-day-labs/artifacts/missing.json"):
             with self.assertRaises(SystemExit) as error:
                 lab_helpers.require_artifact("lab3", "knowledge.json", through=3, caller="Lab 6")
         self.assertIn("Run Lab 5 and its prerequisites", str(error.exception))
@@ -66,7 +66,7 @@ class NotebookEnvironmentTests(unittest.TestCase):
     def test_missing_local_hosted_handoff_does_not_point_to_current_lab(self) -> None:
         for namespace, caller, producer in (("lab2", "Lab 4", "Lab 3"), ("lab3", "Lab 6", "Lab 5")):
             with self.subTest(caller=caller), patch.object(
-                lab_helpers, "artifact_path", return_value=ROOT / "labs/artifacts/missing.json",
+                lab_helpers, "artifact_path", return_value=ROOT / "3-day-labs/artifacts/missing.json",
             ):
                 with self.assertRaises(SystemExit) as error:
                     lab_helpers.require_artifact(namespace, "hosted.json", through=2, caller=caller)

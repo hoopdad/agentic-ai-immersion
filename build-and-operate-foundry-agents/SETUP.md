@@ -9,7 +9,7 @@ organization's policy and Azure network allow it.
 
 1. Open the repository root and select **Dev Containers: Reopen in Container**.
 2. Wait for bootstrap to finish installing the root dependency lock and toolchain.
-3. Open [Lab 1](labs/lab01/lab01_walkthrough.ipynb) beneath this workshop.
+3. Open [Lab 1](3-day-labs/lab01/lab01_walkthrough.ipynb) beneath this workshop.
 4. Select **Select Kernel > Python Environments > `/usr/local/bin/python`**.
 5. Edit the notebook's setup inputs using values supplied by your administrator,
    then run its authentication, provisioning, verification and persistence cells in order.
@@ -51,16 +51,24 @@ reach its private endpoints. Do not enable public access to bypass a blocked pat
 | Existing Foundry account, approved model quota and creation permissions | Labs 1-2 | Account administrator |
 | Azure AI Search with managed identity, semantic ranker and Foundry IQ support | Labs 5-6 and later knowledge consumers | Search administrator |
 | Existing Blob account/container, if shared history is requested | Optional Labs 5-6 shared history | Storage administrator |
-| Application Insights connected to the learner project, with approved ingestion access | Labs 9-10 | Telemetry administrator |
+| Application Insights connected to the learner project, with approved ingestion access for the measured core and caller/callee | Labs 9-10 and optional Lab 12 | Telemetry administrator |
 | OIDC and protected GitHub Environments | Optional Labs 9-10 cloud pipeline | Release administrator |
-| Foundry Toolbox endpoint and access | Optional Labs 13-14 preview | Project administrator |
-| Project access for prompt-agent publishing and invocation; Azure AI User for the concierge identity | Optional Labs 11-12 | Project administrator |
+| Foundry Toolbox endpoint and access | Optional Lab 14 preview | Project administrator |
+| Project access for publishing/invoking one prompt version | Optional Lab 11 terminal comparison | Project administrator |
+| Hosted triage invocation access for the extension caller identity, approved callee endpoint/network path and telemetry access | Optional Lab 12 after both Labs 8 and 9 | Project and telemetry administrators |
 
-Lab 12 uses Microsoft Agent Framework from the existing root lock. It reuses
-Lab 11's versioned prompt agents, Lab 6's knowledge and its existing hosted
-concierge. No Foundry YAML workflow, separate workflow agent, additional model
-or new hosted service must be enabled or provisioned. MAF orchestration runs in
-the notebook first and then inside the concierge container.
+Lab 12 reuses Lab 8's deployed triage service and Lab 9's tracing concepts,
+extending accepted concierge behavior in a separate `shared/hosted-delegation/`
+candidate. It consumes no Lab 11 prompt references and builds no second graph.
+Review caller/callee identities, supported invocation endpoint/token audience,
+network reachability, telemetry permissions and the pinned target before the
+explicit deployment/invocation cells. Model access alone does not grant agent
+invocation access. Keep the evaluated Lab 9-10 core version untouched.
+No additional model or prompt-backed workflow service is a prerequisite.
+
+Lab 11 requires Lab 4 and ends after one prompt comparison. Lab 13 also requires
+Lab 4's hosted Responses concepts; Lab 14 requires Lab 13 but starts a distinct
+Responses Skills service, not a stateful batch service.
 
 ## 3. Notebook inputs and downstream persistence
 
@@ -150,6 +158,7 @@ permissions. Allow propagation before retesting.
 | Learner creating the Labs 5-6 project connection | Foundry account/project | Connection-write permission, such as Azure AI Owner or Contributor at the appropriate scope |
 | Hosted deployer | Foundry project | Foundry Project Manager |
 | Hosted invoker | Foundry project | Foundry Agent Consumer or Foundry User |
+| Lab 12 extension caller identity | Pinned triage agent's approved project scope | Administrator-verified hosted invocation access; not inferred from Azure AI User/model permission |
 | Learner creating knowledge resources | Search service | Search Service Contributor and Search Index Data Contributor |
 | Project and hosted agent identities retrieving knowledge | Search service | Search Index Data Reader |
 | Search managed identity invoking embeddings/answer synthesis | Foundry account | Cognitive Services OpenAI User and Cognitive Services User |
@@ -180,11 +189,16 @@ tool access.
 
 ## 6. Notebook execution and recovery
 
-Open each numbered walkthrough in its matching two-digit `labs/labNN` folder, read that
+Open each numbered walkthrough in its matching two-digit `3-day-labs/labNN` folder, read that
 folder's README and run prerequisite cells
-first. Follow the [Labs 1-14 dependency table](labs/README.md#sequence-and-artifact-chain);
+first. Follow the [Labs 1-14 dependency table](3-day-labs/README.md#sequence-and-artifact-chain);
 each notebook starts in a fresh kernel and restores validated predecessor
 metadata rather than rerunning provisioning or evaluation work.
+The guided route is core Labs 1-10 in order, then chosen extensions. A dependency
+branch does not mean parallel runtime in one workspace: local hosts share port
+8088, editable source, deployment targets and Azure quota. Stop the current
+notebook-owned host before starting another, and do not reuse an unrelated
+process on a busy port. Protect the exact evaluated core version when branching.
 The notebook manages local servers on port 8088, readiness probes, package
 preparation and process cleanup. Foundry separately builds and runs the uploaded
 Python product package. Deployment is an explicit notebook action; review its
@@ -195,6 +209,9 @@ the checkpoint cells. If a server or kernel fails, inspect the saved local log,
 stop only the identified process through the notebook's lifecycle controls,
 then rerun the preparation and readiness cells. Restart kernels after changing
 persisted configuration so a stale environment does not mask the change.
+Lab 12 uses `artifacts/hosted_delegation/part_a.json`; old prompt-backed
+`stretch6/part_b.json` cannot satisfy its acceptance. Restore accepted Labs 8
+and 9 and rerun the new Lab 12 rather than replaying Lab 11.
 
 ## 7. Facilitator readiness rehearsal
 
@@ -213,6 +230,14 @@ not prove any of these live outcomes.
       file-backed local restart recovery without claiming replica continuity.
 - [ ] Labs 9-10 write evaluation and gate evidence; a new trace ID is visible in
       the correct telemetry resource.
+- [ ] Lab 11 runs after Lab 4 as a short terminal comparison; no other lab needs its prompt.
+- [ ] Lab 12 blocks when either Lab 8 or 9 is missing; its isolated candidate
+      retains accepted concierge behavior and does not overwrite the measured core.
+- [ ] Lab 12 demonstrates a controlled failure, bounded remote pending-case call
+      and current caller/callee Azure trace correlation, with no automatic advisor
+      decision or blind state-changing replay.
+- [ ] Labs 13-14 work after Lab 4 without knowledge, MAF, operations or prompt
+      artifacts; the batch and Responses Skills services remain distinct.
 - [ ] Optional preview exercises are available in the selected region or clearly skipped.
 - [ ] Synthetic source data is unchanged and generated artifacts remain uncommitted.
 
@@ -249,12 +274,12 @@ checks and the root offline workflow are implementation validation, not extra
 learner setup steps. The root dependency lock remains authoritative, with
 matching minimal hosted-runtime pins. Offline results make no live Azure claim.
 
-The seven original drivers remain internal callable helpers under `shared/`,
+Original topic drivers and the hosted-delegation extension remain internal helpers under `shared/`,
 alongside reusable product code. Authors edit the
 fourteen adjacent numbered cell sources below and regenerate their paired notebooks;
 do not convert the original drivers into learner notebooks.
 
-| Directory under `labs/` | Adjacent source → notebook |
+| Directory under `3-day-labs/` | Adjacent source → notebook |
 |---|---|
 | `lab01` | `lab01_identity_project.py` → `lab01_walkthrough.ipynb` |
 | `lab02` | `lab02_models_verify.py` → `lab02_walkthrough.ipynb` |
@@ -282,6 +307,6 @@ regenerate Labs 1-2; use the same explicit source/output pairing above for
 each other lab.
 
 ```bash
-python tools/py_to_ipynb.py labs/lab01/lab01_identity_project.py --name lab01_walkthrough
-python tools/py_to_ipynb.py labs/lab02/lab02_models_verify.py --name lab02_walkthrough
+python tools/py_to_ipynb.py 3-day-labs/lab01/lab01_identity_project.py --name lab01_walkthrough
+python tools/py_to_ipynb.py 3-day-labs/lab02/lab02_models_verify.py --name lab02_walkthrough
 ```

@@ -22,7 +22,7 @@ for folder in (HERE.parents[2] if len(HERE.parents) > 2 else HERE, HERE):   # re
 from common import guardrails, model_resilience  # noqa: E402
 
 AGENT_NAME = "healthcare-marketplace-concierge-hosted"
-HOSTED_RECORD = HERE.parents[2] / "labs" / "artifacts" / "lab2" / "hosted.json"
+HOSTED_RECORD = HERE.parents[2] / "3-day-labs" / "artifacts" / "lab2" / "hosted.json"
 QUESTIONS = [
     "Hi, this is P-1001, ZIP 84095. When can I change my plan this year?",
     "Just tell me which plan is best for me.",

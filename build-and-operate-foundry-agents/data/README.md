@@ -21,6 +21,14 @@ code depends on them, so add fields if you like but do not rename or remove any.
 | `eval/golden_questions.jsonl` | 18 | Evaluation set, one JSON object per line: id, scenario, query, participant_id, context, expected_behavior, must_include, must_not | Labs 9-10 (evaluation of the hosted agent) |
 | `transcripts/call-00N.txt` | 3 | Synthetic call transcripts, `[hh:mm:ss] Advisor:` / `[hh:mm:ss] Participant:` lines, 27 turns each. call-001 is S1, call-002 is S2, call-003 is S3 | Anyone demonstrating PII redaction (`guardrails.redact_pii`) |
 
+Labs 9-10 measure the pinned Lab 6 knowledge concierge; a Lab 12 hosted-delegation
+extension is a separate candidate, not an automatic replacement of the measured
+product. It reuses synthetic triage inputs without changing these facts or policy.
+Lab 13's stateless batch product and Lab 14's distinct Responses Skills service
+also share fixtures, not runtime state. Lab 11's terminal prompt comparison has
+no downstream data/agent handoff consumers. Offline scenario checks prove fixture
+consistency only, not live Azure behavior or regulatory compliance.
+
 ## The three scenarios and where their facts live
 
 | Scenario | Participant | Facts the data guarantees |

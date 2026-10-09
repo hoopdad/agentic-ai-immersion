@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import ast
+import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -59,7 +61,7 @@ WALKTHROUGHS = {
         ("lab11_prompt_agents.py", "lab11_walkthrough.ipynb", "11", "stretch6", "a"),
     ),
     "lab12": (
-        ("lab12_workflows_delegation.py", "lab12_walkthrough.ipynb", "12", "stretch6", "b"),
+        ("lab12_workflows_delegation.py", "lab12_walkthrough.ipynb", "12", "hosted_delegation", "a"),
     ),
     "lab13": (
         ("lab13_invocations.py", "lab13_walkthrough.ipynb", "13", "stretch7", "a"),
@@ -73,12 +75,39 @@ PREREQUISITES = {
     "lab3": {("lab2", "hosted.json", 2)},
     "lab4": {("lab3", "hosted.json", 3)},
     "lab5": {("lab3", "hosted.json", 3), ("lab3", "knowledge.json", 3)},
-    "stretch6": {("lab3", "knowledge.json", 3), ("lab3", "hosted.json", 3)},
 }
 LAB_DEPENDENCIES = {
     1: (), 2: (1,), 3: (2,), 4: (3,), 5: (4,), 6: (5,), 7: (6,), 8: (7,),
-    9: (6,), 10: (9,), 11: (6,), 12: (11,), 13: (2,), 14: (13,),
+    9: (6,), 10: (9,), 11: (4,), 12: (8, 9), 13: (4,), 14: (13,),
 }
+HOSTED_PACKAGES = {
+    "hosted-agent-basics/hosted",
+    "hosted-knowledge-sessions/hosted",
+    "hosted-multi-agent-handoff/hosted",
+    "hosted-delegation/hosted",
+    "invocations-toolbox-skills/hosted-invocations",
+    "invocations-toolbox-skills/hosted-responses-skills",
+}
+
+
+def validate_dependency_table(text: str) -> None:
+    rows = {}
+    for line in text.splitlines():
+        if not re.match(r"^\| \d+ \|", line):
+            continue
+        cells = line.split("|")
+        number = int(cells[1].strip())
+        if number in rows:
+            raise ValueError(f"Duplicate Lab {number} in the prerequisite table.")
+        rows[number] = set(map(int, re.findall(r"\bLab (\d+)\b", cells[3])))
+    if set(rows) != set(LAB_DEPENDENCIES):
+        raise ValueError("The prerequisite table must describe all fourteen labs.")
+    for number, predecessors in LAB_DEPENDENCIES.items():
+        if rows[number] != set(predecessors):
+            raise ValueError(
+                f"Lab {number}: documented prerequisites {sorted(rows[number])} "
+                f"do not match required labs {list(predecessors)}."
+            )
 
 
 def validate_artifact_chain(tree: ast.Module, lab: str) -> None:
@@ -164,7 +193,35 @@ def run(*args: str) -> None:
                    env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})
 
 
+def prepare_snapshot_behavior(workshop: Path) -> None:
+    source = workshop / ".offline_snapshot_accepted.py"
+    source.write_text(
+        "from agent_framework import tool\n"
+        "from common import marketplace_data\n"
+        'ROLE_INSTRUCTIONS = """3. When a participant asks which plan to pick or asks to enroll,\n'
+        "   offer a licensed benefit advisor and name the applicable enrollment window.\n"
+        '4. Short paragraphs, plain language.\n"""\n'
+        '@tool(approval_mode="never_require")\n'
+        "def get_sponsor(sponsor_id: str) -> dict:\n"
+        '    """Offline packaging fixture; not learner acceptance evidence."""\n'
+        "    return marketplace_data.get_sponsor(sponsor_id)\n",
+        encoding="utf-8", newline="\n",
+    )
+    path = workshop / "shared/hosted-knowledge-sessions/hosted/prepare.py"
+    spec = importlib.util.spec_from_file_location("offline_knowledge_prepare", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Cannot load the isolated packaging helper: {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    try:
+        module.vendor()
+        module.transfer_accepted_behavior(source, hashlib.sha256(source.read_bytes()).hexdigest())
+    finally:
+        source.unlink()
+
+
 def main() -> None:
+    validate_dependency_table((ROOT / "3-day-labs/README.md").read_text(encoding="utf-8"))
     for path in (REPO / ".devcontainer").glob("*.sh"):
         if b"\r" in path.read_bytes():
             raise ValueError(f"Bash script must use LF line endings, including in the working tree: {path}")
@@ -173,11 +230,11 @@ def main() -> None:
         if not excluded.intersection(path.relative_to(ROOT).parts):
             ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     expected_notebooks = {
-        ROOT / "labs" / directory / notebook
+        ROOT / "3-day-labs" / directory / notebook
         for directory, parts in WALKTHROUGHS.items()
         for _, notebook, _, _, _ in parts
     }
-    actual_notebooks = set((ROOT / "labs").glob("*/*.ipynb"))
+    actual_notebooks = set((ROOT / "3-day-labs").glob("*/*.ipynb"))
     if actual_notebooks != expected_notebooks:
         raise ValueError(f"Workshop must contain exactly fourteen expected walkthroughs: "
                          f"missing={expected_notebooks - actual_notebooks}, unexpected={actual_notebooks - expected_notebooks}")
@@ -193,13 +250,15 @@ def main() -> None:
     for directory, (script_name, notebook_name, prefix, lab, part) in (
         (directory, item) for directory, parts in WALKTHROUGHS.items() for item in parts
     ):
-        source = ROOT / "labs" / directory / script_name
+        source = ROOT / "3-day-labs" / directory / script_name
         guide = source.with_name("README.md")
         if len(list(source.parent.glob("*.ipynb"))) != 1 or len(list(source.parent.glob("*.py"))) != 1:
             raise ValueError(f"{source.parent}: each folder must hold exactly one lab source and notebook")
         if not guide.read_text(encoding="utf-8").startswith(f"# Lab {prefix}:"):
             raise ValueError(f"{guide}: document only this folder's Lab {prefix}")
         path = source.with_name(notebook_name)
+        if b"\r" in path.read_bytes():
+            raise ValueError(f"Regenerate {path} with LF line endings.")
         run("tools/py_to_ipynb.py", "--check", str(path))
         notebook = json.loads(path.read_text(encoding="utf-8"))
         script = source.read_text(encoding="utf-8")
@@ -243,9 +302,8 @@ def main() -> None:
                 raise ValueError(f"Hosted requirement does not match root lock: {path}: {line}")
     for name in ("marketplace_data", "session_store", "message_store"):
         run(f"common/{name}.py")
+    run("tools/sync_one_day_labs.py", "--check")
     run("-m", "unittest", "discover", "-s", "tests", "-v")
-    run("-m", "unittest", "discover", "-s", "shared/prompt-agents-and-workflows",
-        "-p", "test_stretch6_offline.py", "-v")
     with tempfile.TemporaryDirectory(prefix="foundry-workshop-check-") as directory:
         sandbox_repo = Path(directory) / "repository"
         sandbox_repo.mkdir()
@@ -263,8 +321,13 @@ def main() -> None:
             "-p", "test_py_to_ipynb.py", "-v",
         ], cwd=sandbox, env=environment, check=True)
         prepares = sorted((sandbox / "shared").glob("*/hosted*/prepare.py"))
-        if len(prepares) != 5:
-            raise ValueError(f"Expected five hosted package snapshots, got {len(prepares)}")
+        actual_packages = {path.parent.relative_to(sandbox / "shared").as_posix() for path in prepares}
+        if actual_packages != HOSTED_PACKAGES:
+            raise ValueError(
+                f"Hosted package snapshots differ: missing={HOSTED_PACKAGES - actual_packages}, "
+                f"unexpected={actual_packages - HOSTED_PACKAGES}"
+            )
+        prepare_snapshot_behavior(sandbox)
         for prepare in prepares:
             subprocess.run([sys.executable, str(prepare)], cwd=prepare.parent,
                            env=environment, check=True)
@@ -273,7 +336,7 @@ def main() -> None:
             str(sandbox / "shared/invocations-toolbox-skills/hosted-invocations/test_local.py"),
             "--offline",
         ], cwd=sandbox, env=environment, check=True)
-    print("Offline workshop checks passed: Labs 1-14 and five hosted package snapshots. "
+    print("Offline workshop checks passed: three-day Labs 1-14, generated one-day route, and six hosted package snapshots. "
           "Azure and container-build checks are separate.")
 
 

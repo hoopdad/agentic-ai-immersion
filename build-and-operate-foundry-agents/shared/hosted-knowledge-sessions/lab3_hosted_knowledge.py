@@ -9,8 +9,8 @@
 # |  | Details |
 # | --- | --- |
 # | Goal | Build the Foundry IQ knowledge base, run `healthcare-marketplace-concierge-hosted` v2 locally, prove a file-backed local process restart, and optionally configure Azure Blob history for deployment. |
-# | Inputs | `labs/artifacts/lab2/hosted.json`; `data/knowledge`; `.env` with the explicit Azure settings in this lab's `README.md`. |
-# | Outputs | `labs/artifacts/lab3/knowledge.json`, `hosted.json`, `sessions/`, `transcripts.md`, and `hosted_local.log` |
+# | Inputs | `3-day-labs/artifacts/lab2/hosted.json`; `data/knowledge`; `.env` with the explicit Azure settings in this lab's `README.md`. |
+# | Outputs | `3-day-labs/artifacts/lab3/knowledge.json`, `hosted.json`, `sessions/`, `transcripts.md`, and `hosted_local.log` |
 # | Time | 60 min (teach 10, demo 10, do 35, checkpoint 5) |
 #
 # **How to run.** Execute this notebook's cells in order; ordinary acceptance exercises run without toggles.
@@ -33,7 +33,7 @@
 #
 # **Lab path and prerequisites.**
 #
-# - **Required:** Complete the Labs 3-4 notebook first; this lab reads `labs/artifacts/lab2/hosted.json`.
+# - **Required:** Complete the Labs 3-4 notebook first; this lab reads `3-day-labs/artifacts/lab2/hosted.json`.
 # - **Optional:** Deploying version 2 and Azure Blob Storage are optional. Local history uses the configured
 #   Azurite emulator or files; deployed shared history requires an Azure Blob URL.
 # - **From Labs 3-4:** Keep the same dev-container setup, kernel, Foundry project, Responses protocol, agent name,
@@ -74,13 +74,13 @@ SOURCE_PATH = (
     )
 )
 ROOT = SOURCE_PATH.parents[2]
-LABS_DIR = ROOT / "labs"
+LABS_DIR = ROOT / "3-day-labs"
 LAB_DIR = SOURCE_PATH.parent
 for folder in (ROOT, LABS_DIR, LAB_DIR):
     if str(folder) not in sys.path:
         sys.path.insert(0, str(folder))
 
-from common import foundry_env, guardrails, model_resilience, resource_names  # noqa: E402
+from common import foundry_env, guardrails, model_resilience, notebook_parts, resource_names  # noqa: E402
 
 from azure.identity import AzureCliCredential  # noqa: E402
 from azure.search.documents.indexes import SearchIndexClient  # noqa: E402
@@ -132,6 +132,21 @@ def container_environment(knowledge: dict, env: dict | None = None) -> dict[str,
 
 def build(skip_connection: bool = False) -> dict:
     resource_names.suffix(ENV, required=True)
+    accepted_basics = notebook_parts.read_checkpoint(
+        helpers.artifact_path("lab2", "part_a.json"), lab="lab2", part="a",
+        context=notebook_parts.scope(ENV))
+    deployed_basics = notebook_parts.read_checkpoint(
+        helpers.artifact_path("lab2", "part_b.json"), lab="lab2", part="b",
+        context=notebook_parts.scope(ENV))
+    if deployed_basics["state"].get("version_routing") != "fixed-100-percent":
+        raise RuntimeError("Lab 4 fixed-version acceptance is missing; rerun Lab 4.")
+    source_hash = accepted_basics["state"].get("hosted_source_sha256")
+    if not source_hash:
+        raise RuntimeError("Lab 3 tested source is missing; rerun Labs 3-4 acceptance.")
+    prepare = helpers.load_lab_module(f"{LAB_DIR.name}/hosted/prepare.py")
+    vendored = prepare.vendor()
+    retained_behavior = prepare.transfer_accepted_behavior(
+        ROOT / "shared/hosted-agent-basics/hosted/main.py", source_hash)
     lab2 = helpers.require_artifact("lab2", "hosted.json", through=2, caller=LAB)
     credential = AzureCliCredential()
     index_client = SearchIndexClient(endpoint=knowledge_base.search_endpoint(), credential=credential)
@@ -144,8 +159,6 @@ def build(skip_connection: bool = False) -> dict:
     knowledge_base.build_knowledge_base(index_client)
     knowledge = knowledge_base.save_build_artifact(lab2, counts, credential, skip_connection)
 
-    prepare = helpers.load_lab_module(f"{LAB_DIR.name}/hosted/prepare.py")
-    vendored = prepare.vendor()
     previous = json.loads(HOSTED_RECORD.read_text(encoding="utf-8")) if HOSTED_RECORD.exists() else {}
     env_for_container = container_environment(knowledge)
     info = {
@@ -162,11 +175,13 @@ def build(skip_connection: bool = False) -> dict:
             "get_participant",
             "get_enrollment_window",
             "get_hra_account",
+            "get_sponsor",
             "search_plans",
             "compare_plans",
             "knowledge_base_retrieve (MCP healthcare-marketplace-kb)",
         ],
         "vendored": vendored,
+        "retained_behavior": retained_behavior,
         "env_for_container": env_for_container,
         "session_behavior": {
             "local": "message history uses configured Azure Blob, Azurite, or files; AgentServer state is local",

@@ -5,6 +5,7 @@ from contextlib import ExitStack
 import ast
 import asyncio
 import copy
+import hashlib
 import importlib.util
 import json
 import os
@@ -17,7 +18,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "labs"))
+sys.path.insert(0, str(ROOT / "3-day-labs"))
 from common import foundry_env, notebook_parts
 import lab_helpers
 
@@ -37,7 +38,6 @@ converter = load(ROOT / "tools/py_to_ipynb.py", "split_4_7_converter")
 PARTS = {
     "lab4": ("hosted-multi-agent-handoff", "lab07_specialist_orchestration", "lab08_advisor_recovery", "lab4_hosted_multi_agent"),
     "lab5": ("operate-hosted-agents", "lab09_tracing_evaluation", "lab10_release_rollback", "lab5_operate"),
-    "stretch6": ("prompt-agents-and-workflows", "lab11_prompt_agents", "lab12_workflows_delegation", "stretch6_prompt_agents"),
     "stretch7": ("invocations-toolbox-skills", "lab13_invocations", "lab14_skills_toolbox", "stretch7_invocations"),
 }
 ENV = {
@@ -77,6 +77,10 @@ class SplitNotebookTests(unittest.TestCase):
         self.gate = load(ROOT / "shared/operate-hosted-agents/eval_gate.py", "split_test_gate")
         self.promotion = load(ROOT / "shared/operate-hosted-agents/promote.py", "split_test_promotion")
         self.modules = {**self.loaded, "eval_gate": self.gate, "promote": self.promotion}
+        notebook_parts.write_checkpoint(
+            self.artifact("lab2", "part_b.json"), lab="lab2", part="b",
+            context=notebook_parts.scope(ENV),
+            state={"deployed_inference": "passed", "deployed_version": "3"})
         self.stack.enter_context(patch("subprocess.run", return_value=SimpleNamespace(returncode=0, stdout="offline")))
         self.stack.enter_context(patch.object(
             lab_helpers, "load_lab_module", side_effect=lambda relative: self.modules[Path(relative).stem],
@@ -90,7 +94,7 @@ class SplitNotebookTests(unittest.TestCase):
     def cells(self, lab: str, part: str) -> list[str]:
         folder, a, b, _ = PARTS[lab]
         stem = a if part == "a" else b
-        source = ROOT / "labs" / stem.split("_")[0] / f"{stem}.py"
+        source = ROOT / "3-day-labs" / stem.split("_")[0] / f"{stem}.py"
         notebook = converter.build_notebook(source.read_text(encoding="utf-8"), seed=source.stem)
         return ["".join(cell["source"]) for cell in notebook["cells"] if cell["cell_type"] == "code"]
 
@@ -102,6 +106,9 @@ class SplitNotebookTests(unittest.TestCase):
             code = code.replace('KNOWN_GOOD_VERSION = ""', 'KNOWN_GOOD_VERSION = "2"')
             code = code.replace('KNOWN_GOOD_REVISION = ""', 'KNOWN_GOOD_REVISION = "offline-reviewed-revision"')
             code = code.replace('RELEASE_TAG = ""', 'RELEASE_TAG = "healthcare-marketplace-concierge-test-offline"')
+            code = code.replace('OBSERVED_TRACE_ID = ""', 'OBSERVED_TRACE_ID = "trace-0"')
+            code = code.replace('OBSERVED_RESOURCE_ID = ""',
+                                'OBSERVED_RESOURCE_ID = "/subscriptions/offline/resourceGroups/workshop/providers/Microsoft.Insights/components/telemetry"')
             self.execute_cell(code, namespace)
         return namespace
 
@@ -114,7 +121,7 @@ class SplitNotebookTests(unittest.TestCase):
         for lab, (folder, a, b, _) in PARTS.items():
             for stem in (a, b):
                 with self.subTest(stem=stem):
-                    source = ROOT / "labs" / stem.split("_")[0] / f"{stem}.py"
+                    source = ROOT / "3-day-labs" / stem.split("_")[0] / f"{stem}.py"
                     expected = converter.build_notebook(source.read_text(encoding="utf-8"), seed=stem)
                     actual = json.loads(source.with_name(f"{stem.split('_')[0]}_walkthrough.ipynb").read_text())
                     self.assertEqual(actual, expected)
@@ -165,7 +172,7 @@ class SplitNotebookTests(unittest.TestCase):
                 patch.object(notebook_parts, "read_checkpoint") as checkpoint:
             for folder, a, b, _ in PARTS.values():
                 for stem in (a, b):
-                    load(ROOT / "labs" / stem.split("_")[0] / f"{stem}.py", f"import_only_{stem}")
+                    load(ROOT / "3-day-labs" / stem.split("_")[0] / f"{stem}.py", f"import_only_{stem}")
             project.assert_not_called()
             client.assert_not_called()
             checkpoint.assert_not_called()
@@ -173,7 +180,7 @@ class SplitNotebookTests(unittest.TestCase):
     def test_failed_a_action_cannot_publish_a_completion_checkpoint(self) -> None:
         for lab, (_, _, _, original) in PARTS.items():
             driver = self.loaded[original]
-            action = "publish_prompt_agents" if lab == "stretch6" else "build"
+            action = "build"
             for part in ("a", "b"):
                 self.artifact(lab, f"part_{part}.json").write_text('{"old_success": true}')
             with self.subTest(lab=lab), patch.object(driver, action, side_effect=RuntimeError("offline failure")):
@@ -186,7 +193,6 @@ class SplitNotebookTests(unittest.TestCase):
         outcomes = {
             "lab4": ("orchestration", "compliance", "classification"),
             "lab5": ("baseline", "tracing"),
-            "stretch6": ("published_prompts", "function_turn", "portal"),
             "stretch7": ("batch_package", "offline_batch", "nightly_batch", "deployment"),
         }
         for lab, (_, _, _, original) in PARTS.items():
@@ -195,7 +201,7 @@ class SplitNotebookTests(unittest.TestCase):
             for part in ("a", "b"):
                 self.artifact(lab, f"part_{part}.json").write_text('{"old_success": true}')
             driver = self.loaded[original]
-            action = "publish_prompt_agents" if lab == "stretch6" else "build"
+            action = "build"
             with self.subTest(lab=lab), patch.object(driver, action, side_effect=RuntimeError("rerun failure")):
                 with self.assertRaises(RuntimeError):
                     exec(compile(self.cells(lab, "a")[1], "rerun_a_action", "exec"), namespace)
@@ -253,12 +259,16 @@ class SplitNotebookTests(unittest.TestCase):
         self.stack.enter_context(patch.object(driver, "post_turn", side_effect=post))
         build_mock = self.stack.enter_context(patch.object(driver, "build", side_effect=build))
         self.stack.enter_context(patch.object(driver, "deploy_commands", return_value="true"))
+        self.stack.enter_context(patch.object(driver, "require_pinned_version"))
         self.stack.enter_context(patch.object(driver, "record_deployment", return_value={"deployed": {"version": "3"}}))
 
         def deployed_demo(**kwargs):
             self.assertTrue(kwargs["deployed"])
             final = {**packet("accounts"), "advisor_decision": "approve", "status": "approved"}
-            driver.save_packet("S2", final)
+            driver.save_packet("deployed-S2", final)
+            foundry_env.save_artifact(driver.ARTIFACTS / "deployed_triage.json", {
+                "traces": {"S2": {"statuses": [driver.PENDING, "approved"], "deployed_versions": ["3", "3"]}},
+            })
             return {"S2": final}
         self.stack.enter_context(patch.object(driver, "demo", side_effect=deployed_demo))
         a = self.execute("lab4", "a")
@@ -325,7 +335,11 @@ class SplitNotebookTests(unittest.TestCase):
 
         def build(**kwargs):
             tracing = {"enabled": kwargs.get("enable_tracing", True), "source": "offline"}
-            info = {"target": {"agent_name": "offline-concierge", "mode": "local"}, "tracing": tracing}
+            source = self.workspace / "candidate.py"
+            source.write_text("# evaluated candidate\n")
+            reference = {"files": {str(source): hashlib.sha256(source.read_bytes()).hexdigest()}}
+            info = {"target": {"agent_name": "offline-concierge", "mode": "local"},
+                    "evaluated_target": reference, "tracing": tracing}
             foundry_env.save_artifact(self.artifact("lab5", "operate.json"), info)
             return {"info": info, "hosted": {"agent_name": "offline-concierge"},
                     "knowledge": {}, "tracing": tracing, "judges": {}, "custom": {}}
@@ -339,6 +353,7 @@ class SplitNotebookTests(unittest.TestCase):
             return summary
 
         build_mock = self.stack.enter_context(patch.object(driver, "build", side_effect=build))
+        self.stack.enter_context(patch.object(driver, "validate_evaluated_target"))
         demo_mock = self.stack.enter_context(patch.object(driver, "demo", side_effect=demo))
         for module, key, value in (
             (self.gate, "RESULTS_PATH", self.artifact("lab5", "eval_results.jsonl")),
@@ -346,6 +361,7 @@ class SplitNotebookTests(unittest.TestCase):
             (self.gate, "LABS_DIR", self.workspace),
             (self.promotion, "GATE_PATH", self.artifact("lab5", "gate_result.json")),
             (self.promotion, "PROMOTIONS_PATH", self.artifact("lab5", "promotions.jsonl")),
+            (self.promotion, "ROOT", self.workspace),
         ):
             self.stack.enter_context(patch.object(module, key, value))
         a = self.execute("lab5", "a")
@@ -381,84 +397,6 @@ class SplitNotebookTests(unittest.TestCase):
         self.assertFalse(self.artifact("lab5", "part_a.json").exists())
         self.assertFalse(self.artifact("lab5", "part_b.json").exists())
 
-    def test_stretch6_publishes_prompts_in_a_and_runs_maf_without_publication_in_b(self) -> None:
-        driver = self.loaded["stretch6_prompt_agents"]
-        project = MagicMock()
-        creations = []
-
-        def create_version(agent_name, definition):
-            creations.append((agent_name, type(definition).__name__))
-            return SimpleNamespace(name=agent_name, version="1", id=f"id-{agent_name}")
-
-        project.agents.create_version.side_effect = create_version
-        self.stack.enter_context(patch.object(foundry_env, "get_project_client", return_value=project))
-        self.stack.enter_context(patch.object(foundry_env, "get_openai_client", return_value=MagicMock()))
-        self.stack.enter_context(patch.object(lab_helpers, "require_artifact", return_value={
-            "mcp_endpoint": "https://offline.test/mcp", "connection": {"connection_id": "offline-connection"},
-        }))
-        self.stack.enter_context(patch.object(driver, "run_concierge_turn", return_value=(
-            "Hello Evelyn, a licensed advisor can compare available plans.", [{"name": "get_participant"}],
-        )))
-        self.execute("stretch6", "a")
-        self.assertTrue(all(kind == "PromptAgentDefinition" for _, kind in creations))
-        before = len(creations)
-        async def baseline(info):
-            foundry_env.save_artifact(self.artifact("stretch6", "handoff_packets", "S1.json"), {"observed": True})
-            return info
-        self.stack.enter_context(patch.object(driver, "demo", side_effect=baseline))
-        wrong_packet = packet("accounts", "P-1001")
-        wrong_packet.pop("packet_attempts")
-        wrong_packet["open_questions"] = ["Confirm the marketplace question."]
-        self.stack.enter_context(patch.object(driver, "case_header", return_value=("CASE-offline", "offline header")))
-        self.stack.enter_context(patch.object(driver, "run_case", new=AsyncMock(return_value={
-            "actions": [{"action_id": action} for action in ("triage", "accounts", "compliance", "handoff")],
-            "packet": wrong_packet,
-        })))
-        delegation_packet = packet("marketplace", "P-1005")
-        delegation_packet.pop("packet_attempts")
-        delegation_packet["case_id"] = "hosted-gate-P-1005"
-        hosted_tool = SimpleNamespace(run_triage_workflow=AsyncMock(return_value={
-            "status": "completed", "packet": delegation_packet,
-        }))
-        self.modules["main"] = hosted_tool
-        self.stack.enter_context(patch.object(driver, "source_fingerprints", return_value={"graph": "offline-fingerprint"}))
-        self.stack.enter_context(patch("shutil.copy2"))
-        save = foundry_env.save_artifact
-        self.stack.enter_context(patch.object(
-            foundry_env, "save_artifact",
-            side_effect=lambda path, data: save(
-                self.workspace / "triage_agents.json" if Path(path).name == "triage_agents.json" else path, data,
-            ),
-        ))
-        import deployment
-        self.stack.enter_context(patch.object(deployment, "bash_deploy_block", return_value="true"))
-        main_path = ROOT / "shared/hosted-knowledge-sessions/hosted/main.py"
-        read_text = Path.read_text
-        self.stack.enter_context(patch.object(
-            Path, "read_text",
-            lambda path, *args, **kwargs: "def run_triage_workflow(): pass\nFUNCTION_TOOLS = [run_triage_workflow]"
-            if path == main_path else read_text(path, *args, **kwargs),
-        ))
-        self.modules["lab3_hosted_knowledge"] = SimpleNamespace(
-            HOSTED_DIR=main_path.parent, AGENT_NAME="offline-concierge",
-        )
-        self.modules["prepare"] = SimpleNamespace(vendor=lambda: {})
-        b = self.execute("stretch6", "b")
-        self.assertEqual(creations[before:], [])
-        self.assertEqual(b["info"]["agents"], b["prompt_info"]["agents"])
-        self.assertEqual(b["info"]["runtime"], "microsoft-agent-framework")
-        self.assertTrue(self.artifact("stretch6", "part_b.json").is_file())
-        with patch.object(driver, "source_fingerprints", return_value={"graph": "changed"}):
-            with self.assertRaises(AssertionError):
-                self.execute_cell(self.cells("stretch6", "b")[-1], b)
-        self.assertFalse(self.artifact("stretch6", "part_b.json").exists())
-        with patch.object(hosted_tool, "run_triage_workflow", new=AsyncMock(return_value={"status": "failed"})):
-            with self.assertRaises(AssertionError):
-                self.execute_cell(self.cells("stretch6", "b")[3], b)
-        with self.assertRaises(AssertionError):
-            self.execute_cell(self.cells("stretch6", "b")[-1], b)
-        self.assertFalse(self.artifact("stretch6", "part_b.json").exists())
-
     def test_stretch7_preserves_batch_record_and_skills_config_is_safe(self) -> None:
         driver = self.loaded["stretch7_invocations"]
         # The real build selectively vendors only the current part and merges cumulative records.
@@ -481,7 +419,7 @@ class SplitNotebookTests(unittest.TestCase):
         combined = json.loads(driver.RECORD.read_text())
         self.assertEqual(combined["agents"]["invocations"], original)
         self.assertIn("hosted-responses-skills", vendors[-1])
-        module = load(ROOT / "labs/lab14/lab14_skills_toolbox.py", "split_config")
+        module = load(ROOT / "3-day-labs/lab14/lab14_skills_toolbox.py", "split_config")
         self.assertEqual(module.validate_config("", "", "")["SKILL_NAMES"], "")
         for name, url in (("box", ""), ("", "https://example.test/mcp"),
                           ("box", "http://example.test/mcp"), ("box", "https://attendee@example.test/mcp"),

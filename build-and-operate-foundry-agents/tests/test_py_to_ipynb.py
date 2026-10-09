@@ -3,12 +3,14 @@ from __future__ import annotations
 
 import ast
 from contextlib import redirect_stdout
+import hashlib
 import io
 import json
 import os
 from pathlib import Path
 import re
 import sys
+import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
@@ -18,12 +20,15 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 from py_to_ipynb import (  # noqa: E402
     build_notebook,
+    convert,
     split_cells,
     validate_cell_descriptions,
     validate_notebook,
     validate_step_ids,
 )
-from validate_workshop import LAB_DEPENDENCIES, WALKTHROUGHS, validate_checkpoint_contract  # noqa: E402
+from validate_workshop import (  # noqa: E402
+    LAB_DEPENDENCIES, WALKTHROUGHS, validate_checkpoint_contract, validate_dependency_table,
+)
 
 INTERNAL_DRIVERS = (
     ("foundry-project-models/lab1_project_models.py", "lab01_walkthrough.ipynb", "1"),
@@ -55,16 +60,31 @@ def notebook_action(source: str) -> ast.Module:
 
 
 class ConverterTests(unittest.TestCase):
+    def test_converter_writes_lf_notebooks_on_every_author_platform(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "lab01_example.py"
+            source.write_text(
+                "# %% [markdown]\n# This cell defines a value.\n"
+                "# %% Step 1.1 - Define value\nvalue = 1\n",
+                encoding="utf-8", newline="\n",
+            )
+            notebook = convert(source)
+            self.assertNotIn(b"\r", notebook.read_bytes())
+            self.assertEqual(
+                json.loads(notebook.read_text(encoding="utf-8")),
+                build_notebook(source.read_text(encoding="utf-8"), seed=source.stem),
+            )
+
     def test_two_digit_learner_paths_sort_in_numeric_order(self):
         expected_folders = [f"lab{number:02d}" for number in range(1, 15)]
-        folders = sorted(path.name for path in (ROOT / "labs").iterdir()
+        folders = sorted(path.name for path in (ROOT / "3-day-labs").iterdir()
                          if path.is_dir() and re.fullmatch(r"lab\d+", path.name))
         self.assertEqual(folders, expected_folders)
-        notebooks = sorted((ROOT / "labs").glob("lab*/*.ipynb"), key=lambda path: path.name)
+        notebooks = sorted((ROOT / "3-day-labs").glob("lab*/*.ipynb"), key=lambda path: path.name)
         self.assertEqual([path.name for path in notebooks],
                          [f"lab{number:02d}_walkthrough.ipynb" for number in range(1, 15)])
         for folder in folders:
-            sources = list((ROOT / "labs" / folder).glob("*.py"))
+            sources = list((ROOT / "3-day-labs" / folder).glob("*.py"))
             self.assertEqual(len(sources), 1)
             self.assertRegex(sources[0].name, rf"^{folder}_[a-z_]+\.py$")
 
@@ -74,7 +94,7 @@ class ConverterTests(unittest.TestCase):
             with self.subTest(folder=folder):
                 self.assertEqual(len(parts), 1)
                 source, notebook, number, _, _ = parts[0]
-                directory = ROOT / "labs" / folder
+                directory = ROOT / "3-day-labs" / folder
                 self.assertEqual(folder, f"lab{int(number):02d}")
                 self.assertEqual([path.name for path in directory.glob("*.ipynb")], [notebook])
                 self.assertEqual([path.name for path in directory.glob("*.py")], [source])
@@ -86,14 +106,14 @@ class ConverterTests(unittest.TestCase):
 
     def test_numbered_labs_have_matching_navigation_and_prerequisites(self):
         self.assertEqual([int(prefix) for _, _, prefix in DRIVERS], list(range(1, 15)))
-        guide = (ROOT / "labs" / "README.md").read_text(encoding="utf-8")
+        guide = (ROOT / "3-day-labs" / "README.md").read_text(encoding="utf-8")
         rows = {int(cells[1].strip()): cells for line in guide.splitlines()
                 if re.match(r"^\| \d+ \|", line) and (cells := line.split("|"))}
         self.assertEqual(list(rows), list(range(1, 15)))
         for source, notebook_name, prefix in DRIVERS:
             with self.subTest(lab=prefix):
                 number = int(prefix)
-                path = ROOT / "labs" / source
+                path = ROOT / "3-day-labs" / source
                 notebook_path = path.with_name(notebook_name)
                 self.assertEqual(path.stem.split("_")[0], f"lab{number:02d}")
                 self.assertEqual(notebook_name, f"lab{number:02d}_walkthrough.ipynb")
@@ -101,7 +121,7 @@ class ConverterTests(unittest.TestCase):
                 introduction = "".join(notebook["cells"][0]["source"])
                 self.assertTrue(introduction.startswith(f"# Lab {number}:"))
                 self.assertIn("**Prerequisites:**", introduction)
-                self.assertIn(notebook_path.relative_to(ROOT / "labs").as_posix(), rows[number][2])
+                self.assertIn(notebook_path.relative_to(ROOT / "3-day-labs").as_posix(), rows[number][2])
                 for predecessor in LAB_DEPENDENCIES[number]:
                     self.assertRegex(introduction, rf"\bLab {predecessor}\b")
                     self.assertRegex(rows[number][3], rf"\bLab {predecessor}\b")
@@ -131,12 +151,27 @@ class ConverterTests(unittest.TestCase):
             with self.subTest(source=invalid), self.assertRaises(ValueError):
                 validate_checkpoint_contract(ast.parse(invalid), "lab2", "b")
 
+    def test_dependency_table_rejects_hidden_prompt_dependency_and_missing_join(self):
+        guide = (ROOT / "3-day-labs" / "README.md").read_text(encoding="utf-8")
+        validate_dependency_table(guide)
+        lines = guide.splitlines()
+        row = next(index for index, line in enumerate(lines) if line.startswith("| 12 |"))
+        for prerequisites in (" Lab 11 ", " Lab 8 ", " Lab 9 "):
+            changed = lines.copy()
+            cells = changed[row].split("|")
+            cells[3] = prerequisites
+            changed[row] = "|".join(cells)
+            with self.subTest(prerequisites=prerequisites), self.assertRaisesRegex(
+                ValueError, "Lab 12: documented prerequisites",
+            ):
+                validate_dependency_table("\n".join(changed))
+
     def test_all_fourteen_labs_publish_their_real_checkpoint_contract(self):
         count = 0
         for directory, parts in WALKTHROUGHS.items():
             for source, _, _, lab, part in parts:
                 with self.subTest(source=source):
-                    path = ROOT / "labs" / directory / source
+                    path = ROOT / "3-day-labs" / directory / source
                     validate_checkpoint_contract(ast.parse(path.read_text(encoding="utf-8")), lab, part)
                     count += 1
         self.assertEqual(count, 14)
@@ -147,16 +182,16 @@ class ConverterTests(unittest.TestCase):
              {"pending": {name: {"session_id": name} for name in ("S1", "S2", "S3")},
               "hosted": {"agent_name": "existing"}, "tested_sources": {"hosted": "synthetic-fingerprint"}}, "pending"),
             ("lab10", "lab10_release_rollback.py", "lab5",
-             {"bundle": {"info": {"version": "measured"}}, "summary": {"questions": 6}}, "bundle"),
-            ("lab12", "lab12_workflows_delegation.py", "stretch6",
-             {"prompt_agents": {"agents": {"triage": {"agent_id": "existing", "agent_version": "3"}}}},
-             "prompt_info"),
+             {"bundle": {"info": {"version": "measured", "evaluated_target": {"mode": "local"}},
+                         "hosted": {"agent_name": "accepted-concierge"}, "knowledge": {"name": "accepted-kb"}},
+              "summary": {"questions": 6},
+              "bundle_sha256": hashlib.sha256(b"accepted-bundle").hexdigest()}, "bundle"),
             ("lab14", "lab14_skills_toolbox.py", "stretch7",
              {"nightly": {"reviews": 3}, "invocations": {"agent_name": "existing"}}, "part_a"),
         )
         for directory, filename, lab, state, restored in cases:
             with self.subTest(lab=lab):
-                path = ROOT / "labs" / directory / filename
+                path = ROOT / "3-day-labs" / directory / filename
                 notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
                 startup = next(cell for cell in notebook["cells"] if cell["cell_type"] == "code")
                 action = compile(notebook_action("".join(startup["source"])), str(path), "exec")
@@ -166,27 +201,30 @@ class ConverterTests(unittest.TestCase):
                 parts = SimpleNamespace(
                     read_checkpoint=Mock(return_value=checkpoint), scope=Mock(return_value=context),
                 )
-                artifacts = ROOT / "labs/artifacts" / lab
+                artifacts = ROOT / "3-day-labs/artifacts" / lab
                 files = {
                     artifacts / "pending_sessions.json": {
                         name: {"status": None, "packet": None} for name in ("S1", "S2", "S3")
                     },
                     artifacts / "hosted.json": {"agent_name": "existing"},
+                    artifacts / "evaluation_bundle.json": state.get("bundle", {}),
                     artifacts / "invocations.json": {
                         "agents": {"invocations": state.get("invocations")}, "sample_run": state.get("nightly"),
                     },
                     **{artifacts / "sessions" / f"{name}.json": {"notes": {}}
                        for name in ("S1", "S2", "S3")},
                 }
-                helpers = SimpleNamespace(artifact_path=lambda namespace, name: ROOT / "labs/artifacts" / namespace / name)
+                helpers = SimpleNamespace(artifact_path=lambda namespace, name: ROOT / "3-day-labs/artifacts" / namespace / name)
                 driver = SimpleNamespace(
                     ENV={"current": "configuration"}, ARTIFACTS=artifacts,
                     HOSTED_RECORD=artifacts / "hosted.json", RECORD=artifacts / "invocations.json",
                     source_fingerprints=Mock(return_value=state.get("tested_sources", {})),
+                    validate_evaluated_target=Mock(),
                     SPECS={"triage": {}}, build=cloud, demo=cloud, publish_prompt_agents=cloud,
                 )
                 namespace = {
                     "driver": driver, "notebook_parts": parts, "lab_helpers": helpers, "json": json,
+                    "hashlib": hashlib,
                     "gate": SimpleNamespace(
                         RESULTS_PATH=artifacts / "eval_results.jsonl",
                         load_results=Mock(return_value=([{"response": "measured"}] * 6, [])),
@@ -194,7 +232,7 @@ class ConverterTests(unittest.TestCase):
                 }
                 with patch.object(Path, "unlink"), patch.object(
                     Path, "read_text", autospec=True, side_effect=lambda path, **kwargs: json.dumps(files[path]),
-                ):
+                ), patch.object(Path, "read_bytes", return_value=b"accepted-bundle"):
                     exec(action, namespace)
                 self.assertIn(restored, namespace)
                 parts.read_checkpoint.assert_called_once_with(
@@ -203,14 +241,16 @@ class ConverterTests(unittest.TestCase):
                 parts.scope.assert_called_once_with(driver.ENV)
                 cloud.assert_not_called()
                 parts.read_checkpoint.side_effect = RuntimeError("Run A first.")
-                with patch.object(Path, "unlink"), self.assertRaisesRegex(RuntimeError, "Run A first"):
+                with patch.object(Path, "unlink"), patch.object(
+                    Path, "read_bytes", return_value=b"accepted-bundle",
+                ), self.assertRaisesRegex(RuntimeError, "Run A first"):
                     exec(action, {key: value for key, value in namespace.items() if key not in (
                         "part_a", "pending", "bundle", "rows", "load_errors", "prompt_info",
                     )})
                 cloud.assert_not_called()
 
     def test_advisor_recovery_uses_durable_session_not_a_response_or_new_intake(self):
-        path = ROOT / "labs/lab08/lab08_advisor_recovery.py"
+        path = ROOT / "3-day-labs/lab08/lab08_advisor_recovery.py"
         tree = ast.parse(path.read_text(encoding="utf-8"))
         resume = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "resume_pending")
         namespace = {"json": json, "driver": SimpleNamespace(PENDING="pending")}
@@ -262,7 +302,7 @@ class ConverterTests(unittest.TestCase):
     def test_all_walkthroughs_are_fresh_described_output_free_and_notebook_only(self):
         for relative, notebook_name, prefix in DRIVERS:
             with self.subTest(driver=relative):
-                path = ROOT / "labs" / relative
+                path = ROOT / "3-day-labs" / relative
                 notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
                 self.assertEqual(notebook, json.loads(path.with_name(notebook_name).read_text(encoding="utf-8")))
                 self.assertEqual(validate_notebook(notebook), [])
@@ -285,6 +325,8 @@ class ConverterTests(unittest.TestCase):
         original = Path.cwd()
         try:
             for relative, _, _ in INTERNAL_DRIVERS[1:]:
+                if relative.startswith("prompt-agents-and-workflows/"):
+                    continue
                 path = ROOT / "shared" / relative
                 tree = ast.parse(path.read_text(encoding="utf-8"))
                 assignment = next(
@@ -305,7 +347,7 @@ class ConverterTests(unittest.TestCase):
         original = Path.cwd()
         try:
             for relative, _, _ in DRIVERS:
-                path = ROOT / "labs" / relative
+                path = ROOT / "3-day-labs" / relative
                 notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
                 startup = next(cell for cell in notebook["cells"] if cell["cell_type"] == "code")
                 tree = ast.parse("".join(startup["source"]))

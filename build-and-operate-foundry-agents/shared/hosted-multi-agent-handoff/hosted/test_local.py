@@ -3,7 +3,7 @@
     python test_local.py                         three turns against the local server: S3, revise, then approve
     python test_local.py --base http://host:8088 another local or tunneled host
     python test_local.py --direct                no HTTP: import main.py and run the case in-process (needs .env)
-    python test_local.py --deployed              the version deployed with azd, by name from labs/artifacts/lab4/hosted.json
+    python test_local.py --deployed              the version deployed with azd, by name from 3-day-labs/artifacts/lab4/hosted.json
     python test_local.py --offline               no model, no server: checks the pure parts (classifier, decision parsing)
 Exit code 0 when packet routing, advisor decisions, compliance fields and safety checks pass; 1 otherwise.
 Labs 9-10's pipeline runs this after a deployment.
@@ -24,7 +24,7 @@ for folder in (HERE.parents[2] if len(HERE.parents) > 2 else HERE, HERE):
 from common import guardrails, model_resilience  # noqa: E402
 
 AGENT_NAME = "healthcare-marketplace-triage-hosted"
-HOSTED_RECORD = HERE.parents[2] / "labs" / "artifacts" / "lab4" / "hosted.json"
+HOSTED_RECORD = HERE.parents[2] / "3-day-labs" / "artifacts" / "lab4" / "hosted.json"
 CASE = {"participant_id": "P-1003", "scenario": "S2",
         "message": "My claim CLM-9003 was denied and I do not understand why. What do I need to send to get it paid?"}
 LIVE_CASE = {

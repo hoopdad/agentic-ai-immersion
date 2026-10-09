@@ -271,7 +271,7 @@ class ProjectSetupTests(unittest.TestCase):
             ("lab02_models_verify.py", "lab02_walkthrough.ipynb"),
         ):
             with self.subTest(source=source):
-                folder = ROOT / "labs" / source.split("_")[0]
+                folder = ROOT / "3-day-labs" / source.split("_")[0]
                 text = (folder / source).read_text(encoding="utf-8")
                 notebook = json.loads((folder / name).read_text(encoding="utf-8"))
                 self.assertEqual(notebook, converter.build_notebook(text, seed=Path(source).stem))
@@ -315,7 +315,7 @@ class ProjectSetupTests(unittest.TestCase):
             patch("builtins.print"),
         ):
             exec(compile(cells[0], "<notebook>", "exec"), namespace)
-            self.assertEqual(namespace["ARTIFACT"], ROOT / "labs/artifacts/lab1/project.json")
+            self.assertEqual(namespace["ARTIFACT"], ROOT / "3-day-labs/artifacts/lab1/project.json")
             namespace["ARTIFACT"] = LAB / f".checkpoint-test-{uuid.uuid4().hex}.json"
             exec(compile(cells[1], "<notebook>", "exec"), namespace)
             namespace.update(SUBSCRIPTION_ID=SUB, TENANT_ID=TENANT, RESOURCE_GROUP="approved",

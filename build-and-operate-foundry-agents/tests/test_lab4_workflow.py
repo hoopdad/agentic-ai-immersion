@@ -142,6 +142,74 @@ class Lab4WorkflowTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(json.loads(context.result.text), result)
         call_next.assert_not_awaited()
 
+    async def test_delegation_keeps_correlation_and_stops_at_pending(self) -> None:
+        from types import SimpleNamespace
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+        from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+        exporter = InMemorySpanExporter()
+        provider = TracerProvider()
+        provider.add_span_processor(SimpleSpanProcessor(exporter))
+        self.addCleanup(provider.shutdown)
+        fields = {
+            "operation": "pending_case", "session_id": "delegated-1", "case_id": "CASE-delegated-1",
+            "participant_id": "P-1005", "message": "Compare my plans and HRA.",
+            "traceparent": "00-11111111111111111111111111111111-2222222222222222-01",
+        }
+        service = SimpleNamespace(
+            sessions=MagicMock(), delegated_sessions=set(),
+            start=AsyncMock(return_value={"status": self.hosted_module.PENDING,
+                                         "case_id": fields["case_id"], "session_id": fields["session_id"],
+                                         "packet": self.packet.model_dump()}))
+        service.sessions.get.return_value = None
+        with patch.object(self.hosted_module, "SERVICE", service), \
+                patch.object(self.hosted_module.trace, "get_tracer", return_value=provider.get_tracer("offline-triage")), \
+                patch.dict("os.environ", {"FOUNDRY_AGENT_VERSION": "3"}):
+            reply = await self.hosted_module.handle_turn(json.dumps(fields), None)
+            self.assertEqual(reply["traceparent"], fields["traceparent"])
+            self.assertEqual(reply["participant_id"], fields["participant_id"])
+            self.assertEqual(reply["deployed_version"], "3")
+            self.assertEqual(reply["trace_id"], "11111111111111111111111111111111")
+            spans = exporter.get_finished_spans()
+            self.assertEqual(len(spans), 1)
+            self.assertEqual(spans[0].parent.span_id, int("2222222222222222", 16))
+            service.start.assert_awaited_once_with(
+                fields["session_id"], fields["participant_id"], fields["message"],
+                "delegation", case_id=fields["case_id"])
+            duplicate = await self.hosted_module.handle_turn(json.dumps(fields), None)
+            self.assertEqual(duplicate["status"], "error")
+            self.assertIn("do not replay", duplicate["error"])
+            service.start.assert_awaited_once()
+
+    async def test_delegation_rejects_advisor_and_unsafe_session_before_workflow(self) -> None:
+        service = MagicMock()
+        service.start = AsyncMock()
+        fields = {"operation": "pending_case", "session_id": "delegated-1", "case_id": "CASE-1",
+                  "participant_id": "P-1005", "message": "Review HRA."}
+        with patch.object(self.hosted_module, "SERVICE", service):
+            for changes in ({"advisor": "approve"}, {"session_id": "..\\outside"}):
+                reply = await self.hosted_module.handle_turn(json.dumps({**fields, **changes}), None)
+                self.assertEqual(reply["status"], "error")
+            service.start.assert_not_awaited()
+
+    async def test_restart_revision_cannot_change_original_case_identity(self) -> None:
+        from types import SimpleNamespace
+        replacement = self.packet.model_copy(update={
+            "case_id": "CASE-different", "participant_id": "P-1001", "lob": "marketplace",
+            "open_questions": ["Confirm the original IEP dates."],
+        })
+        service = self.hosted_module.TriageService.__new__(self.hosted_module.TriageService)
+        advisor = MagicMock()
+        advisor.run = AsyncMock(return_value=SimpleNamespace(
+            text=replacement.model_dump_json(), value=replacement))
+        service.agents = {"advisor-handoff": advisor}
+        original = self.packet.model_dump()
+        revised = await service.revise_packet(original, "Add the IEP dates.")
+        for key in ("case_id", "participant_id", "lob"):
+            self.assertEqual(revised[key], original[key])
+        self.assertEqual(revised["open_questions"], replacement.open_questions)
+        self.assertEqual(revised["packet_attempts"], original.get("packet_attempts", 1) + 1)
+
     async def test_revision_pauses_again_then_approval_yields_full_packet(self) -> None:
         pending = await self.pending_review()
         assert pending.pending_request_id is not None and pending.pending is not None

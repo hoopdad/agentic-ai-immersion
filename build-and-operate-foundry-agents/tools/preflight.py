@@ -9,7 +9,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / "labs"))
+sys.path.insert(0, str(ROOT / "3-day-labs"))
 from common import foundry_env, resource_names  # noqa: E402
 from deployment import check_toolchain  # noqa: E402
 

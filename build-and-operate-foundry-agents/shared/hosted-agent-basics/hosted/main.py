@@ -18,8 +18,9 @@ Verified shape (BRIEF-shared 5d, base repo hosted-agents/benefits-advisor-respon
     agent = Agent(client=client, instructions=INSTRUCTIONS, tools=tools, default_options={"store": False})
     ResponsesHostServer(agent).run()              # POST /responses, port 8088 locally
 
-This file deliberately has no Redis history and no workflow tool. Labs 5-6 adds the knowledge base and the
-message store; Labs 7-8 adds the multi-agent workflow; Labs 11-12 adds a MAF graph over Foundry prompt agents.
+This product deliberately has no external history or workflow tool. Labs 5-6 extend the accepted sponsor
+tool and enrollment policy into the knowledge concierge. Labs 7-8 branch into the primary hosted MAF triage
+service. Optional Lab 12 delegates to that service; optional Lab 11 is a terminal Prompt Agent comparison.
 """
 
 # %% Imports and path setup

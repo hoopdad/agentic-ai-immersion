@@ -24,7 +24,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 from common import foundry_env, guardrails, model_resilience  # noqa: E402
 
-HOSTED_RECORD = ROOT / "labs" / "artifacts" / "lab3" / "hosted.json"
+HOSTED_RECORD = ROOT / "3-day-labs" / "artifacts" / "lab3" / "hosted.json"
 CITATION_RE = re.compile(r"\[KB-[A-Z]{3}-\d{3}\]")
 QUESTIONS = [
     "Hi, this is P-1001, ZIP 84095. When can I change my Medicare plan this year, and what does the rule say?",

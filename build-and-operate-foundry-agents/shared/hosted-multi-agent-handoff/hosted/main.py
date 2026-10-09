@@ -28,6 +28,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 import sys
 import warnings
 from collections.abc import Awaitable, Callable
@@ -47,6 +48,7 @@ from agent_framework import Agent, AgentContext, AgentResponse, Message, agent_m
 from agent_framework.foundry import FoundryChatClient  # noqa: E402
 from agent_framework_foundry_hosting import ResponsesHostServer  # noqa: E402
 from azure.identity import DefaultAzureCredential  # noqa: E402
+from opentelemetry import propagate, trace  # noqa: E402
 
 import marketplace_specialists  # noqa: E402
 from marketplace_workflow import (  # noqa: E402
@@ -90,6 +92,7 @@ class TriageService:
         self.agents = marketplace_specialists.build_all(client)
         self.sessions = session_store.FileSessionStore(SESSION_DIR)
         self.paused: dict[str, tuple[object, str]] = {}          # session_id -> (workflow, request_id)
+        self.delegated_sessions: set[str] = set()
         log(f"specialists={sorted(self.agents)} sessions={session_store.describe(self.sessions)}")
 
     # ----- session records -----
@@ -118,9 +121,10 @@ class TriageService:
         return {"status": final["status"], "session_id": rec.session_id, "case_id": final.get("case_id"), "packet": final, "resume_path": source}
 
     # ----- turns -----
-    async def start(self, session_id: str, participant_id: str, message: str, scenario: str = "case") -> dict:
+    async def start(self, session_id: str, participant_id: str, message: str, scenario: str = "case",
+                    *, case_id: str | None = None) -> dict:
         rec = self.record(session_id, participant_id)
-        case_id = f"CASE-{scenario}-{session_id}"[:64]
+        case_id = case_id or f"CASE-{scenario}-{session_id}"[:64]
         workflow, _state = build_workflow(self.agents)
         log(f"session {session_id}: starting case {case_id} for {participant_id}")
         outcome: RunOutcome = await start_case(workflow, CaseIntake(case_id, participant_id, scenario, message))
@@ -160,6 +164,8 @@ class TriageService:
         response = await self.agents["advisor-handoff"].run(prompt)
         parsed = marketplace_specialists.parse_structured(response.text, getattr(response, "value", None), marketplace_specialists.HandoffPacket)
         revised = parsed.model_dump(mode="json") if parsed else dict(packet)
+        for key in ("case_id", "participant_id", "lob"):
+            revised[key] = packet[key]
         revised["compliance_flags"] = sorted(set(revised.get("compliance_flags", [])) | set(packet.get("compliance_flags", [])))
         if parsed is None:
             revised["compliance_flags"].append("revision did not parse; previous packet kept")
@@ -180,6 +186,10 @@ def parse_turn(text: str, session_hint: str | None) -> tuple[str, dict]:
             fields = json.loads(raw)
         except ValueError:
             fields = {}
+    if not isinstance(fields, dict):
+        return "other", {"session_id": session_hint}
+    if fields.get("operation") == "pending_case":
+        return "delegation", fields
     session_id = fields.get("session_id") or session_hint
     if fields.get("message") and fields.get("participant_id") and session_id:
         return "case", {"session_id": session_id, "participant_id": fields["participant_id"], "message": fields["message"],
@@ -199,12 +209,43 @@ async def handle_turn(text: str, session_hint: str | None) -> dict | None:
     if kind == "other":
         return None
     try:
+        if kind == "delegation":
+            return await pending_case(fields)
         if kind == "case":
-            return await SERVICE.start(fields["session_id"], fields["participant_id"], fields["message"], fields["scenario"])
-        return await SERVICE.decide(fields["session_id"], fields["feedback"])
+            result = await SERVICE.start(fields["session_id"], fields["participant_id"], fields["message"], fields["scenario"])
+        else:
+            result = await SERVICE.decide(fields["session_id"], fields["feedback"])
+        return {**result, "deployed_version": os.environ.get("FOUNDRY_AGENT_VERSION", "")}
     except Exception as exc:  # noqa: BLE001  (the caller gets a structured error, the log gets the type)
         log(f"turn failed: {type(exc).__name__}: {str(exc)[:300]}")
         return {"status": "error", "session_id": fields.get("session_id"), "error": f"{type(exc).__name__}: {str(exc)[:300]}"}
+
+async def pending_case(fields: dict) -> dict:
+    """One-shot network entry to the existing graph; never forwards an advisor decision."""
+    for key in ("session_id", "case_id"):
+        if not isinstance(fields.get(key), str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", fields[key]):
+            raise ValueError(f"{key} must contain 1-64 letters, digits, underscores or hyphens.")
+    if fields.get("advisor") is not None:
+        raise ValueError("Delegation cannot submit an advisor decision.")
+    if not isinstance(fields.get("participant_id"), str) or not isinstance(fields.get("message"), str) \
+            or not fields["participant_id"] or not fields["message"].strip():
+        raise ValueError("A participant_id and message are required.")
+    if SERVICE.sessions.get(fields["session_id"]) is not None or fields["session_id"] in SERVICE.delegated_sessions:
+        raise ValueError("Session already exists; do not replay intake after a timeout.")
+    SERVICE.delegated_sessions.add(fields["session_id"])
+    carrier = {"traceparent": fields.get("traceparent", "")}
+    with trace.get_tracer(__name__).start_as_current_span(
+            "marketplace.triage.delegated", context=propagate.extract(carrier)) as span:
+        span.set_attribute("marketplace.case_id", fields["case_id"])
+        span.set_attribute("marketplace.session_id", fields["session_id"])
+        result = await SERVICE.start(
+            fields["session_id"], fields["participant_id"], fields["message"],
+            fields.get("scenario", "delegation"), case_id=fields["case_id"])
+        if result.get("status") != PENDING:
+            raise RuntimeError("Delegated intake must stop at pending advisor approval.")
+        return {**result, "trace_id": f"{span.get_span_context().trace_id:032x}",
+                "participant_id": fields["participant_id"], "traceparent": fields.get("traceparent", ""),
+                "deployed_version": os.environ.get("FOUNDRY_AGENT_VERSION", "")}
 
 
 # %% Agent middleware: every Responses turn goes through here before the outer model is called

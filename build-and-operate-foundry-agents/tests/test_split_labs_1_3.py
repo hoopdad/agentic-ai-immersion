@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib.util
+import hashlib
 import json
 from pathlib import Path
 import shutil
@@ -13,7 +14,7 @@ import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
 LAB1 = ROOT / "shared/foundry-project-models"
-sys.path[:0] = [str(ROOT), str(ROOT / "labs"), str(ROOT / "tools"), str(LAB1)]
+sys.path[:0] = [str(ROOT), str(ROOT / "3-day-labs"), str(ROOT / "tools"), str(LAB1)]
 from common import foundry_env, notebook_parts
 import lab_helpers
 import project_setup as setup
@@ -54,7 +55,7 @@ PAIRS = (
 def cells(stem: str) -> list[str]:
     folder, source, _ = next(row for row in PAIRS if row[2] == stem)
     notebook_name = source.split("_")[0]
-    nb = json.loads((ROOT / "labs" / folder / f"{notebook_name}_walkthrough.ipynb").read_text())
+    nb = json.loads((ROOT / "3-day-labs" / folder / f"{notebook_name}_walkthrough.ipynb").read_text())
     return ["".join(cell["source"]) for cell in nb["cells"] if cell["cell_type"] == "code"]
 
 
@@ -62,7 +63,7 @@ def execute(source: str, namespace: dict, *, artifacts: Path | None = None) -> N
     if artifacts is not None:
         for lab in ("lab1", "lab2", "lab3"):
             source = source.replace(
-                f'ARTIFACTS = WORKSHOP / "labs/artifacts/{lab}"',
+                f'ARTIFACTS = WORKSHOP / "3-day-labs/artifacts/{lab}"',
                 f"ARTIFACTS = Path({str(artifacts / lab)!r})")
     exec(compile(source, "<fresh-kernel-cell>", "exec"), namespace)
 
@@ -70,16 +71,16 @@ def execute(source: str, namespace: dict, *, artifacts: Path | None = None) -> N
 class SplitNotebookTests(unittest.TestCase):
     def setUp(self) -> None:
         self.scratch = LAB1 / f".split-tests-{uuid.uuid4().hex}"
-        self.artifacts = self.scratch / "labs/artifacts"
+        self.artifacts = self.scratch / "3-day-labs/artifacts"
         self.artifacts.mkdir(parents=True)
         self.addCleanup(shutil.rmtree, self.scratch)
 
     def test_generated_described_steps_reset_in_each_half(self) -> None:
         for folder, source, stem in PAIRS:
             with self.subTest(notebook=stem):
-                text = (ROOT / "labs" / folder / f"{source}.py").read_text()
+                text = (ROOT / "3-day-labs" / folder / f"{source}.py").read_text()
                 number = str(int(source.split("_")[0].removeprefix("lab")))
-                nb = json.loads((ROOT / "labs" / folder / f"lab{int(number):02d}_walkthrough.ipynb").read_text())
+                nb = json.loads((ROOT / "3-day-labs" / folder / f"lab{int(number):02d}_walkthrough.ipynb").read_text())
                 self.assertEqual(nb, build_notebook(text, seed=source))
                 self.assertEqual(validate_notebook(nb), [])
                 self.assertEqual(validate_step_ids(nb, number), [])
@@ -247,6 +248,11 @@ class SplitNotebookTests(unittest.TestCase):
             hosted_record.write_text(json.dumps(hosted))
             if lab == "lab3":
                 (artifacts / "knowledge.json").write_text(json.dumps(knowledge))
+                (hosted_dir / "common/accepted_concierge.py").write_text("# accepted sponsor and policy\n")
+                hosted["retained_behavior"] = {
+                    "source_sha256": "accepted-basics",
+                    "transfer_sha256": hashlib.sha256((hosted_dir / "common/accepted_concierge.py").read_bytes()).hexdigest(),
+                }
             return hosted
 
         def demo(*args, **kwargs) -> dict:
@@ -264,14 +270,18 @@ class SplitNotebookTests(unittest.TestCase):
             AGENT_NAME=name, LOCAL_BASE="http://localhost:8088", DEFAULT_PORT=8088,
             build=MagicMock(side_effect=build), demo=MagicMock(side_effect=demo),
             record_deployment=MagicMock(side_effect=record_deployment),
+            require_pinned_version=MagicMock(),
             deploy_commands=MagicMock(return_value="echo reviewed deployment"),
-            call_deployed=MagicMock(return_value={"text": "AEP [KB-ACC-001]"}),
+            call_deployed=MagicMock(return_value={"text": "Northwind $3,600 AEP [KB-ACC-001]"}),
             HostedProcess=MagicMock(),
             post_responses=MagicMock(return_value={"text": "Northwind $3,600"}),
             run_scenario=MagicMock(return_value=[{"agent": "facts"}, {"agent": "AEP advisor"}]),
             SCENARIOS={"S1": {}},
             write_transcripts=MagicMock(side_effect=lambda *args: transcripts.write_text("redacted AEP\n")),
-            ask=MagicMock(side_effect=[("[KB-ACC-001] premium rule", {}), ("Rule text is not at hand", {})]),
+            ask=MagicMock(side_effect=[
+                ("[KB-ACC-001] premium rule", {}), ("Northwind $3,600", {}),
+                ("AEP: a licensed advisor must help.", {}), ("Rule text is not at hand", {}),
+            ]),
             knowledge_base=SimpleNamespace(build_index=lambda: None, build_knowledge_base=lambda: None),
             broken_store_acceptance_gate=MagicMock(), scale_out_acceptance_gate=MagicMock(),
         )
@@ -351,6 +361,14 @@ class SplitNotebookTests(unittest.TestCase):
                     self.assertEqual(marker["part"], "b")
                     if lab == "lab3":
                         self.assertIn("not proven", marker["state"]["shared_scale"])
+                        self.assertEqual(marker["state"]["retained_behavior"],
+                                         ns_a["hosted"]["retained_behavior"])
+                        transferred = driver.HOSTED_DIR / "common/accepted_concierge.py"
+                        original_transfer = transferred.read_bytes()
+                        transferred.write_text("# changed after accepted sponsor/policy\n")
+                        with self.assertRaisesRegex(RuntimeError, "sponsor/policy changed"):
+                            execute(b[1], ns_b)
+                        transferred.write_bytes(original_transfer)
                     # B updates hosted.json but cannot make A's immutable evidence stale.
                     notebook_parts.read_checkpoint(
                         self.artifacts / lab / "part_a.json", lab=lab, part="a", context=notebook_parts.scope(ENV))

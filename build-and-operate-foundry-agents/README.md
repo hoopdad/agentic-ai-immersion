@@ -1,12 +1,20 @@
 # Build and Operate Foundry Agents
 
 A notebook-first workshop for healthcare marketplace engineers building the
-**Healthcare Marketplace Concierge** on Microsoft Foundry. Labs 1-10 build
-one cumulative solution; optional Labs 11-14 connect platform-managed agents to MAF workflows and explore
-additional hosted capabilities. All participant data is synthetic.
+**Healthcare Marketplace Concierge** on Microsoft Foundry. Core Labs 1-10 teach
+hosted agents, specialist orchestration, human approval and operations through
+related products with explicit lineage. Optional Labs 11-14 compare prompt ownership,
+delegate between hosted services, and explore protocols and Skills.
+All participant data is synthetic; hosted MAF does not require Prompt Agents.
 
-Start with [SETUP.md](SETUP.md), read the [use case](USE-CASE.md), and follow the
-[lab sequence](labs/README.md). Use the repository Python 3.14 dev container and
+Start with [SETUP.md](SETUP.md), read the [use case](USE-CASE.md), and choose
+the [three-day full sequence](3-day-labs/README.md) or the
+[one-day hosted route](1-day-labs/README.md). The one-day route is **1 -> 2 -> 4 -> 7**,
+with real local acceptance folded into Lab 4 and a condensed
+**Lab 7: Build and host a multi-agent team** capstone. Learners change task routing,
+review specialist work, explicitly approve a packet and invoke the edited team
+hosted in Foundry. MAF supplies the workflow; no Search or Lab 6 is required.
+Use the repository Python 3.14 dev container and
 select `/usr/local/bin/python` as the notebook kernel.
 
 ## Where things run
@@ -22,35 +30,41 @@ walkthrough notebooks as a learner. Their programmatic subprocess calls manage
 local servers and deployment tools; Python source files are not an alternative
 learner run path.
 
-## Agenda
+## Three-day agenda
 
 | # | Notebook | Outcome | Evidence passed onward |
 |---|---|---|---|
-| 1 | [Identity and project](labs/lab01/lab01_walkthrough.ipynb) | Create a project in an existing admin-supplied Foundry account | `artifacts/lab1/part_a.json` |
-| 2 | [Models and verification](labs/lab02/lab02_walkthrough.ipynb) | Provision chat and embedding deployments, verify access, persist downstream settings | `artifacts/lab1/part_b.json`, `project.json` and project/model configuration in the repository-root `.env` |
-| 3 | [Tools and local testing](labs/lab03/lab03_walkthrough.ipynb) | Build a typed-tool concierge with shared compliance instructions and test locally | `artifacts/lab2/part_a.json` |
-| 4 | [Deploy and invoke](labs/lab04/lab04_walkthrough.ipynb) | Deploy and inspect an immutable version | `artifacts/lab2/part_b.json`, `hosted.json`, transcripts |
-| 5 | [Knowledge and retrieval](labs/lab05/lab05_walkthrough.ipynb) | Build governed Foundry IQ knowledge | `artifacts/lab3/part_a.json`, `knowledge.json` |
-| 6 | [Sessions and resiliency](labs/lab06/lab06_walkthrough.ipynb) | Prove conversation continuity after a local restart; distinguish files from shared Blob history | `artifacts/lab3/part_b.json`, `hosted.json`, sessions |
-| 7 | [Specialist orchestration](labs/lab07/lab07_walkthrough.ipynb) | Fan out to specialists and bound compliance reflection | `artifacts/lab4/part_a.json` |
-| 8 | [Advisor approval and recovery](labs/lab08/lab08_walkthrough.ipynb) | Pause for advisor approval across HTTP turns and recover pending state | `artifacts/lab4/part_b.json`, `handoff_packets/`, `hosted.json` |
-| 9 | [Tracing and evaluation](labs/lab09/lab09_walkthrough.ipynb) | Trace and evaluate once, preserving measured results | `artifacts/lab5/part_a.json`, `eval_report.md`, `evaluation_bundle.json`, `pipeline.md` |
-| 10 | [Release and rollback](labs/lab10/lab10_walkthrough.ipynb) | Gate the measured results; rehearse promotion and rollback without deployment | `artifacts/lab5/part_b.json`, `gate_result.json`, `release_plan.json` |
-| 11 | [Prompt agents](labs/lab11/lab11_walkthrough.ipynb) | Compare platform-managed prompt ownership with hosted code | `artifacts/stretch6/part_a.json` |
-| 12 | [MAF workflows and delegation](labs/lab12/lab12_walkthrough.ipynb) | Build a Python MAF graph over pinned prompt agents and run it inside the concierge | `artifacts/stretch6/part_b.json`, `agents.json`, handoff packet |
-| 13 | [Invocations](labs/lab13/lab13_walkthrough.ipynb) | Contrast structured Invocations with Responses | `artifacts/stretch7/part_a.json`, `invocations.json`, claim reviews |
-| 14 | [Skills and Toolbox](labs/lab14/lab14_walkthrough.ipynb) | Load governed Skills and optionally attach Toolbox | `artifacts/stretch7/part_b.json`, skills transcript |
+| 1 | [Identity and project](3-day-labs/lab01/lab01_walkthrough.ipynb) | Create a project in an existing admin-supplied Foundry account | `artifacts/lab1/part_a.json` |
+| 2 | [Models and verification](3-day-labs/lab02/lab02_walkthrough.ipynb) | Provision chat and embedding deployments, verify access, persist downstream settings | `artifacts/lab1/part_b.json`, `project.json` and project/model configuration in the repository-root `.env` |
+| 3 | [Tools and local testing](3-day-labs/lab03/lab03_walkthrough.ipynb) | Build a typed-tool concierge with shared compliance instructions and test locally | `artifacts/lab2/part_a.json` |
+| 4 | [Deploy and invoke](3-day-labs/lab04/lab04_walkthrough.ipynb) | Deploy and inspect an immutable version | `artifacts/lab2/part_b.json`, `hosted.json`, transcripts |
+| 5 | [Knowledge and retrieval](3-day-labs/lab05/lab05_walkthrough.ipynb) | Build governed Foundry IQ knowledge | `artifacts/lab3/part_a.json`, `knowledge.json` |
+| 6 | [Sessions and resiliency](3-day-labs/lab06/lab06_walkthrough.ipynb) | Prove conversation continuity after a local restart; distinguish files from shared Blob history | `artifacts/lab3/part_b.json`, `hosted.json`, sessions |
+| 7 | [Specialist orchestration](3-day-labs/lab07/lab07_walkthrough.ipynb) | Fan out to specialists and bound compliance reflection | `artifacts/lab4/part_a.json` |
+| 8 | [Advisor approval and recovery](3-day-labs/lab08/lab08_walkthrough.ipynb) | Explicit advisor decisions, local file-backed pending-state recovery, and triage deployment acceptance | `artifacts/lab4/part_b.json`, `handoff_packets/`, `hosted.json` |
+| 9 | [Tracing and evaluation](3-day-labs/lab09/lab09_walkthrough.ipynb) | Trace and evaluate once, preserving measured results | `artifacts/lab5/part_a.json`, `eval_report.md`, `evaluation_bundle.json`, `pipeline.md` |
+| 10 | [Release and rollback](3-day-labs/lab10/lab10_walkthrough.ipynb) | Gate the measured results; rehearse promotion and rollback without deployment | `artifacts/lab5/part_b.json`, `gate_result.json`, `release_plan.json` |
+| 11 | [Prompt versus hosted](3-day-labs/lab11/lab11_walkthrough.ipynb) | Short optional terminal comparison after Lab 4; one versioned prompt and invocation, no downstream consumers | `artifacts/stretch6/part_a.json` |
+| 12 | [Hosted-to-hosted delegation](3-day-labs/lab12/lab12_walkthrough.ipynb) | After both Labs 8 and 9, an isolated concierge extension calls the pinned triage service with correlated evidence | `artifacts/hosted_delegation/part_a.json` |
+| 13 | [Invocations](3-day-labs/lab13/lab13_walkthrough.ipynb) | Contrast structured Invocations with Responses | `artifacts/stretch7/part_a.json`, `invocations.json`, claim reviews |
+| 14 | [Skills and Toolbox](3-day-labs/lab14/lab14_walkthrough.ipynb) | After Lab 13, introduce a distinct Responses Skills service and optionally attach preview Toolbox | `artifacts/stretch7/part_b.json`, skills transcript |
 
-Follow Labs 1-14 using the [prerequisite table](labs/README.md#sequence-and-artifact-chain).
-Labs 9 and 11 branch from Lab 6; Lab 13 needs only Lab 2, so optional topics need
-not replay unrelated work. Each notebook can start in a fresh kernel and restores
+Follow **core Labs 1-10 in order, then selected extensions**, using the
+[prerequisite table and dependency graph](3-day-labs/README.md#sequence-and-artifact-chain).
+Lab 9 requires Lab 6, not Lab 8; Labs 11 and 13 require Lab 4.
+Lab 12 joins both Labs 8 and 9 and does not consume Lab 11. Lab 10 is recommended
+release background for Lab 12, not its required artifact. Each notebook can start in a fresh kernel and restores
 validated predecessor evidence instead of repeating provisioning or evaluation.
-Each folder `labs/lab01` through `labs/lab14` holds exactly one walkthrough,
+Each folder `3-day-labs/lab01` through `3-day-labs/lab14` holds exactly one walkthrough,
 its adjacent authoring source and its own README. Reusable product code and
 internal helpers live outside learner folders in [`shared/`](shared/README.md).
-Existing `artifacts/lab1` through `lab5`,
-`stretch6`, `stretch7` and `part_a.json`/`part_b.json` names remain internal
-compatibility contracts, not learner lab numbers.
+Existing topic namespaces `artifacts/lab1` through `lab5`, `stretch6` and
+`stretch7` remain internal contracts, not learner lab numbers. Lab 12 has a new
+independent `hosted_delegation/part_a.json` contract; old prompt-backed
+`stretch6/part_b.json` is not valid hosted delegation evidence.
+Independent branches still share local port 8088, edited product files and Azure
+quota. Stop notebook-owned hosts before changing branches; do not run multiple
+runtime notebooks concurrently in the same workspace.
 
 Each hosted breakout retains teach, demo, exercise and checkpoint sections.
 Read its README first, then execute notebook cells in order, including each
@@ -66,8 +80,25 @@ explicit notebook actions, not dev-container bootstrap or offline CI actions.
 | 5-6 | Search indexes, knowledge sources, MCP authentication, governed citations and external message history |
 | 7-8 | `WorkflowBuilder`, fan-out/fan-in, structured packets, bounded reflection, deterministic routing and human approval |
 | 9-10 | OpenTelemetry, model-judged quality, deterministic safety checks, fail-closed gates and release ownership |
-| 11-12 | `PromptAgentDefinition`, pinned `FoundryAgent` connections, conditional MAF `WorkflowBuilder` edges and async hosted delegation |
-| 13-14 | `InvocationsHostServer`, deterministic facts with bounded model explanations, progressive-disclosure Skills and optional MCP Toolbox |
+| 11 | Minimal versioned prompt ownership comparison to Lab 4's hosted Responses product; no second workflow track |
+| 12 | Authenticated hosted-service boundary, pinned callee, bounded timeout/errors, deliberate retries and caller/callee correlation |
+| 13-14 | Separate stateless `InvocationsHostServer` batch product and Responses Skills product; deterministic facts, progressive disclosure and optional preview MCP Toolbox |
+
+## Product lineage
+
+Labs 3-4 test and deploy the same typed-tool concierge. Labs 5-6 extend it with
+knowledge and history through `shared/hosted-knowledge-sessions/`; accepted tool
+and policy behavior must be retained and checked, not assumed from a new folder.
+Labs 7-8 branch into `shared/hosted-multi-agent-handoff/`, the triage service;
+it is not a redeployment of the concierge. Labs 9-10 measure and gate the pinned
+Lab 6 knowledge concierge; triage packet metadata is optional context.
+
+Lab 12's `shared/hosted-delegation/` is an isolated extension candidate using
+the accepted concierge behavior and Lab 8's deployed triage reference. It does
+not overwrite the core version measured in Labs 9-10 or embed a new prompt graph.
+Changing the candidate requires new evaluation before any release claim.
+Lab 13 branches into a stateless batch product; Lab 14 preserves that evidence
+while introducing a distinct Responses Skills service, not batch session state.
 
 ## State and guardrails
 
@@ -77,6 +108,9 @@ account/container. Azurite is an optional local Blob emulator, never a deployed
 endpoint. Labs 7-8's pending-packet session map is file-backed: it supports a local
 restart, not cross-replica or version-roll continuity. Lab 10 must inspect the
 actual backend before claiming rollback preserves conversation history.
+Lab 12 may relay a remote pending case but never sends an automatic advisor
+decision. Single-instance pending-state recovery is not distributed resume,
+production advisor authorization or safe replay of a state-changing request.
 
 Every agent carries the shared compliance block: no plan recommendation or
 ranking, no medical advice, data minimization, grounded facts and citations,
@@ -106,6 +140,13 @@ Keep each deployment's state separate; this provisioning is not a learner notebo
 
 ## Authoring and provenance
 
+Follow [conventions.md](conventions.md) when changing workshop labs, products,
+handoffs, or documentation. The reviewed [migration plan](migration-plan.md)
+records the integrated hosted-first implementation and remaining approved live
+rehearsal. The agenda above describes the implemented curriculum;
+[`3-day-labs/README.md`](3-day-labs/README.md) remains the actual prerequisite guide.
+Integration and offline validation do not establish live Azure acceptance.
+
 Adjacent Python cell sources and `tools/py_to_ipynb.py` are internal notebook
 authoring tools, not learner entry points. Authors edit those sources and
 regenerate notebooks while preserving exercise gates. Runtime `.py` files are
@@ -115,6 +156,21 @@ matching pins.
 
 For authors and offline CI only, the existing validator checks notebook/source
 alignment, package contracts and offline regression tests without deploying Azure.
+
+The full curriculum is canonical in `3-day-labs/`; the relocated teaching
+content is unchanged apart from required path references. `1-day-labs/` is a
+generated subset with explicit adaptations and isolated editable products/artifacts.
+Both tracks share root configuration, quota and local ports; use fresh kernels
+and do not run the tracks concurrently.
+
+After authoring a canonical source or shared product, synchronize the short
+track before validation. Sync refuses to overwrite learner edits; archive them
+before deliberately using `--overwrite`. `--check` is read-only and detects drift.
+
+```bash
+python build-and-operate-foundry-agents/tools/sync_one_day_labs.py
+python build-and-operate-foundry-agents/tools/sync_one_day_labs.py --check
+```
 
 This command runs the internal offline workshop validation from the repository root.
 

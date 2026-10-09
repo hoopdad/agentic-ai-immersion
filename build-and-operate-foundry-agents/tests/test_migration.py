@@ -15,7 +15,7 @@ import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "labs"))
+sys.path.insert(0, str(ROOT / "3-day-labs"))
 sys.path.insert(0, str(ROOT / "tools"))
 import deployment  # noqa: E402
 import validate_workshop  # noqa: E402
@@ -118,7 +118,7 @@ class DeploymentTests(unittest.TestCase):
                 validate_workshop.validate_artifact_chain(ast.parse(source), "lab4")
 
     def test_internal_catch_up_skips_project_provisioning(self):
-        module = load("catch_up_regression", ROOT / "labs/catch_up.py")
+        module = load("catch_up_regression", ROOT / "3-day-labs/catch_up.py")
         self.assertEqual(set(module.STEPS), set(range(2, 8)))
         for number, (relative, _) in module.STEPS.items():
             self.assertTrue((ROOT / "shared" / relative).is_file(), f"missing internal driver {number}")
@@ -388,7 +388,7 @@ class DeploymentTests(unittest.TestCase):
         }
         for name, url in (("", ""), ("approved-toolbox", "https://toolbox.example.test/mcp")):
             settings = {"TOOLBOX_NAME": name, "TOOLBOX_MCP_URL": url, "SKILL_NAMES": ""}
-            with self.subTest(toolbox=name), tempfile.TemporaryDirectory(dir=ROOT / "labs") as directory, \
+            with self.subTest(toolbox=name), tempfile.TemporaryDirectory(dir=ROOT / "3-day-labs") as directory, \
                     patch.dict(os.environ, {**environment, **settings}, clear=True):
                 module = load("stretch7_configuration_regression",
                               ROOT / "shared/invocations-toolbox-skills/stretch7_invocations.py")
@@ -506,7 +506,7 @@ class DeploymentTests(unittest.TestCase):
         }
         for relative, prefix in cases.items():
             with self.subTest(driver=relative):
-                text = (ROOT / "labs" / relative).read_text(encoding="utf-8")
+                text = (ROOT / "3-day-labs" / relative).read_text(encoding="utf-8")
                 self.assertEqual(validate_step_ids(build_notebook(text), prefix), [])
 
     def test_lab2_formatted_header_is_generated_from_driver(self):
@@ -541,10 +541,6 @@ class DeploymentTests(unittest.TestCase):
                 "Tracing; evaluation; versions",
                 "Evaluate the Framework-built agent",
             ),
-            "prompt-agents-and-workflows/stretch6_prompt_agents.py": (
-                "`PromptAgentDefinition`; versioned prompt agents",
-                "`FoundryAgent`; `WorkflowBuilder`; async hosted `@tool`",
-            ),
             "invocations-toolbox-skills/stretch7_invocations.py": (
                 "Invocations; optional Toolbox",
                 "`InvocationsHostServer`; `@tool`; schema",
@@ -561,6 +557,11 @@ class DeploymentTests(unittest.TestCase):
                 )
                 self.assertIn(expected, header)
 
+        prompt = (ROOT / "shared/prompt-agents-and-workflows/stretch6_prompt_agents.py").read_text()
+        self.assertIn("`PromptAgentDefinition`; versioned prompt agents", prompt)
+        self.assertNotIn("from triage_workflow", prompt)
+        self.assertNotIn("WorkflowBuilder(", prompt)
+
     def test_walkthrough_cells_have_descriptions_and_omit_cli_and_raw_shell_cells(self):
         cases = (
             (f"{directory}/{source}", notebook)
@@ -569,7 +570,7 @@ class DeploymentTests(unittest.TestCase):
         )
         for relative, notebook_name in cases:
             with self.subTest(driver=relative):
-                path = ROOT / "labs" / relative
+                path = ROOT / "3-day-labs" / relative
                 notebook = build_notebook(path.read_text(encoding="utf-8"), seed=path.stem)
                 self.assertEqual(
                     json.loads(path.with_name(notebook_name).read_text(encoding="utf-8"))["cells"],
@@ -971,18 +972,32 @@ class Lab5TracingTests(unittest.TestCase):
         self.assertNotIn("next: python ./eval_gate.py", output)
 
     def test_local_quality_gate_build_can_skip_tracing(self):
-        missing_lab4 = ROOT / "labs/artifacts/lab4/missing-hosted.json"
+        missing_lab4 = ROOT / "3-day-labs/artifacts/lab4/missing-hosted.json"
         artifacts = [
-            {"agent_name": "concierge", "version_label": "test", "local_url": "http://localhost:8088"},
+            {"agent_name": "concierge", "version_label": "test", "local_url": "http://localhost:8088",
+             "deployed": {"version": "3"}},
             {"index_name": "plans"},
         ]
+        import hashlib
+        accepted_sha256 = hashlib.sha256(b"accepted-product").hexdigest()
+        accepted = {"state": {"deployed_version": "3", "hosted_source_sha256": accepted_sha256,
+                              "retained_behavior": {"transfer_sha256": accepted_sha256}}}
+        reference = {"mode": "local", "agent_name": "concierge", "files": {"main.py": accepted_sha256}}
         with patch.object(self.module.helpers, "require_artifact", side_effect=artifacts), \
                 patch.object(self.module.helpers, "artifact_path", return_value=missing_lab4), \
+                patch.object(self.module.notebook_parts, "scope", return_value={"project": "approved"}), \
+                patch.object(self.module.notebook_parts, "read_checkpoint", return_value=accepted) as restore, \
+                patch.object(Path, "read_bytes", return_value=b"accepted-product"), \
+                patch.object(Path, "is_file", return_value=True), \
+                patch.object(self.module, "evaluated_target", return_value=reference), \
                 patch.object(self.module.foundry_env, "save_artifact"), \
                 patch.object(self.module, "write_pipeline_md"), \
+                patch.object(self.module, "build_judges", side_effect=AssertionError("judges should be skipped")), \
                 patch.object(self.module, "tracing_config", side_effect=AssertionError("tracing should be skipped")):
             bundle = self.module.build(skip_judges=True, enable_tracing=False)
         self.assertEqual(bundle["tracing"], {"enabled": False, "source": None})
+        self.assertEqual(bundle["info"]["evaluated_target"], reference)
+        restore.assert_called_once_with(missing_lab4, lab="lab3", part="b", context={"project": "approved"})
 
     def test_answer_records_a_searchable_trace_id(self) -> None:
         from opentelemetry.sdk.trace import TracerProvider
@@ -1129,9 +1144,8 @@ class Lab5HostedTargetTests(unittest.TestCase):
                 patch.object(self.lab3, "port_open", return_value=True), \
                 patch.object(self.lab3.HostedProcess, "start", autospec=True) as start, \
                 patch.object(self.lab3.HostedProcess, "stop", autospec=True) as stop:
-            target = self.module.HostedTarget("local", {}, {}, {"enabled": False})
-            self.assertIsNone(target.proc)
-            target.close()
+            with self.assertRaisesRegex(RuntimeError, "busy"):
+                self.module.HostedTarget("local", {}, {}, {"enabled": False})
             start.assert_not_called()
             stop.assert_not_called()
 
@@ -1157,7 +1171,7 @@ class PromotionTests(unittest.TestCase):
         self.assertIn("set -euo pipefail", block)
 
     def test_failed_smoke_never_tags_or_overwrites_environment_file(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(dir=ROOT) as tmp:
             env_file = Path(tmp) / ".env.test"
             content = ("FOUNDRY_PROJECT_ENDPOINT=https://example.test\n"
                        "PROJECT_RESOURCE_ID=/project\nAZURE_AI_MODEL_DEPLOYMENT_NAME=model\n")
@@ -1173,11 +1187,13 @@ class PromotionTests(unittest.TestCase):
                 return subprocess.CompletedProcess(command, 0)
 
             with patch.object(self.module, "ENVS_DIR", Path(tmp)), \
+                    patch.object(self.module, "check_gate", return_value={"passed": True}) as gate, \
                     patch.object(self.module.subprocess, "run", side_effect=run), \
                     patch.object(self.module.subprocess, "check_output",
                                  return_value='{"AZURE_AI_PROJECT_ID": "/project"}'):
                 with self.assertRaises(subprocess.CalledProcessError):
                     self.module.execute("test", "new-tag")
+            gate.assert_called_once()
             self.assertFalse(any(command[:2] == ("git", "tag") for command in commands))
             self.assertEqual(env_file.read_text(), content)
 

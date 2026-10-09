@@ -40,7 +40,7 @@ from agent_framework_foundry_hosting import ResponsesHostServer  # noqa: E402
 from azure.identity import DefaultAzureCredential  # noqa: E402
 from pydantic import Field  # noqa: E402
 
-AGENT_NAME = os.environ.get("MARKETPLACE_AGENT_NAME", "healthcare-marketplace-concierge-hosted")
+AGENT_NAME = os.environ.get("MARKETPLACE_AGENT_NAME", "healthcare-skills-responses")
 DEFAULT_MODEL = "gpt-5.4-mini"
 ENDPOINT = os.environ.get("FOUNDRY_PROJECT_ENDPOINT", "")
 MODEL = os.environ.get("AZURE_AI_MODEL_DEPLOYMENT_NAME") or os.environ.get("FOUNDRY_MODEL") or DEFAULT_MODEL

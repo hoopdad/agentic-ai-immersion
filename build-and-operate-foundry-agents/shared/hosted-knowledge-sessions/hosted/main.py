@@ -3,8 +3,8 @@
 Runs on:  Microsoft Foundry as a container (azd builds it from this folder) and, for testing, as a local
           process on port 8088. Same file both places. This is the product; the notebook is the cockpit.
 Goal:     Agent Framework `Agent` + `FoundryChatClient` behind `ResponsesHostServer`, with
-            * five tools over the systems of record (get_participant, get_enrollment_window, get_hra_account,
-              search_plans, compare_plans) wrapped with @tool,
+            * five tools over the systems of record plus the accepted Lab 3 get_sponsor tool and handoff policy,
+              carried by the generated common.accepted_concierge module,
             * the Foundry IQ knowledge base as an `MCPStreamableHTTPTool` (endpoint from MARKETPLACE_KB_MCP_URL, Entra
               bearer token injected by an httpx auth class, audience https://search.azure.com/.default),
             * conversation history OUTSIDE the process: common.message_store (Azure Blob when configured, otherwise
@@ -106,8 +106,7 @@ How to work:
    type, premium, deductible, max out of pocket, stars, network, drug coverage, formulary tier for any drug the
    participant named). Neutral trade-offs only, never a ranking. Doctor networks are not in the data: say the
    participant must confirm a doctor with the carrier or an advisor.
-4. When a participant asks which plan to pick, asks to enroll, or describes a situation that needs judgment,
-   say a licensed benefit advisor will help and offer the handoff.
+4. Apply the accepted enrollment handoff policy below when judgment or enrollment is requested.
 5. This conversation may continue after a restart. Earlier turns are provided to you; refer back to them
    (participant id, drugs and plans already discussed, balances already quoted) instead of asking again.
 6. Short paragraphs, plain language.
@@ -301,6 +300,9 @@ def build_agent() -> Agent:
         sys.exit(
             "[hosted] FOUNDRY_PROJECT_ENDPOINT is not set (locally: .env at the repo root; hosted: set by azd)"
         )
+    if not (HERE / "common/accepted_concierge.py").is_file():
+        raise RuntimeError("Lab 5 accepted sponsor/policy package is missing; rerun Lab 5's build and acceptance.")
+    from common.accepted_concierge import HANDOFF_POLICY, get_sponsor
     credential = (
         DefaultAzureCredential()
     )  # az login locally; Foundry hosted agent identity when deployed
@@ -310,7 +312,7 @@ def build_agent() -> Agent:
         credential=credential,
         middleware=[model_resilience.RateLimitRetryMiddleware(log)],
     )
-    tools = list(FUNCTION_TOOLS)
+    tools = [*FUNCTION_TOOLS, get_sponsor]
     kb = knowledge_tool(credential)
     if kb is not None:
         tools.append(kb)
@@ -320,7 +322,8 @@ def build_agent() -> Agent:
     agent = Agent(
         client=client,
         name=AGENT_NAME,
-        instructions=INSTRUCTIONS,
+        instructions=ROLE_INSTRUCTIONS + "\nAccepted Lab 3 handoff policy:\n" + HANDOFF_POLICY
+        + "\n\n" + guardrails.COMPLIANCE_INSTRUCTIONS,
         tools=tools,
         default_options={"store": False},
         **agent_kwargs_for_store(store),

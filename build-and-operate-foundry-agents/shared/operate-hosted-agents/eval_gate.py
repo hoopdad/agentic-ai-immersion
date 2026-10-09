@@ -12,6 +12,7 @@ Run      python .\eval_gate.py [--run] [--target local|deployed] [--limit N] [--
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -23,7 +24,7 @@ from typing import Any
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
-LABS_DIR = ROOT / "labs"
+LABS_DIR = ROOT / "3-day-labs"
 sys.path.insert(0, str(ROOT))
 from common import guardrails  # noqa: E402
 
@@ -234,6 +235,13 @@ def main() -> int:
         input_errors=run_errors + load_errors,
         source=args.results,
     )
+    bundle_path = args.results.parent / "evaluation_bundle.json"
+    if bundle_path.is_file():
+        bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
+        results_sha256 = hashlib.sha256(args.results.read_bytes()).hexdigest()
+        if bundle.get("results_sha256") == results_sha256:
+            gate["evaluation_bundle_sha256"] = hashlib.sha256(bundle_path.read_bytes()).hexdigest()
+            gate["evaluation_results_sha256"] = results_sha256
     write_outputs(gate)
     return 0 if gate["passed"] else 1
 

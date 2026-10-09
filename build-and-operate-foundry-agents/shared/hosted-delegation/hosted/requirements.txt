@@ -1,0 +1,14 @@
+# Minimal knowledge concierge + async authenticated delegation; pins from root lock.
+agent-framework-core==1.9.0
+agent-framework-foundry==1.8.2
+agent-framework-foundry-hosting==1.0.0a260618
+azure-ai-projects==2.2.0
+openai==2.44.0
+azure-identity==1.25.3
+azure-storage-blob==12.30.0
+mcp==1.28.1
+python-dotenv==1.2.2
+pydantic==2.13.4
+httpx==0.28.1
+azure-monitor-opentelemetry==1.8.8
+aiohttp==3.14.1

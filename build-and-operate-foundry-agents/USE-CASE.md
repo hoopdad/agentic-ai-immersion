@@ -1,7 +1,7 @@
 # Use Case: Healthcare Marketplace Concierge
 
-Every lab builds this one use case. The format is the Bring-Your-Own-Use-Case spec, reusable for your
-own scenario.
+The labs explore this one use case through related, explicitly separate products.
+The format is the Bring-Your-Own-Use-Case spec, reusable for your own scenario.
 
 ## Use Case Summary
 
@@ -70,7 +70,12 @@ birthday); the licensed benefit advisor (the only person who may recommend or en
 agent (verifies, explains, routes); compliance and privacy (own the rules, read the eval reports); the
 engineer building it.
 
-Agent roles, identical across the solution labs (hosted agents in Labs 3-10 and 13-14, prompt agents in Labs 11-12; Labs 1-2 provision project/models):
+The roles below describe the specialist triage design taught in hosted Labs 7-8,
+not a requirement to instantiate every role in every lab. Labs 1-2 provision
+project/models; Labs 3-6 build the concierge; Labs 9-10 measure and gate its
+pinned knowledge-enabled version. Lab 11 is a short optional single-prompt
+comparison after Lab 4, with no downstream consumers. MAF orchestration does
+not depend on Prompt Agents.
 
 | Role | Name in code | LOB | Tools | Knowledge context |
 |---|---|---|---|---|
@@ -79,6 +84,32 @@ Agent roles, identical across the solution labs (hosted agents in Labs 3-10 and 
 | Reimbursement account help | `accounts-assistant` | accounts | get_hra_account, get_claim_status, list_eligible_expenses | accounts |
 | Policy check on drafts | `compliance-reviewer` | universal | none (reviews text) | universal |
 | Case packet for the human | `advisor-handoff` | universal | none (writes JSON) | universal |
+
+## Product lineage and optional boundaries
+
+The guided route is core Labs 1-10 in order, then selected extensions.
+Labs 3-4 locally test and deploy the same typed-tool Responses concierge.
+Labs 5-6 extend accepted tools/policy with retrieval and declared history.
+Labs 7-8 branch into a distinct hosted triage service with parallel specialists
+and explicit simulated advisor decisions. Lab 8 recovers file-backed pending
+cases after a local restart; this does not establish cross-replica, version-roll
+or cross-service recovery, or production advisor authorization.
+
+Lab 12 requires **both Labs 8 and 9** and introduces the network/identity
+boundary: an isolated concierge extension candidate calls the pinned triage
+service. It reuses that service's graph, not a prompt ensemble or second graph.
+The caller may relay a pending status but never manufacture or automatically
+forward an advisor decision. Bound waits, surface remote errors and retain
+case/session correlation; do not blindly retry state-changing requests.
+Preserve the exact core concierge evaluation/release version from Labs 9-10;
+extension changes need fresh evaluation before a release claim.
+
+Lab 13 requires Lab 4 and branches into a stateless structured Invocations
+batch product. Lab 14 requires Lab 13 and preserves its accepted batch evidence
+while introducing a distinct Responses Skills service, with optional preview
+Toolbox. It does not turn Invocations into a session service. Dependency branches
+are choices, not parallel runtime instructions: local products share port 8088,
+editable source and Azure quota.
 
 ## Scenarios
 
@@ -96,8 +127,10 @@ Agent roles, identical across the solution labs (hosted agents in Labs 3-10 and 
 
 - Tone: plain, warm, no filler. Short sentences.
 - Every agent's instructions end with `guardrails.COMPLIANCE_INSTRUCTIONS`, verbatim.
-- Human-in-the-loop by default: tool approvals on systems of record, packets that wait for the advisor.
-- Everything observable in the Foundry portal: traces, audit logs, eval runs.
+- Human-in-the-loop design: packets wait for an explicit simulated advisor decision;
+  production authorization and real systems-of-record approvals are not established by the exercise.
+- Inspect traces, redacted audit logs and evaluation evidence; a portal visibility
+  claim requires a current Azure observation, not an offline PASS.
 - Entra-only authentication, no keys, no hardcoded endpoints.
 
 ## Synthetic Data Requirements
@@ -106,6 +139,9 @@ See `data/README.md`: 6 participants (4 Medicare-eligible, 2 pre-Medicare), 2 sp
 plans across four Utah counties, 6 HRA accounts with paid, pending and denied claims, 9 knowledge docs in
 three contexts, 18 golden questions, 3 call transcripts. All fictional; notebook fact checks and
 internal offline validation assert the scenario facts.
+Offline validation does not establish live hosted deployment, Azure telemetry
+ingestion, preview availability, distributed recovery or regulatory compliance.
+Label unrun live checks and optional preview skips explicitly.
 
 ## Why this use case for the organization
 

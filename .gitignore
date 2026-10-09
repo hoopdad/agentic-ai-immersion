@@ -305,8 +305,14 @@ run_one_nb.py
 .squad-workstream
 
 # Cumulative workshop runtime state and regenerated hosted packages.
-build-and-operate-foundry-agents/labs/artifacts/*
-!build-and-operate-foundry-agents/labs/artifacts/README.md
+build-and-operate-foundry-agents/3-day-labs/artifacts/*
+!build-and-operate-foundry-agents/3-day-labs/artifacts/README.md
+build-and-operate-foundry-agents/1-day-labs/artifacts/*
+!build-and-operate-foundry-agents/1-day-labs/artifacts/README.md
+build-and-operate-foundry-agents/1-day-labs/products/*/hosted*/common/
+build-and-operate-foundry-agents/1-day-labs/products/*/hosted*/data/
+build-and-operate-foundry-agents/1-day-labs/products/*/hosted*/.vendored
+build-and-operate-foundry-agents/1-day-labs/products/*/hosted*/.vendored.json
 build-and-operate-foundry-agents/shared/**/hosted*/common/
 build-and-operate-foundry-agents/shared/**/hosted*/data/
 build-and-operate-foundry-agents/shared/**/hosted*/skills/

@@ -16,7 +16,7 @@ on:
     paths:
       - "build-and-operate-foundry-agents/common/**"
       - "build-and-operate-foundry-agents/data/**"
-      - "build-and-operate-foundry-agents/labs/**"
+      - "build-and-operate-foundry-agents/3-day-labs/**"
   pull_request:
     paths:
       - "build-and-operate-foundry-agents/**"
@@ -112,7 +112,7 @@ jobs:
         run: python catch_up.py --through 3
       - name: Eval gate (starts hosted/main.py on the runner, asks the 18 golden questions, judges them)
         working-directory: ${{ env.LAB5_DIR }}
-        run: python eval_gate.py --run --target local --limit 18
+        run: python eval_gate.py --run --target local --limit 18 --strict
       - name: Upload evaluation artifacts
         if: always()
         uses: actions/upload-artifact@v4

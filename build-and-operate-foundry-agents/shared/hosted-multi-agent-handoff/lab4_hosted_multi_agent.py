@@ -9,8 +9,8 @@
 # |  | Details |
 # | --- | --- |
 # | Goal | Run the Healthcare Marketplace triage workflow (intake → marketplace guide + accounts assistant → compliance review → advisor handoff) inside a hosted agent, then approve, revise, or decline the packet on the next client turn. Run S1, S2, and S3 locally before optionally deploying `healthcare-marketplace-triage-hosted`. |
-# | Inputs | `labs/artifacts/lab3/hosted.json` or `knowledge.json`; root `.env` |
-# | Outputs | `labs/artifacts/lab4/handoff_packets/S1.json`, `S2.json`, `S3.json`, `labs/artifacts/lab4/hosted.json`, and `hosted_local.log` |
+# | Inputs | `3-day-labs/artifacts/lab3/hosted.json` or `knowledge.json`; root `.env` |
+# | Outputs | `3-day-labs/artifacts/lab4/handoff_packets/S1.json`, `S2.json`, `S3.json`, `3-day-labs/artifacts/lab4/hosted.json`, and `hosted_local.log` |
 # | Time | 60 min (teach 10, demo 10, do 35, checkpoint 5) |
 #
 # **How to run.** Execute this notebook's cells in order, pausing for the requested source edits.
@@ -31,8 +31,8 @@
 #   and explicit `azd` deployment pattern first introduced in Labs 3-4.
 # - **Optional:** Cloud deployment is an extension; restart continuity is exercised by an ordinary notebook cell.
 #
-# **Checkpoint artifact.** `labs/artifacts/lab4/handoff_packets/S1.json`, `S2.json`, `S3.json` (final packets with
-# `advisor_decision`) and `labs/artifacts/lab4/hosted.json`. Labs 9-10 evaluate and operate the Lab 6 concierge; the evaluation
+# **Checkpoint artifact.** `3-day-labs/artifacts/lab4/handoff_packets/S1.json`, `S2.json`, `S3.json` (final packets with
+# `advisor_decision`) and `3-day-labs/artifacts/lab4/hosted.json`. Labs 9-10 evaluate and operate the Lab 6 concierge; the evaluation
 # may record this workflow agent's metadata, but does not require or evaluate these handoff packets.
 #
 # %% [markdown]
@@ -71,7 +71,7 @@ SOURCE_PATH = (
 )
 LAB_DIR = SOURCE_PATH.parent
 ROOT = LAB_DIR.parents[1]  # workshop root (common/ and data/ live here)
-LABS_DIR = ROOT / "labs"
+LABS_DIR = ROOT / "3-day-labs"
 for folder in (ROOT, LABS_DIR):
     if str(folder) not in sys.path:
         sys.path.insert(0, str(folder))
@@ -377,14 +377,17 @@ def post_turn(
 
 
 def deployed_turn(
-    text: str, previous_response_id: str | None = None
+    text: str, previous_response_id: str | None = None, *, expected_version: str | None = None
 ) -> tuple[dict, str | None]:
     client = foundry_env.get_openai_client(agent_name=AGENT_NAME)
     kwargs = (
         {"previous_response_id": previous_response_id} if previous_response_id else {}
     )
     response = client.responses.create(input=text, **kwargs)
-    return parse_reply(response.output_text), getattr(response, "id", None)
+    reply = parse_reply(response.output_text)
+    if expected_version is not None and reply.get("deployed_version") != str(expected_version):
+        raise RuntimeError("Triage invocation reached a different deployed version; inspect fixed routing before retrying.")
+    return reply, getattr(response, "id", None)
 
 
 # %% [markdown]
@@ -459,6 +462,7 @@ def run_scenario(
     auto: bool,
     restart: Callable[[], None] | None = None,
     trace: dict | None = None,
+    save_as: str | None = None,
 ) -> dict:
     scenario = SCENARIOS[key]
     session_id = f"{key}-{uuid.uuid4().hex[:8]}"
@@ -484,11 +488,13 @@ def run_scenario(
                 "resume_paths": [],
                 "packet_attempts": [],
                 "decisions": [],
+                "deployed_versions": [],
             }
         )
     for _ in range(6):
         if trace is not None:
             trace["statuses"].append(reply.get("status"))
+            trace["deployed_versions"].append(reply.get("deployed_version"))
             trace["resume_paths"].append(reply.get("resume_path"))
             trace["packet_attempts"].append(
                 reply.get("packet_attempts")
@@ -520,7 +526,7 @@ def run_scenario(
         decision = final.get("advisor_decision")
         assert_packet_contract(final, scenario["expected_lob"], decision)
         final["session_id"] = session_id
-        save_packet(key, final)
+        save_packet(save_as or key, final)
         return final
     raise SystemExit(f"[{LAB}] {key} did not finish: {json.dumps(reply)[:400]}")
 
@@ -532,11 +538,12 @@ def demo(
     auto: bool = False,
     deployed: bool = False,
     restart_between_turns: bool = False,
+    deployed_version: str | None = None,
 ) -> dict[str, dict]:
     server: HostedProcess | None = None
     restart = None
     if deployed:
-        send = deployed_turn
+        send = lambda text, prev=None: deployed_turn(text, prev, expected_version=deployed_version)
     else:
         if base is None:
             server = HostedProcess().start()
@@ -552,12 +559,22 @@ def demo(
 
         send = lambda text, prev=None: post_turn(base, text, prev)  # noqa: E731
     results = {}
+    traces = {}
     try:
         for key in scenarios:
-            results[key] = run_scenario(key, send, auto=auto, restart=restart)
+            traces[key] = {}
+            results[key] = run_scenario(
+                key, send, auto=auto, restart=restart, trace=traces[key],
+                save_as=f"deployed-{key}" if deployed else key)
     finally:
         if server:
             server.stop()
+    if deployed:
+        foundry_env.save_artifact(ARTIFACTS / "deployed_triage.json", {
+            "agent_name": AGENT_NAME, "version": deployed_version,
+            "project_endpoint": ENV["FOUNDRY_PROJECT_ENDPOINT"],
+            "traces": traces,
+        })
     return results
 
 
@@ -590,6 +607,11 @@ def record_deployment(version: str, status: str = "active") -> dict:
     foundry_env.save_artifact(HOSTED_RECORD, record)
     log(f"recorded deployed version {version} ({status})")
     return record
+
+
+def require_pinned_version(version: str) -> None:
+    basics = lab_helpers.load_lab_module("hosted-agent-basics/lab2_hosted_basics.py")
+    basics.require_pinned_version(AGENT_NAME, version)
 
 
 # %% [markdown]
